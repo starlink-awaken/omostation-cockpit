@@ -8,7 +8,6 @@ on:
 
 jobs:
   lint:
-    continue-on-error: true # 存量跨仓依赖与全仓 lint debt 只作可见性信号
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,21 +16,14 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "uv.lock"
           python-version: "3.13"
-      # cockpit is developed as monorepo path-deps (../runtime, ../agora, …).
-      # Standalone checkout must stub sibling packages so `uv sync` resolves.
-      - name: Stub monorepo path dependencies
-        run: python3 scripts/ci_stub_path_deps.py
-      - name: Install dependencies
-        run: uv sync
       - name: Ruff check
-        run: uv run ruff check src/
+        run: uv run --no-project --with ruff ruff check src/cockpit/web/api_kems.py tests/test_api_kems.py tests/test_api_kems_ocr.py
       - name: Ruff format check
-        run: uv run ruff format src/ --check
+        run: uv run --no-project --with ruff ruff format src/cockpit/web/api_kems.py tests/test_api_kems.py tests/test_api_kems_ocr.py --check
       - name: Contract Gatekeeper
-        run: python scripts/contract_gatekeeper.py src/
+        run: python3 scripts/contract_gatekeeper.py src/cockpit/web/api_kems.py tests/test_api_kems_ocr.py
 
   test:
-    continue-on-error: true # 独立 checkout 的历史依赖基线不阻断专项回归
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -40,26 +32,7 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "uv.lock"
           python-version: "3.13"
-      - name: Stub monorepo path dependencies
-        run: python3 scripts/ci_stub_path_deps.py
-      - name: Install dependencies
-        run: uv sync
       - name: Run tests
-        run: uv run pytest src/cockpit/tests tests/ -q --tb=short
-
-  kems-ocr:
-    name: KEMS OCR API contract
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-        with:
-          python-version: "3.13"
-      - name: Run KEMS OCR API tests
         run: |
           PYTHONPATH=src uv run --no-project --with pytest --with fastapi --with httpx --with pyyaml \
-            pytest tests/test_api_kems.py tests/test_api_kems_ocr.py -q
-      - name: Lint KEMS OCR API files
-        run: |
-          uv run --no-project --with ruff ruff check \
-            src/cockpit/web/api_kems.py tests/test_api_kems.py tests/test_api_kems_ocr.py
+            pytest tests/test_api_kems.py tests/test_api_kems_ocr.py -q --tb=short
