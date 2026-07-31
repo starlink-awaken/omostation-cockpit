@@ -172,7 +172,7 @@ def _c_version(a):
 
 def main() -> int:
     try:
-        from kairon_observability.tracing import setup_tracing
+        from kairon_observability.tracing import setup_tracing  # type: ignore[import-not-found]
 
         setup_tracing("cockpit-cli")
     except ImportError:
