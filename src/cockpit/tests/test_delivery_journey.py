@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -44,6 +46,55 @@ def test_projection_unavailable_state():
     assert unavail.status == "unavailable"
     for st in unavail.stages.values():
         assert st["status"] == "unavailable"
+
+
+def test_projection_reads_latest_mesh_scene_binding(tmp_path, monkeypatch):
+    events_path = tmp_path / ".omo" / "_knowledge" / "workflow-mesh" / "events.jsonl"
+    events_path.parent.mkdir(parents=True)
+    events_path.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "workflow_run_id": "run-old",
+                        "payload": {
+                            "scene_binding": {
+                                "scene_id": "old-scene",
+                                "journey_id": "old-journey",
+                                "outcome_metric": "old-metric",
+                            }
+                        },
+                    }
+                ),
+                json.dumps(
+                    {
+                        "workflow_run_id": "run-current",
+                        "payload": {
+                            "scene_binding": {
+                                "scene_id": "official-document-review",
+                                "journey_id": "draft-to-approval",
+                                "outcome_metric": "review_cycle_time",
+                            }
+                        },
+                    }
+                ),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "cockpit.delivery_journey._try_get_git_info",
+        lambda _root: {"branch": "test", "sha": "abc123", "is_clean": True, "ok": True},
+    )
+
+    snapshot = build_delivery_journey_projection(root_dir=tmp_path)
+
+    assert snapshot.scene_binding == {
+        "scene_id": "official-document-review",
+        "journey_id": "draft-to-approval",
+        "outcome_metric": "review_cycle_time",
+    }
+    assert "workflow-mesh" in snapshot.source
 
 
 def test_delivery_journey_api_endpoints():

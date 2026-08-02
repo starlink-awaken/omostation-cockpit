@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import logging
 import os
 import subprocess
 from dataclasses import asdict, dataclass, field
@@ -18,6 +19,8 @@ try:
     import yaml
 except ImportError:
     yaml = None
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -45,6 +48,7 @@ class DeliveryJourneySnapshot:
     freshness: int
     last_updated: str
     stages: dict[str, dict[str, Any]]
+    scene_binding: dict[str, str] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -343,6 +347,32 @@ def _try_get_git_info(root_dir: Path) -> dict[str, Any]:
         return {"ok": False}
 
 
+def _read_latest_mesh_binding(root_dir: Path) -> dict[str, str] | None:
+    """Read the latest credential-free scene binding from the Mesh evidence log."""
+    events_path = root_dir / ".omo" / "_knowledge" / "workflow-mesh" / "events.jsonl"
+    if not events_path.is_file():
+        return None
+
+    latest: dict[str, str] | None = None
+    try:
+        for line in events_path.read_text(encoding="utf-8").splitlines():
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            payload = event.get("payload")
+            binding = payload.get("scene_binding") if isinstance(payload, dict) else None
+            if not isinstance(binding, dict):
+                continue
+            required = ("scene_id", "journey_id", "outcome_metric")
+            if not all(str(binding.get(key) or "").strip() for key in required):
+                continue
+            latest = {key: str(binding[key]).strip() for key in required}
+    except OSError:
+        return None
+    return latest
+
+
 def build_delivery_journey_projection(
     root_dir: Path | None = None,
     fixture_state: str | None = None,
@@ -368,7 +398,8 @@ def build_delivery_journey_projection(
                     data = yaml.safe_load(f)
                     if isinstance(data, dict):
                         active_runs.append(data)
-            except Exception:  # noqa: S112
+            except Exception:
+                logger.debug("Unable to read agent workflow run: %s", fpath, exc_info=True)
                 continue
 
     # Sort runs by timestamp descending if possible
@@ -377,6 +408,7 @@ def build_delivery_journey_projection(
 
     # Determine top-level availability
     git_info = _try_get_git_info(root_dir)
+    scene_binding = _read_latest_mesh_binding(root_dir)
     if latest_run is None and not git_info.get("ok"):
         return _get_fixture_snapshot("UNAVAILABLE")
 
@@ -508,8 +540,10 @@ def build_delivery_journey_projection(
         id=run_id,
         title=title,
         status="live",
-        source=["omo", "agent-workflow", "git"],
+        source=["omo", "agent-workflow", "git"]
+        + (["workflow-mesh"] if scene_binding else []),
         freshness=0,
         last_updated=now_iso,
         stages=stages,
+        scene_binding=scene_binding,
     )
