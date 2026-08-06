@@ -33,7 +33,7 @@ def _memory_os_workbench_line() -> str:
         from cockpit.commands.memory import _invoke_mos
 
         st = _invoke_mos("status", {})
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         return f"\n[bold]Memory OS:[/bold] [red]probe failed[/] [dim]({exc})[/]"
     if not isinstance(st, dict):
         return "\n[bold]Memory OS:[/bold] [yellow]unexpected response[/]"

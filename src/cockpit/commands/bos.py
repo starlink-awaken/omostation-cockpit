@@ -678,7 +678,7 @@ def cmd_bos_mutate(args):
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310
             data = json.loads(resp.read())
     except Exception as exc:
         print(

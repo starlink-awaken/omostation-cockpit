@@ -13,8 +13,9 @@ import json
 import logging
 import os
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -149,7 +150,7 @@ async def memory_consolidate(request: Request) -> JSONResponse:
         raw = await request.body()
         if raw:
             body = _body(json.loads(raw.decode("utf-8")))
-    except Exception:  # noqa: BLE001
+    except Exception:
         body = {}
     body = _inject_rbac(body, request)
     if "dry_run" not in body:
