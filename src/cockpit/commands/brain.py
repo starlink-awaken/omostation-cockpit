@@ -203,6 +203,7 @@ def llm_complete(prompt: str, model: str = "deepseek-v4-flash") -> str:
     content, _source = llm_router_complete(prompt, model=model, temperature=0.7, max_tokens=2048)
     return content or ""
 
+
 def _format_sources(results: list[dict]) -> str:
     """格式化来源列表."""
     if not results:

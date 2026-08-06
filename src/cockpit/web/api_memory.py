@@ -122,9 +122,7 @@ async def memory_recall(request: Request) -> JSONResponse:
     body = _inject_rbac(_body(await request.json()), request)
     # Allow flat principal fields → scope
     if "scope" not in body and any(k in body for k in ("principal_id", "agent_profile", "scene_id")):
-        body["scope"] = {
-            k: body[k] for k in ("principal_id", "agent_profile", "scene_id") if body.get(k)
-        }
+        body["scope"] = {k: body[k] for k in ("principal_id", "agent_profile", "scene_id") if body.get(k)}
     result = invoke_mos("recall", body)
     return JSONResponse(result, status_code=_status_code(result))
 

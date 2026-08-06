@@ -104,10 +104,16 @@ def _chat_ollama(prompt: str, model: str, temperature: float = 0.3, num_predict:
         return None
 
 
-def complete(prompt: str, model: str | None = None, temperature: float = 0.7, max_tokens: int = 2048) -> tuple[str | None, str]:
+def complete(
+    prompt: str, model: str | None = None, temperature: float = 0.7, max_tokens: int = 2048
+) -> tuple[str | None, str]:
     """统一推理入口。返回 (content, source)：source ∈ {"gateway", "ollama", "none"}。"""
     gw_models = discover_gateway_models()
-    gw_model = model if model and model in gw_models else (DEFAULT_GATEWAY_MODEL if DEFAULT_GATEWAY_MODEL in gw_models else (gw_models[0] if gw_models else ""))
+    gw_model = (
+        model
+        if model and model in gw_models
+        else (DEFAULT_GATEWAY_MODEL if DEFAULT_GATEWAY_MODEL in gw_models else (gw_models[0] if gw_models else ""))
+    )
     if gw_model:
         content = _chat_gateway(prompt, gw_model, temperature, max_tokens)
         if content:

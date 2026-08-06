@@ -21,9 +21,7 @@ def test_catalog_commands_are_registered_in_cli():
     catalog = set(all_command_names())
     registered = top_level_cli_names_from_source()
     missing = sorted(catalog - registered)
-    assert not missing, (
-        f"help_map catalog lists commands not registered as sub.add_parser in cli.py: {missing}"
-    )
+    assert not missing, f"help_map catalog lists commands not registered as sub.add_parser in cli.py: {missing}"
     # Sanity: memory must be in both
     assert "memory" in catalog
     assert "memory" in registered
