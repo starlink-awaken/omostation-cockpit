@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import json
 import os
-
 from urllib import request as urlrequest
 
 OMLXC_GATEWAY_URL = os.environ.get("OMLXC_GATEWAY_URL", "http://100.96.126.35:4000/v1")
@@ -24,7 +23,7 @@ DEFAULT_OLLAMA_FALLBACK = os.environ.get("LLM_ROUTER_OLLAMA_FALLBACK", "gemma4:3
 def discover_gateway_models() -> list[str]:
     """查询 omlxc 网关 /v1/models 获取可用模型 ID 列表。"""
     try:
-        req = urlrequest.Request(f"{OMLXC_GATEWAY_URL}/models")
+        req = urlrequest.Request(f"{OMLXC_GATEWAY_URL}/models")  # noqa: S310
         with urlrequest.urlopen(req, timeout=5) as resp:  # noqa: S310
             data = json.loads(resp.read())
         return [m.get("id", "") for m in data.get("data", []) if m.get("id")]
@@ -35,7 +34,7 @@ def discover_gateway_models() -> list[str]:
 def discover_ollama_models() -> list[str]:
     """查询 ollama /api/tags 获取本机已拉取模型列表。"""
     try:
-        req = urlrequest.Request(f"{OLLAMA_API}/api/tags")
+        req = urlrequest.Request(f"{OLLAMA_API}/api/tags")  # noqa: S310
         with urlrequest.urlopen(req, timeout=5) as resp:  # noqa: S310
             data = json.loads(resp.read())
         return [m.get("name", "") for m in data.get("models", []) if m.get("name")]
@@ -59,7 +58,7 @@ def _chat_gateway(prompt: str, model: str, temperature: float = 0.7, max_tokens:
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
-        req = urlrequest.Request(
+        req = urlrequest.Request(  # noqa: S310
             f"{OMLXC_GATEWAY_URL}/chat/completions",
             data=json.dumps(payload).encode(),
             headers={"Content-Type": "application/json"},
@@ -91,7 +90,7 @@ def _chat_ollama(prompt: str, model: str, temperature: float = 0.3, num_predict:
             "raw": False,
             "options": {"num_predict": num_predict, "temperature": temperature},
         }
-        req = urlrequest.Request(
+        req = urlrequest.Request(  # noqa: S310
             f"{OLLAMA_API}/api/generate",
             data=json.dumps(payload).encode(),
             headers={"Content-Type": "application/json"},

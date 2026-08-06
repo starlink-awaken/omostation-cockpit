@@ -17,6 +17,8 @@ from rich import box
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
 
+from cockpit.llm_router import complete as llm_router_complete
+
 from .base import (
     _compare_focus,
     _find_cli,
@@ -37,7 +39,6 @@ from .base import (
     _short,
     _topic_text,
 )
-from cockpit.llm_router import complete as llm_router_complete
 
 
 def _searxng_alive() -> bool:
@@ -45,8 +46,8 @@ def _searxng_alive() -> bool:
     try:
         import urllib.request
 
-        req = urllib.request.Request(os.environ.get("SEARXNG_URL", "http://localhost:8080/"))
-        with urllib.request.urlopen(req, timeout=3):
+        req = urllib.request.Request(os.environ.get("SEARXNG_URL", "http://localhost:8080/"))  # noqa: S310
+        with urllib.request.urlopen(req, timeout=3):  # noqa: S310
             return True
     except Exception:
         return False
