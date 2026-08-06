@@ -23,8 +23,8 @@ DEFAULT_OLLAMA_FALLBACK = os.environ.get("LLM_ROUTER_OLLAMA_FALLBACK", "gemma4:3
 def discover_gateway_models() -> list[str]:
     """查询 omlxc 网关 /v1/models 获取可用模型 ID 列表。"""
     try:
-        req = urlrequest.Request(f"{OMLXC_GATEWAY_URL}/models")
-        with urlrequest.urlopen(req, timeout=5) as resp:
+        req = urlrequest.Request(f"{OMLXC_GATEWAY_URL}/models")  # noqa: S310
+        with urlrequest.urlopen(req, timeout=5) as resp:  # noqa: S310
             data = json.loads(resp.read())
         return [m.get("id", "") for m in data.get("data", []) if m.get("id")]
     except Exception:
@@ -34,8 +34,8 @@ def discover_gateway_models() -> list[str]:
 def discover_ollama_models() -> list[str]:
     """查询 ollama /api/tags 获取本机已拉取模型列表。"""
     try:
-        req = urlrequest.Request(f"{OLLAMA_API}/api/tags")
-        with urlrequest.urlopen(req, timeout=5) as resp:
+        req = urlrequest.Request(f"{OLLAMA_API}/api/tags")  # noqa: S310
+        with urlrequest.urlopen(req, timeout=5) as resp:  # noqa: S310
             data = json.loads(resp.read())
         return [m.get("name", "") for m in data.get("models", []) if m.get("name")]
     except Exception:
@@ -58,13 +58,13 @@ def _chat_gateway(prompt: str, model: str, temperature: float = 0.7, max_tokens:
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
-        req = urlrequest.Request(
+        req = urlrequest.Request(  # noqa: S310
             f"{OMLXC_GATEWAY_URL}/chat/completions",
             data=json.dumps(payload).encode(),
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urlrequest.urlopen(req, timeout=120) as resp:
+        with urlrequest.urlopen(req, timeout=120) as resp:  # noqa: S310
             data = json.loads(resp.read())
         msg = data["choices"][0]["message"]
         content = msg.get("content") or ""
@@ -90,13 +90,13 @@ def _chat_ollama(prompt: str, model: str, temperature: float = 0.3, num_predict:
             "raw": False,
             "options": {"num_predict": num_predict, "temperature": temperature},
         }
-        req = urlrequest.Request(
+        req = urlrequest.Request(  # noqa: S310
             f"{OLLAMA_API}/api/generate",
             data=json.dumps(payload).encode(),
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urlrequest.urlopen(req, timeout=120) as resp:
+        with urlrequest.urlopen(req, timeout=120) as resp:  # noqa: S310
             data = json.loads(resp.read())
         return data.get("response", "")
     except Exception as exc:

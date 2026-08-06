@@ -370,8 +370,8 @@ def _discover_ollama_model(fallback: str = "gemma4:31b-mlx") -> str:
         from urllib import request as urlrequest
 
         _base, _tags = _ollama_endpoints()
-        req = urlrequest.Request(_tags)
-        with urlrequest.urlopen(req, timeout=3) as resp:
+        req = urlrequest.Request(_tags)  # noqa: S310
+        with urlrequest.urlopen(req, timeout=3) as resp:  # noqa: S310
             data = _json.loads(resp.read())
         models = data.get("models") or []
         for m in models:
@@ -398,8 +398,8 @@ def _ollama_request(prompt: str, *, stream: bool, timeout: int) -> bytes:
         }
     ).encode()
     _base, _tags = _ollama_endpoints()
-    req = urlrequest.Request(_base, data=body, headers={"Content-Type": "application/json"})
-    with urlrequest.urlopen(req, timeout=timeout) as resp:
+    req = urlrequest.Request(_base, data=body, headers={"Content-Type": "application/json"})  # noqa: S310
+    with urlrequest.urlopen(req, timeout=timeout) as resp:  # noqa: S310
         return resp.read()
 
 
