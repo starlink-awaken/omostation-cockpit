@@ -675,7 +675,7 @@ def cmd_bos_mutate(args):
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310
+        with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read())
     except Exception as exc:
         print(f"❌ 无法连接 agora MCP :7422 (需 agora-mcp --http 运行): {exc}")

@@ -46,8 +46,8 @@ def _searxng_alive() -> bool:
     try:
         import urllib.request
 
-        req = urllib.request.Request(os.environ.get("SEARXNG_URL", "http://localhost:8080/"))  # noqa: S310
-        with urllib.request.urlopen(req, timeout=3):  # noqa: S310
+        req = urllib.request.Request(os.environ.get("SEARXNG_URL", "http://localhost:8080/"))
+        with urllib.request.urlopen(req, timeout=3):
             return True
     except Exception:
         return False
