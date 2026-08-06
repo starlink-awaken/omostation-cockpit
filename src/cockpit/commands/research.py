@@ -37,6 +37,19 @@ from .base import (
     _short,
     _topic_text,
 )
+from cockpit.llm_router import complete as llm_router_complete
+
+
+def _searxng_alive() -> bool:
+    """探测 searxng 搜索服务是否可达 (minerva research 的搜索依赖)。"""
+    try:
+        import urllib.request
+
+        req = urllib.request.Request(os.environ.get("SEARXNG_URL", "http://localhost:8080/"))
+        with urllib.request.urlopen(req, timeout=3):
+            return True
+    except Exception:
+        return False
 
 
 def _audit_research_record(record: dict[str, Any]) -> str | None:
@@ -77,6 +90,9 @@ def cmd_research(args: argparse.Namespace) -> int:
     output: str = ""
     source: str = ""
     minerva = _find_cli("minerva")
+    if minerva and not _searxng_alive():
+        _get_err().print("[yellow]⚠️ minerva 跳过: searxng:8080 不可达 (minerva 搜索依赖) — 降级 ollama[/yellow]")
+        minerva = None
     if minerva:
         try:
             with Progress(
@@ -111,7 +127,16 @@ def cmd_research(args: argparse.Namespace) -> int:
     if not output:
         use_stream = getattr(args, "stream", False)
         ollama_timeout = _ollama_timeout(120)
-        if use_stream:
+        _get_console().print(f"[yellow]⏳ llm-router 推理中 ({_short(topic, 30)})...[/]")
+        routed, router_source = llm_router_complete(
+            f"请对以下主题进行简要研究分析，用中文输出:\n\n{topic}",
+            temperature=0.3,
+            max_tokens=500,
+        )
+        if routed:
+            output = f"[{router_source} 回复] {routed}\n\n---\n⚠️ **注意：此为 {router_source} 降级回复，非 minerva 研究引擎结果。**"
+            source = router_source
+        elif use_stream:
             _get_console().print(f"[yellow]⏳ ollama 流式生成中 ({_short(topic, 30)})...[/]")
             ollama_out = _run_ollama_stream(
                 f"请对以下主题进行简要研究分析，用中文输出:\n\n{topic}",
