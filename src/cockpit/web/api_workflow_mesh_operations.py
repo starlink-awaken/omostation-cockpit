@@ -96,12 +96,30 @@ else:
     _PERSONAL_LOCAL_SIGNAL_IMPORT_ERROR = None
 
 try:
+    from omo.personal_episode import EpisodeDraftSnapshot
+except Exception as exc:  # Available after OMO gitlink sync (.subtrees/omo).
+    EpisodeDraftSnapshot = None  # type: ignore[assignment,misc]
+    _DRAFT_SNAPSHOT_IMPORT_ERROR: Exception | None = exc
+else:
+    _DRAFT_SNAPSHOT_IMPORT_ERROR = None
+
+try:
     from iris.connectors.local_files import LocalFilesConnector
 except Exception as exc:  # Iris is an optional runtime dependency for Cockpit.
     LocalFilesConnector = None  # type: ignore[assignment,misc]
     _IRIS_IMPORT_ERROR: Exception | None = exc
 else:
     _IRIS_IMPORT_ERROR = None
+
+try:
+    from omo.sovereignty import SovereigntyService
+    from omo.sovereignty.roles import STATUS_ACTIVE
+except Exception as exc:  # Sovereignty is an optional runtime dependency for Cockpit.
+    SovereigntyService = None  # type: ignore[assignment,misc]
+    STATUS_ACTIVE = "active"
+    _SOVEREIGNTY_IMPORT_ERROR: Exception | None = exc
+else:
+    _SOVEREIGNTY_IMPORT_ERROR = None
 
 try:
     from agora.mcp.policy_enforcement import PEPDenied, complete, enforce, reset_pep_provider_cache
@@ -262,7 +280,9 @@ def _required_text(body: dict[str, Any], field: str) -> str:
     return value.strip()
 
 
-def _write_local_draft(context: Any, draft: dict[str, str]) -> Path:
+def _write_local_draft(
+    context: Any, draft: dict[str, str], output_origin: str = "system"
+) -> Path:
     """Atomically persist one server-named, never-send JSON artifact."""
     draft_dir = _personal_draft_dir()
     draft_dir.mkdir(parents=True, exist_ok=True)
@@ -270,7 +290,7 @@ def _write_local_draft(context: Any, draft: dict[str, str]) -> Path:
         f"{context.episode_id}|{context.action_id}".encode()
     ).hexdigest()[:24]
     target = draft_dir / f"personal-followup-{stable_name}.json"
-    payload = {**draft, "never_send": True}
+    payload = {**draft, "never_send": True, "output_origin": output_origin}
     descriptor, temporary_name = tempfile.mkstemp(
         dir=draft_dir,
         prefix=f".{target.name}.",
@@ -289,6 +309,54 @@ def _write_local_draft(context: Any, draft: dict[str, str]) -> Path:
         temporary.unlink(missing_ok=True)
         raise
     return target
+
+
+_DRAFT_FIELDS = frozenset({"title", "context", "deadline", "next_action"})
+
+
+def _normalize_resp_input(responsibilities: list[str]) -> tuple[list, set[str]]:
+    """Normalize caller responsibility strings for OMO assign() and comparison.
+
+    ``responsibility:xxx`` → mapping dict (exact resp_id, no re-slug);
+    plain string → left as-is for OMO slug+prefix normalization.
+    Returns ``(items_for_assign, expected_canonical_ids)``.
+    """
+    import re
+
+    def _slugify(name: str) -> str:
+        slug = re.sub(r"[^A-Za-z0-9]+", "-", name).strip("-").lower()
+        return slug or "item"
+
+    items: list = []
+    expected: set[str] = set()
+    for r in responsibilities:
+        r = r.strip()
+        if r.startswith("responsibility:"):
+            suffix = r.split(":", 1)[1]
+            items.append({"resp_id": r, "name": suffix})
+            expected.add(r)
+        else:
+            items.append(r)
+            expected.add(f"responsibility:{_slugify(r)}")
+    return items, expected
+
+
+def _build_draft_from_snapshot(snapshot: Any) -> dict[str, str]:
+    """Deterministically build a safe draft dict from a persisted Episode snapshot.
+
+    Only uses fields already in the ledger event — summary, why_now,
+    deadline.  Never touches raw signal body, filesystem paths, or URIs.
+    """
+    summary = str(getattr(snapshot, "summary", "") or "").strip()
+    why_now = str(getattr(snapshot, "why_now", "") or "").strip()
+    deadline = str(getattr(snapshot, "deadline", "") or "").strip()
+    context_text = f"{summary}. {why_now}." if why_now else f"{summary}."
+    return {
+        "title": summary or "Personal follow-up draft",
+        "context": context_text.strip(),
+        "deadline": deadline,
+        "next_action": "Review and edit the local draft.",
+    }
 
 
 async def _read_capability_health(required_capabilities: list[str]) -> dict[str, Any]:
@@ -484,6 +552,151 @@ if router:
             **controls,
         }
 
+    @router.post("/personal-episode/setup")
+    async def post_personal_episode_setup(request: Request) -> Any:  # type: ignore[valid-type]
+        """Idempotently assign the trusted-local personal steward role.
+
+        If the (principal, role) pair is already active, returns immediately
+        without error — safe to call repeatedly.  This is the single seed
+        step that makes every subsequent personal-episode flow possible.
+        """
+        if SovereigntyService is None or LedgerBroker is None:
+            return _personal_error("sovereignty_unavailable", status_code=503)
+        try:
+            body = _personal_request(
+                await request.json(),
+                {"principal_id", "role_id", "role_name", "scope", "responsibilities"},
+            )
+            principal_id = _required_text(body, "principal_id")
+            role_id = _required_text(body, "role_id")
+            role_name = str(body.get("role_name") or "Personal Steward")
+            scope = str(body.get("scope") or "personal")
+            responsibilities = body.get("responsibilities")
+            if responsibilities is not None:
+                if not isinstance(responsibilities, list) or not all(
+                    isinstance(r, str) and r.strip() for r in responsibilities
+                ):
+                    raise PersonalEpisodeError(
+                        "invalid_request", "responsibilities must be a list of non-empty strings"
+                    )
+                resp_items, expected_ids = _normalize_resp_input(responsibilities)
+            else:
+                resp_items, expected_ids = None, set()
+            broker = LedgerBroker.connect(_event_ledger_db_path())
+            try:
+                service = SovereigntyService(broker)
+                existing = service.current_assignment(principal_id, role_id)
+                if existing is not None and existing.status == STATUS_ACTIVE:
+                    # Idempotent only when the existing assignment matches
+                    # the caller's expectations — silent drift is blocked.
+                    if existing.role_scope != scope:
+                        raise PersonalEpisodeError(
+                            "scope_conflict",
+                            f"active role scope is '{existing.role_scope}', "
+                            f"caller requested '{scope}'",
+                        )
+                    if existing.role_name != role_name:
+                        raise PersonalEpisodeError(
+                            "role_name_conflict",
+                            f"active role name is '{existing.role_name}', "
+                            f"caller requested '{role_name}'",
+                        )
+                    if expected_ids:
+                        existing_resp = {r.resp_id for r in existing.responsibilities}
+                        missing = expected_ids - existing_resp
+                        if missing:
+                            raise PersonalEpisodeError(
+                                "responsibility_conflict",
+                                f"active assignment lacks responsibilities: {sorted(missing)}",
+                            )
+                    return {
+                        "ok": True,
+                        "status": "already_active",
+                        "assignment": {
+                            "assignment_id": existing.assignment_id,
+                            "role_id": role_id,
+                            "version": existing.version,
+                        },
+                    }
+                service.assign(
+                    principal_id,
+                    role_id,
+                    role_name=role_name,
+                    scope=scope,
+                    responsibilities=resp_items,
+                )
+            finally:
+                broker.close()
+        except (PersonalEpisodeError, OSError, TypeError, ValueError) as exc:
+            _logger.info("personal_episode_setup_blocked: %s", type(exc).__name__)
+            return _personal_error(getattr(exc, "reason", "personal_episode_setup_invalid"))
+        return {
+            "ok": True,
+            "status": "assigned",
+            "assignment": {"role_id": role_id},
+        }
+
+    @router.get("/personal-episode/status")
+    async def get_personal_episode_status(
+        principal_id: str = Query(..., description="Principal identity for status lookup"),  # type: ignore[union-attr]
+    ) -> dict[str, Any]:
+        """Read-only personal episode status — no mutation, no side effects.
+
+        Delegates to the existing W2-04 episode projection and filters to a
+        compact summary of pending / confirmed / completed episodes.
+        """
+        controls = {
+            "read_only": True,
+            "workflow_state_mutation": False,
+            "provider_invocation": False,
+            "automatic_promotion": False,
+        }
+        if build_episode_projection_snapshot_from_path is None:
+            return {
+                "ok": False,
+                "status": "unavailable",
+                "error": "episode_projection_unavailable",
+                "principal_id": principal_id,
+                **controls,
+            }
+        db_path = _event_ledger_db_path()
+        if not db_path.exists():
+            return {
+                "ok": False,
+                "status": "unavailable",
+                "error": "episode_projection_ledger_missing",
+                "principal_id": principal_id,
+                **controls,
+            }
+        try:
+            projection = build_episode_projection_snapshot_from_path(
+                db_path, principal_id=principal_id
+            )
+        except (OSError, RuntimeError, ValueError, TypeError, ImportError) as exc:
+            _logger.info("personal_episode_status_failed: %s", type(exc).__name__)
+            return {
+                "ok": False,
+                "status": "unavailable",
+                "error": "episode_projection_failed",
+                "principal_id": principal_id,
+                **controls,
+            }
+        inbox = projection.get("inbox", [])
+        episodes = projection.get("episodes", [])
+        pending = [c for c in inbox if c.get("status") == "pending_confirmation"]
+        return {
+            "ok": projection.get("status") == "live",
+            "status": projection.get("status", "unavailable"),
+            "principal_id": principal_id,
+            "summary": {
+                "total_episodes": len(episodes),
+                "pending_confirmation": len(pending),
+                "inbox_cards": len(inbox),
+            },
+            "pending": pending,
+            "controls": controls,
+        }
+
     @router.post("/personal-episode/start")
     async def post_personal_episode_start(request: Request) -> Any:  # type: ignore[valid-type]
         """Create one human-confirmation-required personal Inbox episode."""
@@ -554,14 +767,34 @@ if router:
                 await request.json(),
                 {"episode_id", "principal_id", "title", "context", "deadline", "next_action"},
             )
-            with _personal_episode_service() as service:
-                context = service.reload_execution_context(
-                    _required_text(body, "episode_id"), _required_text(body, "principal_id")
+            episode_id = _required_text(body, "episode_id")
+            principal_id = _required_text(body, "principal_id")
+            provided = {f for f in _DRAFT_FIELDS if f in body}
+            if provided and provided != _DRAFT_FIELDS:
+                raise PersonalEpisodeError(
+                    "invalid_request",
+                    "either provide all draft fields (title, context, deadline, next_action) "
+                    "or omit them all for a system-built draft",
                 )
-                draft = {
-                    field: _required_text(body, field)
-                    for field in ("title", "context", "deadline", "next_action")
-                }
+            with _personal_episode_service() as service:
+                context = service.reload_execution_context(episode_id, principal_id)
+                if provided:
+                    # Caller-authored full draft — validate each field
+                    draft = {
+                        field: _required_text(body, field)
+                        for field in _DRAFT_FIELDS
+                    }
+                    output_origin = "user_provided"
+                else:
+                    # System-built draft from safe persisted Episode snapshot
+                    if not hasattr(service, "get_draft_snapshot"):
+                        raise PersonalEpisodeError(
+                            "draft_snapshot_unavailable",
+                            "OMO runtime does not provide get_draft_snapshot; sync submodule",
+                        )
+                    snapshot = service.get_draft_snapshot(episode_id, principal_id)
+                    draft = _build_draft_from_snapshot(snapshot)
+                    output_origin = "system"
                 # Trusted-local default only; an explicit deployment binding wins unchanged.
                 if not os.environ.get("AGORA_PEP_PROVIDER"):
                     os.environ["AGORA_PEP_PROVIDER"] = "omo.sovereignty.enforcement:AgoraPepProvider"
@@ -575,7 +808,7 @@ if router:
                     arguments={"_omo_policy": context.omo_policy},
                     payload=draft,
                 )
-                artifact = _write_local_draft(context, draft)
+                artifact = _write_local_draft(context, draft, output_origin=output_origin)
                 evidence_uri = artifact.resolve().as_uri()
                 complete(decision, receipt, succeeded=True, result={"evidence_uri": evidence_uri})
                 terminal_confirmed = True
@@ -595,6 +828,7 @@ if router:
             "status": "completed",
             "episode_id": context.episode_id,
             "evidence_uri": evidence_uri,
+            "output_origin": output_origin,
         }
 
     @router.post("/personal-episode/feedback")

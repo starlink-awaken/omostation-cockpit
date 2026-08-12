@@ -108,6 +108,7 @@ def test_personal_episode_real_ledger_to_local_draft_to_feedback(monkeypatch, tm
         "deadline": "2026-08-13",
         "next_action": "Review, edit, or discard the local draft.",
         "never_send": True,
+        "output_origin": "user_provided",
     }
 
     feedback = client.post(
@@ -212,3 +213,263 @@ def test_personal_episode_pep_failure_creates_no_file(monkeypatch, tmp_path):
     assert response.status_code == 409
     assert response.json()["ok"] is False
     assert list(draft_dir.glob("*.json")) == [] if draft_dir.exists() else True
+
+
+# ── BET-Y1Q2-T2-02: setup, system draft, status ─────────────────────────
+
+
+def _configure_runtime_no_seed(monkeypatch, tmp_path: Path) -> tuple[Path, Path]:
+    """Like _configure_real_local_runtime but does NOT seed the role."""
+    ledger_path = tmp_path / "event-ledger.sqlite3"
+    draft_dir = tmp_path / "personal-drafts"
+    monkeypatch.setenv("OMO_EVENT_LEDGER_DB", str(ledger_path))
+    monkeypatch.setenv("PERSONAL_DRAFT_DIR", str(draft_dir))
+    monkeypatch.setenv("AGORA_PEP_PROVIDER", "omo.sovereignty.enforcement:AgoraPepProvider")
+    reset_pep_provider_cache()
+    return ledger_path, draft_dir
+
+
+def _setup_payload() -> dict:
+    return {
+        "principal_id": "principal:alice",
+        "role_id": "role:personal-steward",
+        "role_name": "Personal Steward",
+        "scope": "personal",
+        "responsibilities": ["follow-up"],
+    }
+
+
+def test_personal_setup_creates_role_idempotent(monkeypatch, tmp_path):
+    """POST /setup creates the assignment; a second call with same params is idempotent."""
+    ledger_path, _ = _configure_runtime_no_seed(monkeypatch, tmp_path)
+    client = TestClient(_app())
+
+    first = client.post("/api/workflow-mesh/personal-episode/setup", json=_setup_payload())
+    assert first.status_code == 200
+    assert first.json()["ok"] is True
+    assert first.json()["status"] == "assigned"
+
+    broker = LedgerBroker.connect(ledger_path)
+    try:
+        events_before = broker.read()
+        count_before = broker.count()
+        tail_hash_before = events_before[-1]["event_hash"]
+        assert broker.verify_chain()["ok"] is True
+    finally:
+        broker.close()
+
+    second = client.post("/api/workflow-mesh/personal-episode/setup", json=_setup_payload())
+    assert second.status_code == 200
+    assert second.json()["ok"] is True
+    assert second.json()["status"] == "already_active"
+
+    broker = LedgerBroker.connect(ledger_path)
+    try:
+        events_after = broker.read()
+        assert broker.count() == count_before
+        assert events_after[-1]["event_hash"] == tail_hash_before
+        assert broker.verify_chain()["ok"] is True
+    finally:
+        broker.close()
+
+
+def test_personal_setup_blocks_conflicting_scope(monkeypatch, tmp_path):
+    """An already-active assignment with a different scope must not silently succeed."""
+    _configure_runtime_no_seed(monkeypatch, tmp_path)
+    client = TestClient(_app())
+
+    client.post("/api/workflow-mesh/personal-episode/setup", json=_setup_payload())
+
+    conflict = _setup_payload()
+    conflict["scope"] = "work"
+    response = client.post("/api/workflow-mesh/personal-episode/setup", json=conflict)
+    assert response.status_code == 409
+    assert response.json()["ok"] is False
+    assert response.json()["error"] == "scope_conflict"
+
+
+def test_personal_setup_blocks_conflicting_role_name(monkeypatch, tmp_path):
+    """A different role_name on an active assignment is blocked."""
+    _configure_runtime_no_seed(monkeypatch, tmp_path)
+    client = TestClient(_app())
+
+    client.post("/api/workflow-mesh/personal-episode/setup", json=_setup_payload())
+
+    conflict = _setup_payload()
+    conflict["role_name"] = "Different Name"
+    response = client.post("/api/workflow-mesh/personal-episode/setup", json=conflict)
+    assert response.status_code == 409
+    assert response.json()["error"] == "role_name_conflict"
+
+
+def test_personal_setup_then_full_flow_user_provided(monkeypatch, tmp_path):
+    """Setup → Start → Confirm → Execute (full draft) → output_origin=user_provided."""
+    _configure_runtime_no_seed(monkeypatch, tmp_path)
+    client = TestClient(_app())
+
+    assert client.post("/api/workflow-mesh/personal-episode/setup", json=_setup_payload()).status_code == 200
+
+    started = client.post("/api/workflow-mesh/personal-episode/start", json=_start_payload())
+    assert started.status_code == 200
+    episode_id = started.json()["episode"]["episode_id"]
+
+    confirmed = client.post(
+        "/api/workflow-mesh/personal-episode/confirm",
+        json={
+            "episode_id": episode_id,
+            "principal_id": "principal:alice",
+            "executor_id": "agent:personal-steward",
+            "human_confirmed": True,
+        },
+    )
+    assert confirmed.status_code == 200
+
+    executed = client.post("/api/workflow-mesh/personal-episode/execute", json=_draft_payload(episode_id))
+    assert executed.status_code == 200
+    assert executed.json()["output_origin"] == "user_provided"
+
+
+def test_personal_execute_system_draft_from_snapshot(monkeypatch, tmp_path):
+    """Omitted draft fields → server builds from Episode snapshot, output_origin=system."""
+    _, draft_dir = _configure_runtime_no_seed(monkeypatch, tmp_path)
+    client = TestClient(_app())
+
+    client.post("/api/workflow-mesh/personal-episode/setup", json=_setup_payload())
+    started = client.post("/api/workflow-mesh/personal-episode/start", json=_start_payload())
+    episode_id = started.json()["episode"]["episode_id"]
+    client.post(
+        "/api/workflow-mesh/personal-episode/confirm",
+        json={
+            "episode_id": episode_id,
+            "principal_id": "principal:alice",
+            "executor_id": "agent:personal-steward",
+            "human_confirmed": True,
+        },
+    )
+
+    executed = client.post(
+        "/api/workflow-mesh/personal-episode/execute",
+        json={"episode_id": episode_id, "principal_id": "principal:alice"},
+    )
+    assert executed.status_code == 200
+    assert executed.json()["ok"] is True
+    assert executed.json()["output_origin"] == "system"
+
+    artifacts = list(draft_dir.glob("*.json"))
+    assert len(artifacts) == 1
+    artifact = json.loads(artifacts[0].read_text(encoding="utf-8"))
+    assert artifact["never_send"] is True
+    assert artifact["output_origin"] == "system"
+    assert artifact["title"] == "Prepare the commitment follow-up"
+
+
+def test_personal_execute_partial_draft_rejected(monkeypatch, tmp_path):
+    """Partial draft fields (some but not all) are rejected — all-or-nothing."""
+    _configure_runtime_no_seed(monkeypatch, tmp_path)
+    client = TestClient(_app())
+
+    client.post("/api/workflow-mesh/personal-episode/setup", json=_setup_payload())
+    started = client.post("/api/workflow-mesh/personal-episode/start", json=_start_payload())
+    episode_id = started.json()["episode"]["episode_id"]
+    client.post(
+        "/api/workflow-mesh/personal-episode/confirm",
+        json={
+            "episode_id": episode_id,
+            "principal_id": "principal:alice",
+            "executor_id": "agent:personal-steward",
+            "human_confirmed": True,
+        },
+    )
+
+    response = client.post(
+        "/api/workflow-mesh/personal-episode/execute",
+        json={"episode_id": episode_id, "principal_id": "principal:alice", "title": "Partial"},
+    )
+    assert response.status_code == 409
+    assert response.json()["ok"] is False
+    assert response.json()["error"] == "invalid_request"
+
+
+def test_personal_status_read_only_summary(monkeypatch, tmp_path):
+    """GET /status returns a read-only summary with no side effects."""
+    _configure_runtime_no_seed(monkeypatch, tmp_path)
+    client = TestClient(_app())
+
+    client.post("/api/workflow-mesh/personal-episode/setup", json=_setup_payload())
+    client.post("/api/workflow-mesh/personal-episode/start", json=_start_payload())
+
+    status = client.get(
+        "/api/workflow-mesh/personal-episode/status",
+        params={"principal_id": "principal:alice"},
+    )
+    assert status.status_code == 200
+    body = status.json()
+    assert body["ok"] is True
+    summary = body["summary"]
+    assert summary["total_episodes"] >= 1
+    assert summary["pending_confirmation"] >= 1
+    assert body["controls"]["read_only"] is True
+    assert body["controls"]["workflow_state_mutation"] is False
+
+
+def test_personal_setup_ingest_system_draft_e2e(monkeypatch, tmp_path):
+    """Setup → Ingest (local signal) → Confirm → System Draft works end-to-end."""
+    import base64
+
+    ledger_path = tmp_path / "event-ledger.sqlite3"
+    signal_dir = tmp_path / "signals"
+    signal_dir.mkdir(parents=True, exist_ok=True)
+    draft_dir = tmp_path / "personal-drafts"
+    monkeypatch.setenv("OMO_EVENT_LEDGER_DB", str(ledger_path))
+    monkeypatch.setenv("PERSONAL_SIGNAL_DIR", str(signal_dir))
+    monkeypatch.setenv("PERSONAL_DRAFT_DIR", str(draft_dir))
+    monkeypatch.setenv("IRIS_LOCAL_FILES_DIRECTORY", str(signal_dir))
+    monkeypatch.setenv("AGORA_PEP_PROVIDER", "omo.sovereignty.enforcement:AgoraPepProvider")
+    reset_pep_provider_cache()
+
+    note = signal_dir / "notes" / "follow-up.md"
+    note.parent.mkdir(parents=True, exist_ok=True)
+    note.write_text("---\ntitle: Follow up with team\n---\n\nImportant.\n", encoding="utf-8")
+    item_id = base64.urlsafe_b64encode(b"notes/follow-up.md").decode().rstrip("=")
+
+    client = TestClient(_app())
+
+    assert client.post("/api/workflow-mesh/personal-episode/setup", json=_setup_payload()).status_code == 200
+
+    ingested = client.post(
+        "/api/workflow-mesh/personal-signal/ingest",
+        json={
+            "item_id": item_id,
+            "principal_id": "principal:alice",
+            "role_id": "role:personal-steward",
+            "responsibility_id": "responsibility:follow-up",
+            "executor_id": "agent:personal-steward",
+        },
+    )
+    assert ingested.status_code == 200
+    episode_id = ingested.json()["episode"]["episode_id"]
+
+    assert client.post(
+        "/api/workflow-mesh/personal-episode/confirm",
+        json={
+            "episode_id": episode_id,
+            "principal_id": "principal:alice",
+            "executor_id": "agent:personal-steward",
+            "human_confirmed": True,
+        },
+    ).status_code == 200
+
+    executed = client.post(
+        "/api/workflow-mesh/personal-episode/execute",
+        json={"episode_id": episode_id, "principal_id": "principal:alice"},
+    )
+    assert executed.status_code == 200
+    assert executed.json()["output_origin"] == "system"
+
+    artifacts = list(draft_dir.glob("*.json"))
+    assert len(artifacts) == 1
+    artifact = json.loads(artifacts[0].read_text(encoding="utf-8"))
+    assert artifact["title"] == "Follow up with team"
+    assert artifact["never_send"] is True
+    assert artifact["output_origin"] == "system"
+    assert "Important." not in json.dumps(artifact)
