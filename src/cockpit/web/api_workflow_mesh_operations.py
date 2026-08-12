@@ -32,6 +32,9 @@ _REPO_ROOT = Path(__file__).resolve().parents[5]
 _OMO_SRC = _REPO_ROOT / "projects" / "omo" / "src"
 if str(_OMO_SRC) not in sys.path:
     sys.path.insert(0, str(_OMO_SRC))
+_IRIS_SRC = _REPO_ROOT / "projects" / "kairon" / "packages" / "iris" / "src"
+if str(_IRIS_SRC) not in sys.path:
+    sys.path.insert(0, str(_IRIS_SRC))
 
 try:
     from omo.omo_external_receipt import (
@@ -85,6 +88,22 @@ else:
     _PERSONAL_EPISODE_IMPORT_ERROR = None
 
 try:
+    from omo.personal_episode import PersonalLocalSignal
+except Exception as exc:  # The local-signal ingress degrades on its own.
+    PersonalLocalSignal = None  # type: ignore[assignment,misc]
+    _PERSONAL_LOCAL_SIGNAL_IMPORT_ERROR: Exception | None = exc
+else:
+    _PERSONAL_LOCAL_SIGNAL_IMPORT_ERROR = None
+
+try:
+    from iris.connectors.local_files import LocalFilesConnector
+except Exception as exc:  # Iris is an optional runtime dependency for Cockpit.
+    LocalFilesConnector = None  # type: ignore[assignment,misc]
+    _IRIS_IMPORT_ERROR: Exception | None = exc
+else:
+    _IRIS_IMPORT_ERROR = None
+
+try:
     from agora.mcp.policy_enforcement import PEPDenied, complete, enforce, reset_pep_provider_cache
 except Exception as exc:  # An effectful local draft must fail closed without Agora PEP.
     PEPDenied = RuntimeError  # type: ignore[assignment,misc]
@@ -129,6 +148,82 @@ def _personal_draft_dir() -> Path:
     if configured:
         return Path(configured).resolve()
     return (_REPO_ROOT / "runtime" / "omo" / "personal-drafts").resolve()
+
+
+PERSONAL_SIGNAL_SOURCE_ID = "iris-local-files"
+PERSONAL_SIGNAL_URI_PREFIX = "iris://local-files/"
+
+
+def _personal_signal_dir() -> Path:
+    """Resolve the server-owned local Markdown directory, never a caller path."""
+    configured = os.environ.get("PERSONAL_SIGNAL_DIR")
+    if not configured or not configured.strip():
+        raise PersonalEpisodeError("missing_config", "PERSONAL_SIGNAL_DIR is not set")
+    return Path(configured).expanduser().resolve()
+
+
+def _local_files_connector(allowed_dir: Path) -> Any:
+    """Construct Iris's read-only local-files connector scoped to ``allowed_dir``."""
+    if LocalFilesConnector is None:
+        raise RuntimeError("iris local-files connector unavailable")
+    # Iris's directory is server-owned configuration: scope the connector to
+    # PERSONAL_SIGNAL_DIR through the documented IRIS_* env override, so no
+    # caller-supplied path and no user config file can redirect it.
+    os.environ["IRIS_LOCAL_FILES_DIRECTORY"] = str(allowed_dir)
+    return LocalFilesConnector()
+
+
+def _resolve_local_signal(
+    *,
+    item_id: str,
+    principal_id: str,
+    role_id: str,
+    responsibility_id: str,
+    executor_id: str,
+) -> Any:
+    """Resolve an opaque item into a trusted PersonalLocalSignal descriptor.
+
+    Every verification is performed server-side on the resolved path: the
+    item must be a regular ``.md`` file strictly inside ``PERSONAL_SIGNAL_DIR``
+    (``Path.relative_to`` rejects traversal and symlink escape), must have a
+    non-empty title, and the digest is computed from the resolved file bytes.
+    The returned descriptor never contains the absolute path or file body.
+    """
+    allowed_dir = _personal_signal_dir()
+    if not allowed_dir.is_dir():
+        raise PersonalEpisodeError("missing_config", "PERSONAL_SIGNAL_DIR must be a directory")
+    connector = _local_files_connector(allowed_dir)
+    try:
+        note = connector.get_item(item_id)
+    except (ValueError, OSError) as exc:
+        raise PersonalEpisodeError(
+            "item_not_found", "no local item matches the given item_id"
+        ) from exc
+    if note is None:
+        raise PersonalEpisodeError("item_not_found", "no local item matches the given item_id")
+    resolved = Path(note.source_path).resolve()
+    try:
+        resolved.relative_to(allowed_dir)
+    except ValueError:
+        raise PersonalEpisodeError(
+            "source_outside_allowed_dir", "resolved item escapes the allowed directory"
+        ) from None
+    if resolved == allowed_dir or not resolved.is_file() or resolved.suffix.lower() != ".md":
+        raise PersonalEpisodeError("not_markdown", "item must be a regular markdown file")
+    title = (note.title or resolved.stem).strip()
+    if not title:
+        raise PersonalEpisodeError("empty_title", "item must have a non-empty title")
+    return PersonalLocalSignal(
+        source_id=PERSONAL_SIGNAL_SOURCE_ID,
+        item_id=item_id,
+        title=title,
+        content_sha256=hashlib.sha256(resolved.read_bytes()).hexdigest(),
+        source_uri=f"{PERSONAL_SIGNAL_URI_PREFIX}{item_id}",
+        principal_id=principal_id,
+        role_id=role_id,
+        responsibility_id=responsibility_id,
+        executor_id=executor_id,
+    )
 
 
 @contextmanager
@@ -518,6 +613,45 @@ if router:
             _logger.info("personal_episode_feedback_blocked: %s", type(exc).__name__)
             return _personal_error(getattr(exc, "reason", "personal_episode_feedback_invalid"))
         return {"ok": True, "status": "recorded", "sequence": sequence}
+
+    @router.post("/personal-signal/ingest")
+    async def post_personal_signal_ingest(request: Request) -> Any:  # type: ignore[valid-type]
+        """Resolve one private local Markdown item into a causal Inbox episode.
+
+        The body carries only the opaque ``item_id`` plus the sovereignty
+        identity fields; the server resolves the item through Iris and verifies
+        it is a regular ``.md`` file strictly inside ``PERSONAL_SIGNAL_DIR``
+        before building a ``PersonalLocalSignal`` and delegating to OMO.  The
+        raw body, file content and absolute paths are never logged or stored.
+        """
+        if PersonalEpisodeService is None or PersonalLocalSignal is None or LocalFilesConnector is None:
+            return _personal_error("personal_signal_unavailable", status_code=503)
+        try:
+            body = _personal_request(
+                await request.json(),
+                {"item_id", "principal_id", "role_id", "responsibility_id", "executor_id"},
+            )
+            signal = _resolve_local_signal(
+                item_id=_required_text(body, "item_id"),
+                principal_id=_required_text(body, "principal_id"),
+                role_id=_required_text(body, "role_id"),
+                responsibility_id=_required_text(body, "responsibility_id"),
+                executor_id=_required_text(body, "executor_id"),
+            )
+            with _personal_episode_service() as service:
+                result = service.ingest_local_signal(signal)
+        except (PersonalEpisodeError, OSError, TypeError, ValueError) as exc:
+            _logger.info("personal_signal_ingest_blocked: %s", type(exc).__name__)
+            return _personal_error(getattr(exc, "reason", "personal_signal_ingest_invalid"))
+        return {
+            "ok": True,
+            "status": "pending_confirmation",
+            "signal": {
+                "signal_event_id": result.signal_event_id,
+                "signal_id": result.signal_id,
+            },
+            "episode": result.episode.to_dict(),
+        }
 
     @router.post("/engineering-delivery/review")
     async def post_engineering_delivery_review(request: Request) -> dict[str, Any]:  # type: ignore[valid-type]
