@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 from collections import Counter
 from pathlib import Path
@@ -409,7 +410,7 @@ def _personal_draft(rest: list[str]) -> int:
     console.print(
         _panel(
             f"[green]✅ Draft created ({origin})[/green]\n"
-            f"Evidence: {body.get('evidence_uri', '?')}\n"
+            f"Local draft recorded: {body.get('local_draft_recorded', False)}\n"
             f"Episode: {args.episode_id}",
             "green",
         )
@@ -418,23 +419,41 @@ def _personal_draft(rest: list[str]) -> int:
 
 
 def _personal_feedback(rest: list[str]) -> int:
-    """cockpit workflow mesh personal feedback — record human outcome."""
+    """cockpit workflow mesh personal feedback — record human outcome.
+
+    Optional --review-duration-seconds and --estimated-time-saved-seconds
+    are non-negative finite values; omitted values are not sent.
+    """
     parser = argparse.ArgumentParser(prog="cockpit workflow mesh personal feedback")
     parser.add_argument("--episode-id", required=True)
     parser.add_argument("--principal", default="principal:alice")
     parser.add_argument(
-        "--verdict", required=True, choices=["accept", "edit", "reject", "defer"]
+        "--verdict", required=True, choices=["accept", "edit", "reject", "defer", "ignore"]
     )
+    parser.add_argument("--review-duration-seconds", type=float, default=None)
+    parser.add_argument("--estimated-time-saved-seconds", type=float, default=None)
     args = parser.parse_args(rest)
     console = _get_console()
+    for field, value in (
+        ("review_duration_seconds", args.review_duration_seconds),
+        ("estimated_time_saved_seconds", args.estimated_time_saved_seconds),
+    ):
+        if value is not None and (value < 0 or not math.isfinite(value)):
+            console.print(f"[red]✗ Feedback failed: {field} must be non-negative and finite[/red]")
+            return 1
+    payload: dict = {
+        "episode_id": args.episode_id,
+        "principal_id": args.principal,
+        "verdict": args.verdict,
+    }
+    if args.review_duration_seconds is not None:
+        payload["review_duration_seconds"] = args.review_duration_seconds
+    if args.estimated_time_saved_seconds is not None:
+        payload["estimated_time_saved_seconds"] = args.estimated_time_saved_seconds
     try:
         status, body = _api_post(
             "/api/workflow-mesh/personal-episode/feedback",
-            {
-                "episode_id": args.episode_id,
-                "principal_id": args.principal,
-                "verdict": args.verdict,
-            },
+            payload,
         )
     except RuntimeError as exc:
         console.print(f"[red]✗ Feedback failed: {exc}[/red]")
@@ -452,7 +471,12 @@ def _personal_feedback(rest: list[str]) -> int:
 
 
 def _personal_status(rest: list[str]) -> int:
-    """cockpit workflow mesh personal status — read-only episode summary."""
+    """cockpit workflow mesh personal status — read-only episode summary.
+
+    Includes the OMO principal observation: readiness gate (not_ready /
+    collecting / passed), gate gaps, weekly samples, verdict
+    distribution and evidence origin counts.
+    """
     parser = argparse.ArgumentParser(prog="cockpit workflow mesh personal status")
     parser.add_argument("--principal", default="principal:alice")
     args = parser.parse_args(rest)
@@ -468,16 +492,39 @@ def _personal_status(rest: list[str]) -> int:
     if _api_result(console, status, body, "Status"):
         return 1
     summary = body.get("summary", {})
+    observation = body.get("observation")
+    readiness = observation.get("readiness", "?") if observation else "?"
     console.print(
         _panel(
             f"[bold cyan]📊 Personal Episode Status[/bold cyan]\n"
             f"Principal: {args.principal}\n"
             f"Total episodes: {summary.get('total_episodes', 0)}\n"
             f"Pending confirmation: {summary.get('pending_confirmation', 0)}\n"
-            f"Inbox cards: {summary.get('inbox_cards', 0)}",
+            f"Inbox cards: {summary.get('inbox_cards', 0)}\n"
+            f"Readiness: {readiness}",
             "cyan",
         )
     )
+
+    # Observation details
+    if observation:
+        gaps = observation.get("gate_gaps", [])
+        if gaps:
+            console.print("[yellow]Gate gaps:[/yellow]")
+            for gap in gaps:
+                console.print(f"  • {gap}")
+        verdict_dist = observation.get("verdict_distribution", {})
+        if verdict_dist:
+            from rich import box as rich_box
+            from rich.table import Table
+
+            table = Table(box=rich_box.ROUNDED, header_style="bold cyan", title="Verdict Distribution")
+            table.add_column("Verdict", style="bold")
+            table.add_column("Count", style="green", justify="right")
+            for verdict, count in sorted(verdict_dist.items()):
+                table.add_row(verdict, str(count))
+            console.print(table)
+
     pending = body.get("pending", [])
     if pending:
         from rich import box as rich_box
@@ -519,7 +566,7 @@ def cmd_personal(args: argparse.Namespace) -> int:
     console.print("  [cyan]ingest[/]    — Resolve local Markdown into episode")
     console.print("  [cyan]confirm[/]   — Human-confirmed mandate")
     console.print("  [cyan]draft[/]     — PEP-gated local draft (system or caller-authored)")
-    console.print("  [cyan]feedback[/]  — Record human outcome (accept/edit/reject/defer)")
+    console.print("  [cyan]feedback[/]  — Record human outcome (accept/edit/reject/defer/ignore)")
     console.print("  [cyan]status[/]    — Read-only episode summary")
     console.print("\n[dim]Set COCKPIT_API_URL to target a specific server.[/]")
     return 0

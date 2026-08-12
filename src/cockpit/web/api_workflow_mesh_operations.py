@@ -6,6 +6,7 @@ import datetime
 import hashlib
 import json
 import logging
+import math
 import os
 import sys
 import tempfile
@@ -278,6 +279,25 @@ def _required_text(body: dict[str, Any], field: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise PersonalEpisodeError("invalid_request", f"{field} must be non-empty")
     return value.strip()
+
+
+def _optional_burden(body: dict[str, Any], field: str) -> float | None:
+    """Extract an optional non-negative finite numeric burden field.
+
+    Returns None when the field is absent; otherwise validates that the
+    value is a real number (rejecting bool, NaN, inf, negative).  The
+    OMO layer re-validates, but catching at the boundary gives a clean
+    error without touching the ledger.
+    """
+    if field not in body or body[field] is None:
+        return None
+    value = body[field]
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise PersonalEpisodeError("invalid_burden", f"{field} must be a number")
+    v = float(value)
+    if v < 0 or not math.isfinite(v):
+        raise PersonalEpisodeError("invalid_burden", f"{field} must be non-negative and finite")
+    return v
 
 
 def _write_local_draft(
@@ -642,8 +662,11 @@ if router:
     ) -> dict[str, Any]:
         """Read-only personal episode status — no mutation, no side effects.
 
-        Delegates to the existing W2-04 episode projection and filters to a
-        compact summary of pending / confirmed / completed episodes.
+        Delegates to the existing W2-04 episode projection for the compact
+        inbox/episode summary and additionally projects the OMO read-only
+        principal observation (readiness gate, weekly samples, evidence
+        origin counts).  The observation never mutates the ledger — it only
+        calls ``broker.read()``.
         """
         controls = {
             "read_only": True,
@@ -684,7 +707,49 @@ if router:
         inbox = projection.get("inbox", [])
         episodes = projection.get("episodes", [])
         pending = [c for c in inbox if c.get("status") == "pending_confirmation"]
-        return {
+
+        # OMO read-only observation: readiness gate, weekly samples, gaps.
+        observation: dict[str, Any] | None = None
+        if PersonalEpisodeService is None:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "ok": False,
+                    "status": "unavailable",
+                    "error": "personal_episode_observation_unavailable",
+                    "principal_id": principal_id,
+                    **controls,
+                },
+            ) if JSONResponse is not None else {
+                "ok": False,
+                "status": "unavailable",
+                "error": "personal_episode_observation_unavailable",
+                "principal_id": principal_id,
+                **controls,
+            }
+        try:
+            with _personal_episode_service() as service:
+                obs = service.observe_principal(principal_id)
+            observation = obs.to_dict()
+        except (
+            AttributeError,
+            PersonalEpisodeError,
+            OSError,
+            RuntimeError,
+            TypeError,
+            ValueError,
+        ) as exc:
+            _logger.info("personal_episode_observation_failed: %s", type(exc).__name__)
+            payload = {
+                "ok": False,
+                "status": "unavailable",
+                "error": "personal_episode_observation_failed",
+                "principal_id": principal_id,
+                **controls,
+            }
+            return JSONResponse(status_code=503, content=payload) if JSONResponse is not None else payload
+
+        response: dict[str, Any] = {
             "ok": projection.get("status") == "live",
             "status": projection.get("status", "unavailable"),
             "principal_id": principal_id,
@@ -696,6 +761,9 @@ if router:
             "pending": pending,
             "controls": controls,
         }
+        if observation is not None:
+            response["observation"] = observation
+        return response
 
     @router.post("/personal-episode/start")
     async def post_personal_episode_start(request: Request) -> Any:  # type: ignore[valid-type]
@@ -812,7 +880,7 @@ if router:
                 evidence_uri = artifact.resolve().as_uri()
                 complete(decision, receipt, succeeded=True, result={"evidence_uri": evidence_uri})
                 terminal_confirmed = True
-                service.record_evidence(context, evidence_uri)
+                service.record_evidence(context, evidence_uri, output_origin=output_origin)
         except (PersonalEpisodeError, PEPDenied, OSError, TypeError, ValueError) as exc:
             if artifact is not None and not terminal_confirmed:
                 artifact.unlink(missing_ok=True)
@@ -827,22 +895,44 @@ if router:
             "ok": True,
             "status": "completed",
             "episode_id": context.episode_id,
-            "evidence_uri": evidence_uri,
+            "local_draft_recorded": True,
             "output_origin": output_origin,
         }
 
     @router.post("/personal-episode/feedback")
     async def post_personal_episode_feedback(request: Request) -> Any:  # type: ignore[valid-type]
-        """Append one closed-vocabulary human outcome to the causal episode."""
+        """Append one closed-vocabulary human outcome to the causal episode.
+
+        Optional ``review_duration_seconds`` and
+        ``estimated_time_saved_seconds`` are non-negative finite values;
+        omitted values stay null.  The verdict vocabulary includes
+        accept/edit/reject/defer/ignore.
+        """
         if PersonalEpisodeService is None:
             return _personal_error("personal_episode_unavailable", status_code=503)
         try:
-            body = _personal_request(await request.json(), {"episode_id", "principal_id", "verdict"})
+            body = _personal_request(
+                await request.json(),
+                {
+                    "episode_id",
+                    "principal_id",
+                    "verdict",
+                    "review_duration_seconds",
+                    "estimated_time_saved_seconds",
+                },
+            )
+            review_duration = _optional_burden(body, "review_duration_seconds")
+            estimated_saved = _optional_burden(body, "estimated_time_saved_seconds")
             with _personal_episode_service() as service:
                 context = service.reload_execution_context(
                     _required_text(body, "episode_id"), _required_text(body, "principal_id")
                 )
-                sequence = service.record_outcome(context, _required_text(body, "verdict"))
+                sequence = service.record_outcome(
+                    context,
+                    _required_text(body, "verdict"),
+                    review_duration_seconds=review_duration,
+                    estimated_time_saved_seconds=estimated_saved,
+                )
         except (PersonalEpisodeError, OSError, TypeError, ValueError) as exc:
             _logger.info("personal_episode_feedback_blocked: %s", type(exc).__name__)
             return _personal_error(getattr(exc, "reason", "personal_episode_feedback_invalid"))

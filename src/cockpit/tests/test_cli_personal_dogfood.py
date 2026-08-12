@@ -278,6 +278,114 @@ def test_cli_personal_status_unavailable_returns_nonzero(cli_http, monkeypatch):
     assert rc != 0
 
 
+# ── W3-01B extension: feedback with metrics, ignore verdict, status observation ─
+
+
+def _cli_full_flow_to_episode(cli_http, monkeypatch) -> str:
+    """Helper: setup → start (via API) → confirm → draft, return episode_id."""
+    _run_cli(monkeypatch, "workflow", "mesh", "personal", "setup")
+    client = cli_http["client"]
+    started = client.post(
+        "/api/workflow-mesh/personal-episode/start",
+        json={
+            "principal_id": "principal:alice",
+            "role_id": "role:personal-steward",
+            "responsibility_id": "responsibility:follow-up",
+            "executor_id": "agent:personal-steward",
+            "request_id": "cli-metric-test",
+            "summary": "CLI metric test episode",
+            "why_now": "",
+            "deadline": None,
+        },
+    )
+    episode_id = started.json()["episode"]["episode_id"]
+    _run_cli(monkeypatch, "workflow", "mesh", "personal", "confirm", "--episode-id", episode_id)
+    _run_cli(monkeypatch, "workflow", "mesh", "personal", "draft", "--episode-id", episode_id)
+    return episode_id
+
+
+def test_cli_personal_feedback_with_metrics(cli_http, monkeypatch):
+    """CLI feedback with --review-duration-seconds and --estimated-time-saved-seconds."""
+    episode_id = _cli_full_flow_to_episode(cli_http, monkeypatch)
+    rc = _run_cli(
+        monkeypatch,
+        "workflow", "mesh", "personal", "feedback",
+        "--episode-id", episode_id,
+        "--verdict", "accept",
+        "--review-duration-seconds", "90",
+        "--estimated-time-saved-seconds", "300",
+    )
+    assert rc == 0
+
+
+def test_cli_personal_feedback_rejects_invalid_burden_without_http(cli_http, monkeypatch):
+    """CLI rejects negative, NaN, and infinity before issuing an HTTP request."""
+    calls: list[tuple[str, dict]] = []
+
+    def _unexpected_post(path: str, payload: dict) -> tuple[int, dict]:
+        calls.append((path, payload))
+        return 200, {"ok": True}
+
+    monkeypatch.setattr(workflow_mesh, "_api_post", _unexpected_post)
+    for option, value in (
+        ("--review-duration-seconds", "-1"),
+        ("--review-duration-seconds", "nan"),
+        ("--estimated-time-saved-seconds", "inf"),
+    ):
+        rc = _run_cli(
+            monkeypatch,
+            "workflow", "mesh", "personal", "feedback",
+            "--episode-id", "episode:test",
+            "--verdict", "accept",
+            option, value,
+        )
+        assert rc != 0
+    assert calls == []
+
+
+def test_cli_personal_feedback_ignore_verdict(cli_http, monkeypatch):
+    """CLI feedback with --verdict ignore succeeds."""
+    episode_id = _cli_full_flow_to_episode(cli_http, monkeypatch)
+    rc = _run_cli(
+        monkeypatch,
+        "workflow", "mesh", "personal", "feedback",
+        "--episode-id", episode_id,
+        "--verdict", "ignore",
+    )
+    assert rc == 0
+
+
+def test_cli_personal_status_shows_observation(cli_http, monkeypatch):
+    """CLI status after a completed episode with feedback shows readiness."""
+    episode_id = _cli_full_flow_to_episode(cli_http, monkeypatch)
+    _run_cli(
+        monkeypatch,
+        "workflow", "mesh", "personal", "feedback",
+        "--episode-id", episode_id,
+        "--verdict", "accept",
+    )
+    rc = _run_cli(monkeypatch, "workflow", "mesh", "personal", "status")
+    assert rc == 0
+
+
+def test_cli_personal_status_observation_unavailable_returns_nonzero(cli_http, monkeypatch):
+    """CLI propagates an unavailable OMO observation as a failed command."""
+    monkeypatch.setattr(
+        workflow_mesh,
+        "_api_get",
+        lambda path, params=None: (
+            503,
+            {
+                "ok": False,
+                "status": "unavailable",
+                "error": "personal_episode_observation_failed",
+            },
+        ),
+    )
+    rc = _run_cli(monkeypatch, "workflow", "mesh", "personal", "status")
+    assert rc != 0
+
+
 # ── no subcommand prints help ──────────────────────────────────────────
 
 
