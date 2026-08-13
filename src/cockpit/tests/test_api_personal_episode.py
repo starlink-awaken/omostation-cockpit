@@ -124,8 +124,11 @@ def test_personal_episode_real_ledger_to_local_draft_to_feedback(monkeypatch, tm
     snapshot = projection.json()["projection"]
     episode = next(item for item in snapshot["episodes"] if item["episode_id"] == episode_id)
     member_payloads = [member["payload"] for member in episode["contains_event_refs"]]
-    assert any(payload.get("evidence_uri") == evidence_uri for payload in member_payloads)
     assert any(payload.get("verdict") == "accept" for payload in member_payloads)
+    projection_text = json.dumps(snapshot)
+    assert evidence_uri not in projection_text
+    assert str(draft_dir) not in projection_text
+    assert "file://" not in projection_text
     assert snapshot["controls"]["ledger_unchanged"] is True
     assert snapshot["controls"]["chain_after"]["ok"] is True
 
@@ -199,6 +202,98 @@ def test_feedback_with_optional_burden_metrics(monkeypatch, tmp_path):
         payload = json.loads(outcome_rows[0]["payload_json"])
         assert payload["review_duration_seconds"] == 120.0
         assert payload["estimated_time_saved_seconds"] == 600.0
+    finally:
+        broker.close()
+
+
+def test_feedback_id_revisions_are_idempotent_and_latest_is_effective(monkeypatch, tmp_path):
+    """Stable request IDs dedupe replays while newer feedback revises the outcome."""
+    ledger_path, _ = _configure_real_local_runtime(monkeypatch, tmp_path)
+    client = TestClient(_app())
+    episode_id = _full_flow_episode(client, ledger_path)
+
+    def submit(feedback_id: str, verdict: str, **metrics):
+        return client.post(
+            "/api/workflow-mesh/personal-episode/feedback",
+            json={
+                "episode_id": episode_id,
+                "principal_id": "principal:alice",
+                "feedback_id": feedback_id,
+                "verdict": verdict,
+                **metrics,
+            },
+        )
+
+    first = submit("feedback:http-001", "accept")
+    replay = submit("feedback:http-001", "accept")
+    rejected = submit("feedback:http-002", "reject")
+    accepted = submit("feedback:http-003", "accept")
+    supplemented = submit(
+        "feedback:http-004",
+        "accept",
+        review_duration_seconds=30,
+        estimated_time_saved_seconds=300,
+    )
+
+    assert [response.status_code for response in (first, replay, rejected, accepted, supplemented)] == [
+        200,
+        200,
+        200,
+        200,
+        200,
+    ]
+    assert replay.json()["sequence"] == first.json()["sequence"]
+
+    broker = LedgerBroker.connect(ledger_path)
+    try:
+        outcome_payloads = [
+            json.loads(row["payload_json"])
+            for row in broker.read(episode_id=episode_id)
+            if row["event_type"] == "Outcome.Human.v1"
+        ]
+        assert [payload["feedback_id"] for payload in outcome_payloads] == [
+            "feedback:http-001",
+            "feedback:http-002",
+            "feedback:http-003",
+            "feedback:http-004",
+        ]
+    finally:
+        broker.close()
+
+    status = client.get(
+        "/api/workflow-mesh/personal-episode/status",
+        params={"principal_id": "principal:alice"},
+    )
+    observation = status.json()["observation"]
+    assert observation["verdict_distribution"] == {"accept": 1}
+    assert observation["weekly_samples"][0]["complete_burden_episodes"] == 1
+    assert observation["weekly_samples"][0]["summed_review_seconds"] == 30
+    assert observation["weekly_samples"][0]["summed_saved_seconds"] == 300
+
+
+def test_feedback_id_invalid_value_fails_closed_without_write(monkeypatch, tmp_path):
+    ledger_path, _ = _configure_real_local_runtime(monkeypatch, tmp_path)
+    client = TestClient(_app())
+    episode_id = _full_flow_episode(client, ledger_path)
+
+    broker = LedgerBroker.connect(ledger_path)
+    count_before = broker.count()
+    broker.close()
+
+    response = client.post(
+        "/api/workflow-mesh/personal-episode/feedback",
+        json={
+            "episode_id": episode_id,
+            "principal_id": "principal:alice",
+            "feedback_id": "   ",
+            "verdict": "accept",
+        },
+    )
+
+    assert response.status_code == 409
+    broker = LedgerBroker.connect(ledger_path)
+    try:
+        assert broker.count() == count_before
     finally:
         broker.close()
 

@@ -421,12 +421,13 @@ def _personal_draft(rest: list[str]) -> int:
 def _personal_feedback(rest: list[str]) -> int:
     """cockpit workflow mesh personal feedback — record human outcome.
 
-    Optional --review-duration-seconds and --estimated-time-saved-seconds
+    Optional --feedback-id identifies one idempotent request. Burden values
     are non-negative finite values; omitted values are not sent.
     """
     parser = argparse.ArgumentParser(prog="cockpit workflow mesh personal feedback")
     parser.add_argument("--episode-id", required=True)
     parser.add_argument("--principal", default="principal:alice")
+    parser.add_argument("--feedback-id", default=None)
     parser.add_argument(
         "--verdict", required=True, choices=["accept", "edit", "reject", "defer", "ignore"]
     )
@@ -450,6 +451,8 @@ def _personal_feedback(rest: list[str]) -> int:
         payload["review_duration_seconds"] = args.review_duration_seconds
     if args.estimated_time_saved_seconds is not None:
         payload["estimated_time_saved_seconds"] = args.estimated_time_saved_seconds
+    if args.feedback_id is not None:
+        payload["feedback_id"] = args.feedback_id
     try:
         status, body = _api_post(
             "/api/workflow-mesh/personal-episode/feedback",

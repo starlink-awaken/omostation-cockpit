@@ -20,6 +20,7 @@ import pytest
 from agora.mcp.policy_enforcement import reset_pep_provider_cache
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from omo.event_ledger import LedgerBroker
 
 from cockpit.commands import workflow_mesh
 from cockpit.web import api_workflow_mesh_operations
@@ -311,11 +312,56 @@ def test_cli_personal_feedback_with_metrics(cli_http, monkeypatch):
         monkeypatch,
         "workflow", "mesh", "personal", "feedback",
         "--episode-id", episode_id,
+        "--feedback-id", "feedback:cli-metrics",
         "--verdict", "accept",
         "--review-duration-seconds", "90",
         "--estimated-time-saved-seconds", "300",
     )
     assert rc == 0
+
+
+def test_cli_personal_feedback_id_supports_revisions(cli_http, monkeypatch):
+    """CLI threads stable feedback IDs through replay and later revisions."""
+    episode_id = _cli_full_flow_to_episode(cli_http, monkeypatch)
+
+    def submit(feedback_id: str, verdict: str, *metrics: str) -> int:
+        return _run_cli(
+            monkeypatch,
+            "workflow", "mesh", "personal", "feedback",
+            "--episode-id", episode_id,
+            "--feedback-id", feedback_id,
+            "--verdict", verdict,
+            *metrics,
+        )
+
+    assert submit("feedback:cli-001", "accept") == 0
+    assert submit("feedback:cli-001", "accept") == 0
+    assert submit("feedback:cli-002", "reject") == 0
+    assert submit("feedback:cli-003", "accept") == 0
+    assert submit(
+        "feedback:cli-004",
+        "accept",
+        "--review-duration-seconds", "45",
+        "--estimated-time-saved-seconds", "240",
+    ) == 0
+
+    broker = LedgerBroker.connect(cli_http["ledger_path"])
+    try:
+        payloads = [
+            json.loads(row["payload_json"])
+            for row in broker.read(episode_id=episode_id)
+            if row["event_type"] == "Outcome.Human.v1"
+        ]
+        assert [payload["feedback_id"] for payload in payloads] == [
+            "feedback:cli-001",
+            "feedback:cli-002",
+            "feedback:cli-003",
+            "feedback:cli-004",
+        ]
+        assert payloads[-1]["review_duration_seconds"] == 45
+        assert payloads[-1]["estimated_time_saved_seconds"] == 240
+    finally:
+        broker.close()
 
 
 def test_cli_personal_feedback_rejects_invalid_burden_without_http(cli_http, monkeypatch):

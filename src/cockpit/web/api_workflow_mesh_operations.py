@@ -300,6 +300,191 @@ def _optional_burden(body: dict[str, Any], field: str) -> float | None:
     return v
 
 
+def _projection_value_is_private(value: Any) -> bool:
+    """Reject path- and connector-shaped strings from the public projection."""
+    if not isinstance(value, str):
+        return False
+    stripped = value.strip()
+    lowered = stripped.lower()
+    return (
+        "file://" in lowered
+        or "iris://" in lowered
+        or stripped.startswith(("/", "~/"))
+        or "/users/" in lowered
+    )
+
+
+def _projection_fields(source: Any, fields: tuple[str, ...]) -> dict[str, Any]:
+    """Copy explicitly public scalar fields from one projection mapping."""
+    if not isinstance(source, dict):
+        return {}
+    result: dict[str, Any] = {}
+    for field in fields:
+        if field not in source:
+            continue
+        value = source.get(field)
+        if value is None or isinstance(value, (str, int, float, bool)):
+            if not _projection_value_is_private(value):
+                result[field] = value
+    return result
+
+
+def _episode_projection_http_dto(projection: Any) -> dict[str, Any]:
+    """Build the public allowlisted DTO without mutating OMO's ledger view."""
+    if not isinstance(projection, dict):
+        return {}
+
+    episodes: list[dict[str, Any]] = []
+    for raw_episode in projection.get("episodes", []):
+        episode = _projection_fields(
+            raw_episode,
+            (
+                "episode_id",
+                "schema_version",
+                "opened_at",
+                "closed_at",
+                "status",
+                "name",
+                "event_count",
+            ),
+        )
+        members: list[dict[str, Any]] = []
+        if isinstance(raw_episode, dict):
+            for raw_member in raw_episode.get("contains_event_refs", []):
+                member = _projection_fields(
+                    raw_member,
+                    ("event_id", "schema_version", "emitted_at"),
+                )
+                raw_payload = raw_member.get("payload", {}) if isinstance(raw_member, dict) else {}
+                member["payload"] = _projection_fields(
+                    raw_payload,
+                    (
+                        "episode_id",
+                        "request_id",
+                        "summary",
+                        "why_now",
+                        "deadline",
+                        "status",
+                        "confidence",
+                        "role_id",
+                        "responsibility_id",
+                        "action_id",
+                        "output_origin",
+                        "feedback_id",
+                        "verdict",
+                        "review_duration_seconds",
+                        "estimated_time_saved_seconds",
+                    ),
+                )
+                members.append(member)
+        episode["contains_event_refs"] = members
+        episodes.append(episode)
+
+    raw_portfolio = projection.get("role_portfolio", {})
+    role_portfolio = _projection_fields(raw_portfolio, ("principal_id",))
+    assignments: list[dict[str, Any]] = []
+    responsibilities: list[dict[str, Any]] = []
+    if isinstance(raw_portfolio, dict):
+        for raw_assignment in raw_portfolio.get("active_assignments", []):
+            assignment = _projection_fields(
+                raw_assignment,
+                (
+                    "assignment_id",
+                    "principal_id",
+                    "role_id",
+                    "role_name",
+                    "role_scope",
+                    "version",
+                    "status",
+                ),
+            )
+            if isinstance(raw_assignment, dict):
+                assignment["responsibilities"] = [
+                    _projection_fields(item, ("resp_id", "responsibility_id", "name", "version"))
+                    for item in raw_assignment.get("responsibilities", [])
+                    if isinstance(item, dict)
+                ]
+            assignments.append(assignment)
+        responsibilities = [
+            _projection_fields(item, ("resp_id", "responsibility_id", "name", "version"))
+            for item in raw_portfolio.get("responsibilities", [])
+            if isinstance(item, dict)
+        ]
+        raw_counts = raw_portfolio.get("episode_counts", {})
+        episode_counts = {
+            key: value
+            for key, value in raw_counts.items()
+            if isinstance(key, str)
+            and not _projection_value_is_private(key)
+            and isinstance(value, int)
+            and not isinstance(value, bool)
+        } if isinstance(raw_counts, dict) else {}
+    else:
+        episode_counts = {}
+    role_portfolio.update(
+        {
+            "active_assignments": assignments,
+            "responsibilities": responsibilities,
+            "episode_counts": episode_counts,
+        }
+    )
+
+    inbox = [
+        _projection_fields(
+            item,
+            (
+                "card_type",
+                "episode",
+                "principal",
+                "role",
+                "responsibility",
+                "request",
+                "summary",
+                "why_now",
+                "risk",
+                "authority",
+                "deadline",
+                "status",
+                "confidence",
+            ),
+        )
+        for item in projection.get("inbox", [])
+        if isinstance(item, dict)
+    ]
+    blocked = [
+        _projection_fields(item, ("event_id", "event_type", "sequence", "reason"))
+        for item in projection.get("blocked", [])
+        if isinstance(item, dict)
+    ]
+    raw_controls = projection.get("controls", {})
+    controls = _projection_fields(
+        raw_controls,
+        (
+            "events_read",
+            "events_ignored",
+            "events_blocked",
+            "ledger_count_before",
+            "ledger_count_after",
+            "ledger_unchanged",
+        ),
+    )
+    if isinstance(raw_controls, dict):
+        controls["chain_before"] = _projection_fields(raw_controls.get("chain_before"), ("ok", "total"))
+        controls["chain_after"] = _projection_fields(raw_controls.get("chain_after"), ("ok", "total"))
+
+    dto = _projection_fields(projection, ("schema_version", "status", "principal_id"))
+    dto.update(
+        {
+            "episodes": episodes,
+            "role_portfolio": role_portfolio,
+            "inbox": inbox,
+            "blocked": blocked,
+            "controls": controls,
+        }
+    )
+    return dto
+
+
 def _write_local_draft(
     context: Any, draft: dict[str, str], output_origin: str = "system"
 ) -> Path:
@@ -543,7 +728,6 @@ if router:
                 "principal_id": principal_id,
                 "error": "episode_projection_ledger_missing",
                 "next_action": "确认 Event Ledger 数据库已初始化后重试。",
-                "db_path": str(db_path),
                 **controls,
             }
         try:
@@ -568,7 +752,7 @@ if router:
             "status": projection.get("status", "unavailable"),
             "schema": "episode-projections/v1",
             "principal_id": principal_id,
-            "projection": projection,
+            "projection": _episode_projection_http_dto(projection),
             **controls,
         }
 
@@ -916,6 +1100,7 @@ if router:
                 {
                     "episode_id",
                     "principal_id",
+                    "feedback_id",
                     "verdict",
                     "review_duration_seconds",
                     "estimated_time_saved_seconds",
@@ -923,6 +1108,7 @@ if router:
             )
             review_duration = _optional_burden(body, "review_duration_seconds")
             estimated_saved = _optional_burden(body, "estimated_time_saved_seconds")
+            feedback_id = _required_text(body, "feedback_id") if "feedback_id" in body else None
             with _personal_episode_service() as service:
                 context = service.reload_execution_context(
                     _required_text(body, "episode_id"), _required_text(body, "principal_id")
@@ -930,6 +1116,7 @@ if router:
                 sequence = service.record_outcome(
                     context,
                     _required_text(body, "verdict"),
+                    feedback_id=feedback_id,
                     review_duration_seconds=review_duration,
                     estimated_time_saved_seconds=estimated_saved,
                 )
