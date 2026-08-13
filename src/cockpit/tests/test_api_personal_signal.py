@@ -205,8 +205,10 @@ def test_ingest_confirms_and_drafts_never_send_with_feedback(monkeypatch, tmp_pa
         },
     )
     assert executed.status_code == 200
-    evidence_uri = executed.json()["evidence_uri"]
-    assert evidence_uri.startswith("file://")
+    executed_body = executed.json()
+    assert "evidence_uri" not in executed_body
+    assert "file://" not in executed.text
+    assert str(draft_dir) not in executed.text
     artifacts = list(draft_dir.glob("*.json"))
     assert len(artifacts) == 1
     artifact = json.loads(artifacts[0].read_text(encoding="utf-8"))
