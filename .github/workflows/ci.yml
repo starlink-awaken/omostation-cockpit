@@ -28,7 +28,8 @@ jobs:
             src/cockpit/tests/test_api_episode_projection.py \
             src/cockpit/tests/test_api_personal_episode.py \
             src/cockpit/tests/test_api_personal_signal.py \
-            src/cockpit/tests/test_cli_personal_dogfood.py
+            src/cockpit/tests/test_cli_personal_dogfood.py \
+            tests/test_personal_feedback_boundaries.py
       - name: Contract Gatekeeper
         run: python3 scripts/contract_gatekeeper.py src/cockpit/web/api_kems.py tests/test_api_kems_ocr.py
 
@@ -41,40 +42,15 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "uv.lock"
           python-version: "3.13"
-      - uses: actions/checkout@v4
-        with:
-          repository: starlink-awaken/omostation-omo
-          ref: 2bd55bc4e7bec62506f346398e412b6092ac450e
-          path: .ci/omo
-      - uses: actions/checkout@v4
-        with:
-          repository: starlink-awaken/omostation-agora
-          ref: 264d9fc4e8868cf03cb88a505d154fabccfa6331
-          path: .ci/agora
-      - uses: actions/checkout@v4
-        with:
-          repository: starlink-awaken/omostation-ecos
-          ref: 433370d624962c552e56312d2aa62acbe420bc04
-          path: .ci/ecos
-      - uses: actions/checkout@v4
-        with:
-          repository: starlink-awaken/kairon
-          ref: 0a31da635826019927a99f0b67b0d89c5e342785
-          path: .ci/kairon
       - name: Run tests
         run: |
           PYTHONPATH=src uv run --no-project --with pytest --with fastapi --with httpx --with pyyaml \
             pytest tests/test_api_kems.py tests/test_api_kems_ocr.py -q --tb=short
       - name: Run personal capability tests
         run: |
-          PYTHONPATH="src:.ci/omo/src:.ci/agora/src:.ci/ecos/src:.ci/kairon/packages/iris/src" \
-            uv run --no-project \
-            --with pytest --with fastapi --with 'httpx[socks]' --with pydantic --with pyyaml \
-            --with rich --with fastmcp --with structlog --with cryptography \
-            --with aiohttp --with uvicorn --with prometheus-client --with psutil \
+          PYTHONPATH=src uv run --no-project \
+            --with pytest --with fastapi --with httpx --with pydantic --with pyyaml --with rich \
             pytest \
             src/cockpit/tests/test_api_episode_projection.py \
-            src/cockpit/tests/test_api_personal_episode.py \
-            src/cockpit/tests/test_api_personal_signal.py \
-            src/cockpit/tests/test_cli_personal_dogfood.py \
+            tests/test_personal_feedback_boundaries.py \
             -q --tb=short
