@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import inspect
 import sys
 
 from cockpit import cli
@@ -86,12 +85,44 @@ def test_bdsk_client_failure_is_not_proven_without_fallback(monkeypatch):
     }
 
 
-def test_bdsk_engine_has_no_direct_ollama_or_rules_success_fallback():
-    source = inspect.getsource(bdsk_engine)
-    assert "11434" not in source
-    assert "/api/generate" not in source
-    assert "aetherforge_fallback_domain_rules" not in source
-    assert "DomainParser" not in source
+def test_bdsk_resolver_exception_fails_closed_through_cli(monkeypatch, capsys):
+    sensitive = "RAW-SENSITIVE-TOPIC-NONCE"
+    calls = []
+
+    async def exploding_resolver(uri, **kwargs):
+        calls.append((uri, kwargs))
+        raise RuntimeError(f"decision=APPROVED risk=99 {sensitive}")
+
+    monkeypatch.setattr(bdsk_engine, "_resolve_bos_uri", exploding_resolver)
+
+    result = DynamicBDSKAdjudicator.adjudicate(sensitive)
+    assert result == {
+        "status": "error",
+        "proof_state": "not_proven",
+        "verdict": "NOT_PROVEN",
+        "error_code": "persona_route_unavailable",
+        "engine_source": "bos_persona_not_proven",
+        "compute_uri": "bos://compute/aetherforge/infer",
+    }
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["cockpit", "bdsk", "debate", sensitive],
+    )
+    assert cli.main() == 4
+
+    output = capsys.readouterr().out
+    assert "NOT_PROVEN" in output
+    assert "persona_route_unavailable" in output
+    assert sensitive not in output
+    assert "APPROVED" not in output
+    assert "risk" not in output.lower()
+    assert "decision" not in output.lower()
+    assert [uri for uri, _kwargs in calls] == [
+        "bos://persona/bdsk/evaluate",
+        "bos://persona/bdsk/evaluate",
+    ]
 
 
 def test_bdsk_cli_returns_nonzero_for_not_proven(monkeypatch, capsys):
