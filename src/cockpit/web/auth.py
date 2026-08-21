@@ -32,7 +32,7 @@ _AUTH_REQUIRED = os.environ.get("COCKPIT_AUTH_REQUIRED", "false").lower() in ("t
 _API_KEY_ENV = "COCKPIT_API_KEY"
 _KEYS_FILE_ENV = "COCKPIT_KEYS_FILE"
 _ENGINEERING_REVIEW_SIGNING_KEY_ENV = "COCKPIT_ENGINEERING_REVIEW_SIGNING_KEY"
-_DEFAULT_KEYS_FILE = Path(__file__).resolve().parents[2] / "config" / "api_keys.yaml"
+_DEFAULT_KEYS_FILE = Path(__file__).resolve().parents[3] / "config" / "api_keys.yaml"
 
 
 @dataclass(frozen=True)
@@ -58,6 +58,11 @@ class ApiAuthorizationError(ValueError):
     """The verified credential lacks a required scope."""
 
 
+def _is_example_api_key(value: str) -> bool:
+    """Reject repository placeholders if an example file is copied unchanged."""
+    return value.startswith("your-") and value.endswith("-here")
+
+
 def load_api_keys() -> dict[str, ApiKeyInfo]:
     """加载 API keys: env var + 可选 YAML 文件."""
     keys: dict[str, ApiKeyInfo] = {}
@@ -72,7 +77,7 @@ def load_api_keys() -> dict[str, ApiKeyInfo]:
             data = yaml.safe_load(keys_file.read_text(encoding="utf-8"))
             for entry in (data or {}).get("keys", []):
                 k = entry.get("key", "")
-                if k and k != "your-secret-key-here":
+                if k and not _is_example_api_key(k):
                     keys[k] = ApiKeyInfo(
                         name=entry.get("name", "unnamed"),
                         scopes=entry.get("scopes", ["read"]),

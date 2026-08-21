@@ -314,6 +314,26 @@ class TestUnifiedAuth:
         resp = test_client.get("/api/status", headers={"X-Api-Key": "wrong-key"})
         assert resp.status_code == 401
 
+    def test_example_key_file_is_safe_and_matches_default_location(self, test_client, monkeypatch):
+        import cockpit.web.auth as auth_mod
+
+        project_root = Path(__file__).resolve().parents[3]
+        example_file = project_root / "config" / "api_keys.yaml.example"
+        assert auth_mod._DEFAULT_KEYS_FILE == project_root / "config" / "api_keys.yaml"
+
+        with monkeypatch.context() as patch:
+            patch.delenv("COCKPIT_API_KEY", raising=False)
+            patch.setenv("COCKPIT_KEYS_FILE", str(example_file))
+            assert auth_mod.reload_api_keys() == {}
+            response = test_client.post(
+                "/api/workflow-mesh/engineering-delivery/review",
+                headers={"X-Api-Key": "your-engineering-review-key-here"},
+                json={},
+            )
+            assert response.status_code == 401
+            assert response.json()["error"] == "engineering_delivery_auth_required"
+        auth_mod.reload_api_keys()
+
     def test_effectful_auth_binds_opaque_principal_even_when_global_auth_is_optional(self, monkeypatch):
         import cockpit.web.auth as auth_mod
 
