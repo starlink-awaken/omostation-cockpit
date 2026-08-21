@@ -314,16 +314,22 @@ class TestUnifiedAuth:
         resp = test_client.get("/api/status", headers={"X-Api-Key": "wrong-key"})
         assert resp.status_code == 401
 
-    def test_example_key_file_is_safe_and_matches_default_location(self, test_client, monkeypatch):
+    def test_example_key_file_is_safe_and_matches_default_location(self, test_client, monkeypatch, tmp_path):
         import cockpit.web.auth as auth_mod
 
         project_root = Path(__file__).resolve().parents[3]
         example_file = project_root / "config" / "api_keys.yaml.example"
         assert auth_mod._DEFAULT_KEYS_FILE == project_root / "config" / "api_keys.yaml"
+        assert auth_mod._resolve_keys_file(None) == auth_mod._DEFAULT_KEYS_FILE
+        assert auth_mod._resolve_keys_file("  ") == auth_mod._DEFAULT_KEYS_FILE
+        assert auth_mod._resolve_keys_file(str(example_file)) == example_file
+        assert auth_mod._resolve_keys_file("~/cockpit-keys.yaml") == Path.home() / "cockpit-keys.yaml"
 
         with monkeypatch.context() as patch:
             patch.delenv("COCKPIT_API_KEY", raising=False)
-            patch.setenv("COCKPIT_KEYS_FILE", str(example_file))
+            patch.chdir(tmp_path)
+            patch.setenv("COCKPIT_KEYS_FILE", "config/api_keys.yaml.example")
+            assert auth_mod._resolve_keys_file("config/api_keys.yaml.example") == example_file
             assert auth_mod.reload_api_keys() == {}
             response = test_client.post(
                 "/api/workflow-mesh/engineering-delivery/review",
