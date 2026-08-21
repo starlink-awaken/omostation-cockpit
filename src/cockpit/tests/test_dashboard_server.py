@@ -314,6 +314,68 @@ class TestUnifiedAuth:
         resp = test_client.get("/api/status", headers={"X-Api-Key": "wrong-key"})
         assert resp.status_code == 401
 
+    def test_effectful_auth_binds_opaque_principal_even_when_global_auth_is_optional(self, monkeypatch):
+        import cockpit.web.auth as auth_mod
+
+        monkeypatch.setattr(auth_mod, "_AUTH_REQUIRED", False)
+        monkeypatch.setattr(
+            auth_mod,
+            "_cached_keys",
+            lambda: {"review-secret": auth_mod.ApiKeyInfo(name="reviewer", scopes=["engineering-review"])},
+        )
+
+        principal = auth_mod.authenticate_api_principal(
+            {"X-Api-Key": "review-secret"},
+            any_scope=frozenset({"engineering-review"}),
+        )
+
+        assert principal.principal_ref.startswith("operator://cockpit-api/")
+        assert "review-secret" not in principal.principal_ref
+        assert principal.scopes == ("engineering-review",)
+
+    def test_effectful_auth_rejects_anonymous_and_insufficient_scope(self, monkeypatch):
+        import cockpit.web.auth as auth_mod
+
+        monkeypatch.setattr(
+            auth_mod,
+            "_cached_keys",
+            lambda: {"read-secret": auth_mod.ApiKeyInfo(name="reader", scopes=["read"])},
+        )
+        with pytest.raises(auth_mod.ApiAuthenticationError, match="missing_api_key"):
+            auth_mod.authenticate_api_principal({}, any_scope=frozenset({"engineering-review"}))
+        with pytest.raises(auth_mod.ApiAuthorizationError, match="insufficient_scope"):
+            auth_mod.authenticate_api_principal(
+                {"Authorization": "Bearer read-secret"},
+                any_scope=frozenset({"engineering-review"}),
+            )
+
+    def test_engineering_review_assertion_is_signed_and_payload_bound(self, monkeypatch):
+        import cockpit.web.auth as auth_mod
+
+        monkeypatch.setenv(
+            "COCKPIT_ENGINEERING_REVIEW_SIGNING_KEY",
+            "test-engineering-review-signing-key-0001",
+        )
+        principal = auth_mod.AuthenticatedPrincipal(
+            principal_ref="operator://cockpit-api/reviewer-1",
+            name="reviewer",
+            scopes=("engineering-review",),
+        )
+        first = auth_mod.issue_engineering_review_assertion(
+            principal,
+            {"delivery_id": "delivery-1", "decision": "adopted", "evidence_refs": ["evidence://review/1"]},
+        )
+        changed = auth_mod.issue_engineering_review_assertion(
+            principal,
+            {"delivery_id": "delivery-1", "decision": "rejected", "evidence_refs": ["evidence://review/1"]},
+        )
+
+        assert first["schema"] == "cockpit-human-principal-assertion/v2"
+        assert first["source_class"] == "real_human"
+        assert len(first["signature"]) == 64
+        assert first["binding_digest"] != changed["binding_digest"]
+        assert first["signature"] != changed["signature"]
+
     def test_healthz_always_public(self, test_client, monkeypatch):
         """AUTH_REQUIRED=true 时 /healthz 仍然 200 (白名单路由)."""
         import cockpit.web.auth as auth_mod
