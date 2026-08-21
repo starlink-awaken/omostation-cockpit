@@ -134,6 +134,7 @@ def authenticate_api_principal(
     headers: dict[str, str],
     *,
     any_scope: frozenset[str],
+    allow_admin: bool = True,
 ) -> AuthenticatedPrincipal:
     """Strictly authenticate one effectful API request.
 
@@ -155,7 +156,7 @@ def authenticate_api_principal(
         raise ApiAuthenticationError("invalid_api_key")
 
     scopes = frozenset(str(scope).strip() for scope in info.scopes if str(scope).strip())
-    if "admin" not in scopes and not scopes.intersection(any_scope):
+    if not scopes.intersection(any_scope) and not (allow_admin and "admin" in scopes):
         raise ApiAuthorizationError("insufficient_scope")
 
     credential_digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:24]
@@ -171,6 +172,8 @@ def issue_engineering_review_assertion(
     binding: Mapping[str, Any],
 ) -> dict[str, str]:
     """Sign a short-lived run, receipt, and review binding for OMO's broker."""
+    if "engineering-review" not in principal.scopes:
+        raise ApiAuthorizationError("engineering_review_scope_required")
     signing_key = os.environ.get(_ENGINEERING_REVIEW_SIGNING_KEY_ENV, "")
     if len(signing_key) < 32:
         raise RuntimeError("engineering review signing key is unavailable")

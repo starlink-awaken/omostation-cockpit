@@ -65,11 +65,13 @@ try:
     from omo.engineering_delivery_consumer import (
         EngineeringDeliveryConsumerError,
         build_engineering_delivery_review_queue,
+        normalize_engineering_delivery_review,
         record_engineering_delivery_review,
     )
 except Exception as exc:  # Keep the existing Workflow Mesh routes independently available.
     EngineeringDeliveryConsumerError = ValueError  # type: ignore[assignment,misc]
     build_engineering_delivery_review_queue = None  # type: ignore[assignment]
+    normalize_engineering_delivery_review = None  # type: ignore[assignment]
     record_engineering_delivery_review = None  # type: ignore[assignment]
     _ENGINEERING_DELIVERY_IMPORT_ERROR: Exception | None = exc
 else:
@@ -544,6 +546,31 @@ def _engineering_delivery_queue_http_dto(projection: Any) -> dict[str, Any]:
     return result
 
 
+def _workflow_mesh_operations_http_dto(projection: dict[str, Any]) -> dict[str, Any]:
+    """Keep dedicated human-review scenes out of the generic feedback picker."""
+    result = dict(projection)
+    consumption = projection.get("consumption")
+    if not isinstance(consumption, dict):
+        return result
+    eligible = consumption.get("eligible_outcomes")
+    if not isinstance(eligible, list):
+        return result
+    result["consumption"] = {
+        **consumption,
+        "eligible_outcomes": [
+            item
+            for item in eligible
+            if not (
+                isinstance(item, dict)
+                and isinstance(item.get("scene_binding"), dict)
+                and item["scene_binding"].get("scene_id") == "engineering-delivery"
+            )
+        ],
+        "dedicated_review_scenes": ["engineering-delivery"],
+    }
+    return result
+
+
 def _engineering_delivery_review_http_dto(review: Any) -> dict[str, Any]:
     """Allowlist a persisted review acknowledgement without leaking internals."""
     return _projection_fields(
@@ -740,7 +767,7 @@ if router:
         return {
             "ok": projection.get("status") == "live",
             "status": projection.get("status", "unavailable"),
-            "operations": projection,
+            "operations": _workflow_mesh_operations_http_dto(projection),
         }
 
     @router.get("/engineering-delivery/review-queue")
@@ -1286,10 +1313,11 @@ if router:
             principal = authenticate_api_principal(
                 dict(request.headers),
                 any_scope=frozenset({"engineering-review"}),
+                allow_admin=False,
             )
         except (ApiAuthenticationError, ApiAuthorizationError) as exc:
             return _engineering_delivery_auth_error(exc)
-        if record_engineering_delivery_review is None:
+        if record_engineering_delivery_review is None or normalize_engineering_delivery_review is None:
             content = {
                 "ok": False,
                 "status": "unavailable",
@@ -1311,13 +1339,15 @@ if router:
             unknown = sorted(set(body) - allowed)
             if unknown:
                 raise EngineeringDeliveryConsumerError(f"unsupported review envelope fields: {unknown}")
-            payload = {key: body[key] for key in ("delivery_id", "decision", "evidence_refs") if key in body}
-            workflow_run_id = str(body.get("workflow_run_id") or "")
+            payload = normalize_engineering_delivery_review(
+                {key: body[key] for key in ("delivery_id", "decision", "evidence_refs") if key in body}
+            )
+            workflow_run_id = str(body.get("workflow_run_id") or "").strip()
             principal_assertion = issue_engineering_review_assertion(
                 principal,
                 {
                     "workflow_run_id": workflow_run_id,
-                    "candidate_receipt_id": str(body.get("delivery_id") or ""),
+                    "candidate_receipt_id": payload["delivery_id"],
                     "review": payload,
                 },
             )

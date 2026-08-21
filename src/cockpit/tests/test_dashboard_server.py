@@ -349,6 +349,31 @@ class TestUnifiedAuth:
                 any_scope=frozenset({"engineering-review"}),
             )
 
+    def test_human_review_auth_rejects_generic_admin_without_explicit_scope(self, monkeypatch):
+        import cockpit.web.auth as auth_mod
+
+        monkeypatch.setattr(
+            auth_mod,
+            "_cached_keys",
+            lambda: {"admin-secret": auth_mod.ApiKeyInfo(name="admin", scopes=["admin"])},
+        )
+
+        with pytest.raises(auth_mod.ApiAuthorizationError, match="insufficient_scope"):
+            auth_mod.authenticate_api_principal(
+                {"X-Api-Key": "admin-secret"},
+                any_scope=frozenset({"engineering-review"}),
+                allow_admin=False,
+            )
+        with pytest.raises(auth_mod.ApiAuthorizationError, match="engineering_review_scope_required"):
+            auth_mod.issue_engineering_review_assertion(
+                auth_mod.AuthenticatedPrincipal(
+                    principal_ref="operator://cockpit-api/admin",
+                    name="admin",
+                    scopes=("admin",),
+                ),
+                {"workflow_run_id": "run-1", "candidate_receipt_id": "delivery-1", "review": {}},
+            )
+
     def test_engineering_review_assertion_is_signed_and_payload_bound(self, monkeypatch):
         import cockpit.web.auth as auth_mod
 
