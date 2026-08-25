@@ -37,6 +37,8 @@ class TestCreateApp:
         mock_rt.tools.build_tool_schemas.return_value = []
         mock_rt._call_llm.return_value = {"content": "Hello!", "finish_reason": "stop"}
         _mock_runtime_engine.AgentRuntime.return_value = mock_rt
+        agent_runtime_server.AgentRuntime = mock.Mock(return_value=mock_rt)
+        agent_runtime_server._HAS_RUNTIME = True
         return agent_runtime_server.create_app()
 
     def test_health_endpoint(self):
