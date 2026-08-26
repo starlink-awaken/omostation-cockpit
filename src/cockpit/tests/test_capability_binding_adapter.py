@@ -28,6 +28,21 @@ def _receipt(*, status: str = "verified", schema: str = "capability-admission-ve
 
 def test_verified_envelope_uses_only_fixed_bounded_verifier_transport(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[tuple[list[str], dict[str, object]]] = []
+    caller_environment = {
+        "HOME": "/caller/home",
+        "PATH": "/caller/bin",
+        "OMO_DIR": "/caller/omo",
+        "PYTHONPATH": "/caller/pythonpath",
+        "PYTHONHOME": "/caller/pythonhome",
+        "PYTHONUSERBASE": "/caller/user-site",
+        "PYTHONPYCACHEPREFIX": "/caller/pycache",
+        "PYTHONDONTWRITEBYTECODE": "0",
+        "PYTHONIOENCODING": "latin-1",
+        "PYTHONUTF8": "0",
+        "PYTHONNOUSERSITE": "0",
+    }
+    for name, value in caller_environment.items():
+        monkeypatch.setenv(name, value)
 
     def fake_run(argv: list[str], **kwargs: object) -> SimpleNamespace:
         calls.append((argv, kwargs))
@@ -52,6 +67,12 @@ def test_verified_envelope_uses_only_fixed_bounded_verifier_transport(monkeypatc
                 "check": False,
                 "timeout": capability_binding._VERIFY_TIMEOUT_SECONDS,
                 "shell": False,
+                "env": {
+                    "PYTHONDONTWRITEBYTECODE": "1",
+                    "PYTHONIOENCODING": "utf-8",
+                    "PYTHONUTF8": "1",
+                    "PYTHONNOUSERSITE": "1",
+                },
             },
         )
     ]

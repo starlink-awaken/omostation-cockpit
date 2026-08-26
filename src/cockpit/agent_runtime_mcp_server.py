@@ -47,7 +47,7 @@ def run_task(task_name: str, binding_receipt: dict = None) -> str:
     """Run a predefined task by name (e.g. WF-005, codexbar-quota, daily-summary).
 
     Tasks are loaded from task_definitions/<name>.json.
-    Effectful execution requires an admitted capability binding receipt.
+    Effectful execution requires a verified capability binding receipt.
     """
     if not capability_binding.verify_binding_envelope(binding_receipt):
         return _json_envelope(

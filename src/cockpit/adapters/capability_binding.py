@@ -34,6 +34,12 @@ def verify_binding_envelope(envelope: object) -> bool:
             check=False,
             timeout=_VERIFY_TIMEOUT_SECONDS,
             shell=False,
+            env={
+                "PYTHONDONTWRITEBYTECODE": "1",
+                "PYTHONIOENCODING": "utf-8",
+                "PYTHONUTF8": "1",
+                "PYTHONNOUSERSITE": "1",
+            },
         )
     except (OSError, subprocess.TimeoutExpired):
         return False
