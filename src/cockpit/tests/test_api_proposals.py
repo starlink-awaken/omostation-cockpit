@@ -1,4 +1,4 @@
-"""Tests for cockpit.web.api_proposals — 22% coverage file."""
+"""Tests for cockpit.web.api_proposals — T10-122 HITL mutation contract."""
 
 from __future__ import annotations
 
@@ -21,6 +21,20 @@ def app():
 @pytest.fixture
 def client(app):
     return TestClient(app)
+
+
+@pytest.fixture
+def valid_proposal():
+    return {
+        "proposal_id": "test-001",
+        "type": "family_dashboard_document_write",
+        "operation": "replace_text",
+        "target_relative": "test-doc.md",
+        "payload_ref": "proposals/test-001/payload",
+        "payload_sha256": "abc123",
+        "change_summary": "Test change",
+        "canonical_digest": "digest-001",
+    }
 
 
 class TestListProposals:
@@ -209,3 +223,76 @@ class TestApproveErrorPaths:
             resp = client.post("/api/v1/proposals/p1/approve")
         assert resp.status_code == 500
         assert resp.json()["error"] == "Some random error"
+
+
+class TestCreateProposal:
+    """Test POST /api/v1/proposals — T10-122 proposal ingress."""
+
+    def test_create_success(self, client, tmp_path, valid_proposal):
+        with (
+            patch("cockpit.compat.WORKSPACE_ROOT", tmp_path),
+            patch("cockpit.web.api_proposals.record_hitl_proposal", return_value=valid_proposal),
+        ):
+            resp = client.post("/api/v1/proposals", json=valid_proposal)
+        assert resp.status_code == 202
+        data = resp.json()
+        assert data["status"] == "ok"
+        assert data["proposal_id"] == "test-001"
+
+    def test_create_invalid_proposal(self, client, tmp_path):
+        with (
+            patch("cockpit.compat.WORKSPACE_ROOT", tmp_path),
+            patch("cockpit.web.api_proposals.record_hitl_proposal", side_effect=ValueError("missing field")),
+        ):
+            resp = client.post("/api/v1/proposals", json={"invalid": "data"})
+        assert resp.status_code == 400
+        assert "missing field" in resp.json()["error"]
+
+    def test_create_unexpected_error(self, client, tmp_path):
+        with (
+            patch("cockpit.compat.WORKSPACE_ROOT", tmp_path),
+            patch("cockpit.web.api_proposals.record_hitl_proposal", side_effect=RuntimeError("boom")),
+        ):
+            resp = client.post("/api/v1/proposals", json={"proposal_id": "p1"})
+        assert resp.status_code == 500
+
+
+class TestApproverIdentity:
+    """Test approver identity resolution."""
+
+    def test_anonymous_identity(self, client, tmp_path):
+        with (
+            patch("cockpit.compat.WORKSPACE_ROOT", tmp_path),
+            patch("cockpit.web.api_proposals.approve_hitl_proposal_async", return_value=(True, None)),
+        ):
+            resp = client.post("/api/v1/proposals/p1/approve")
+        assert resp.status_code == 200
+        assert "receipt" in resp.json()
+
+    def test_bearer_token_identity(self, client, tmp_path):
+        with (
+            patch("cockpit.compat.WORKSPACE_ROOT", tmp_path),
+            patch("cockpit.web.api_proposals.approve_hitl_proposal_async", return_value=(True, None)),
+        ):
+            resp = client.post(
+                "/api/v1/proposals/p1/approve",
+                headers={"Authorization": "Bearer test-token-123"},
+            )
+        assert resp.status_code == 200
+        receipt = resp.json()["receipt"]
+        assert "operator://cockpit-api/" in receipt["approver"]
+        assert receipt["source_class"] == "real_human"
+
+    def test_service_token_identity(self, client, tmp_path):
+        with (
+            patch("cockpit.compat.WORKSPACE_ROOT", tmp_path),
+            patch("cockpit.web.api_proposals.approve_hitl_proposal_async", return_value=(True, None)),
+        ):
+            resp = client.post(
+                "/api/v1/proposals/p1/approve",
+                headers={"Authorization": "Service my-service-token"},
+            )
+        assert resp.status_code == 200
+        receipt = resp.json()["receipt"]
+        assert "operator://service/" in receipt["approver"]
+        assert receipt["source_class"] == "server_owned"
