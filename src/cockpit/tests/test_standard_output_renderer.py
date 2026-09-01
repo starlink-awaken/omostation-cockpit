@@ -129,7 +129,10 @@ def test_all_catalog_commands_registered_in_parser():
 
     handler_keys = set(re.findall(r"\"([a-z0-9\-]+)\":\s*(?:cmd_|dispatch_|_c_|lambda|_cmd_)", code))
     handler_keys |= set(DELEGATED_COMMANDS.keys())  # 薄委派组运行时 handlers
-    ensure_delegated_catalog()  # 并入委派组 catalog 条目后再比较 (保持双向一致校验)
+    # 委派组模块若尚未构建 parser (DELEGATED_COMMANDS 未填充),
+    # 从组模块派生键集合兜底 —— 与 register_all 注册的 handlers 同源同集。
+    delegated_catalog = ensure_delegated_catalog()  # 并入委派组 catalog 条目 (幂等)
+    handler_keys |= set(delegated_catalog.keys())
     catalog_keys = set(COMMAND_CATALOG.keys())
     missing_in_handlers = catalog_keys - handler_keys - {"tui"}  # tui 独立判断
     assert not missing_in_handlers, f"发现 COMMAND_CATALOG 声明但未注册 Handler 的子命令: {missing_in_handlers}"

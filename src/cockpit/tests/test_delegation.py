@@ -134,12 +134,29 @@ class TestHelpPassthroughParser:
 
 class TestExistingDelegationsContract:
     @pytest.mark.parametrize("cmd,attr", sorted(EXISTING_REMAINDER_DELEGATIONS.items()))
-    def test_attr_registered_in_subcommands_source(self, cmd: str, attr: str):
-        """EXISTING_REMAINDER_DELEGATIONS 的每个命令都必须在 _subcommands.py 有对应 REMAINDER dest."""
+    def test_attr_registered_in_source(self, cmd: str, attr: str):
+        """EXISTING_REMAINDER_DELEGATIONS 的每个命令必须在注册源有对应 REMAINDER dest.
+
+        Phase B 起 attr 有两个合法来源:
+          · 存量命令: _subcommands.py 源码
+          · 薄委派组: 组模块 (SPECS.arg_attr / register() 内登记)
+        """
         from pathlib import Path
 
-        src = (
-            Path(__file__).resolve().parent.parent / "_subcommands.py"
-        ).read_text(encoding="utf-8")
-        assert f'"{cmd}"' in src, f"命令 {cmd} 未在 _subcommands.py 注册"
-        assert f'"{attr}"' in src, f"REMAINDER dest {attr} 未在 _subcommands.py 注册"
+        src_dir = Path(__file__).resolve().parent.parent
+        subcommands_src = (src_dir / "_subcommands.py").read_text(encoding="utf-8")
+        if f'"{cmd}"' in subcommands_src:
+            assert f'"{attr}"' in subcommands_src, f"存量命令 {cmd} 的 REMAINDER dest {attr} 未在 _subcommands.py 注册"
+            return
+        # Phase B 组模块: 扫描 commands/ 下的组模块源码
+        commands_dir = src_dir / "commands"
+        group_sources = "\n".join(
+            p.read_text(encoding="utf-8")
+            for p in commands_dir.glob("*_group.py")
+        ) + "\n".join(
+            p.read_text(encoding="utf-8")
+            for p in (commands_dir / "project_cli.py", commands_dir / "root_bin.py")
+            if p.exists()
+        )
+        assert f'"{cmd}"' in group_sources, f"命令 {cmd} 既不在 _subcommands.py 也不在任何组模块注册"
+        assert attr in group_sources, f"命令 {cmd} 的 REMAINDER dest {attr} 未在组模块声明"

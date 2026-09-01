@@ -45,6 +45,7 @@ from .commands.bos import (
 from .commands.brain import cmd_brain
 from .commands.brief import _cmd_brief, _cmd_brief_morning
 from .commands.bus import cmd_bus
+from .commands.capabilities import cmd_capabilities
 from .commands.contracts import (
     cmd_contracts_export_event,
     cmd_contracts_export_identity,
@@ -52,7 +53,6 @@ from .commands.contracts import (
     cmd_contracts_list,
     cmd_contracts_validate,
 )
-from .commands.capabilities import cmd_capabilities
 from .commands.data import cmd_data_gc, cmd_data_index, cmd_data_types
 from .commands.discover import _cmd_discover
 from .commands.family_hub import cmd_family_hub
@@ -63,7 +63,6 @@ from .commands.importer import cmd_import
 from .commands.kairon import cmd_kairon
 from .commands.mcp import cmd_mcp
 from .commands.mesh import cmd_mesh
-from .commands.spine import cmd_spine
 from .commands.model_driven import cmd_model_driven
 from .commands.observe import cmd_observe
 from .commands.profile import cmd_profile
@@ -98,6 +97,7 @@ from .commands.research import (
     cmd_research_unarchive,
 )
 from .commands.search import _cmd_search
+from .commands.spine import cmd_spine
 from .commands.status import (
     _render_workbench,
     cmd_daily,

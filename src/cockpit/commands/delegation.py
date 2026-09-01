@@ -31,8 +31,8 @@ from pathlib import Path
 
 from cockpit.commands.registry import CATEGORY_GROUPS, CommandMeta
 
-# workspace 根: delegation.py → commands → cockpit → src → projects → workspace
-_WS_ROOT = Path(__file__).resolve().parents[4]
+# workspace 根: delegation.py → [0]commands → [1]cockpit(包) → [2]src → [3]cockpit(项目) → [4]projects → [5]workspace
+_WS_ROOT = Path(__file__).resolve().parents[5]
 
 # 预声明的 B 组模块 (存在才注册, 允许分批落地)
 GROUP_MODULES: tuple[str, ...] = (
@@ -116,7 +116,12 @@ def add_delegation_parser(
     spec: DelegatedSpec,
     workspace_parser: type[argparse.ArgumentParser] | None = None,
 ) -> None:
-    """注册单个薄委派 parser (add_help=False 是 --help 透传的关键)."""
+    """注册单个薄委派 parser (add_help=False 是 --help 透传的关键).
+
+    注意: parser_class 由父级 ``add_subparsers(parser_class=...)`` 继承,
+    不能也不需要传给 ``add_parser`` (那是 add_subparsers 的参数, 传了会 TypeError)。
+    workspace_parser 参数保留仅为兼容调用方签名, 不再使用。
+    """
     kwargs: dict = dict(
         help=spec.summary,
         add_help=False,
@@ -124,8 +129,6 @@ def add_delegation_parser(
         epilog=f"示例: cockpit {spec.name} {spec.example}".rstrip() if spec.example else None,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    if workspace_parser is not None:
-        kwargs["parser_class"] = workspace_parser
     p = sub.add_parser(spec.name, **kwargs)
     p.add_argument(
         spec.arg_attr,
