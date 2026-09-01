@@ -1236,3 +1236,17 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
 
     _delegation.register_all(sub, workspace_parser)
     _delegation.ensure_delegated_catalog()
+
+    # ── Phase C/D: chain / command-audit 命令组 (模块自注册, 未落地时跳过) ────
+    try:
+        from cockpit.chain import register_chain
+
+        register_chain(sub, workspace_parser)
+    except ImportError:
+        pass
+    try:
+        from cockpit.commands.command_audit import register as _register_ca
+
+        _register_ca(sub, workspace_parser)
+    except ImportError:
+        pass

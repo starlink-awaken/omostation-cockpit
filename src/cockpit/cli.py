@@ -945,6 +945,11 @@ def main() -> int:
         "policy": lambda a: __import__("ecos.cli.constraint", fromlist=["main"]).main(
             ["policy"] + getattr(a, "policy_args", [])
         ),
+        # Phase C/D: chain / command-audit (延迟 import, 模块未落地时 parser 侧已跳过注册)
+        "chain": lambda a: __import__("cockpit.chain", fromlist=["cmd_chain"]).cmd_chain(a),
+        "command-audit": lambda a: __import__(
+            "cockpit.commands.command_audit", fromlist=["cmd_command_audit"]
+        ).cmd_command_audit(a),
     }
     # Phase B: 并入薄委派命令组 handlers (gac/adr/sweep/project_cli/root_bin)
     from .commands.delegation import DELEGATED_COMMANDS, inject_empty_help
