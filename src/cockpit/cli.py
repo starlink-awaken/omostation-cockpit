@@ -218,14 +218,12 @@ def _c_version(a):
     return 0
 
 
-def main() -> int:
-    try:
-        from kairon_observability.tracing import setup_tracing  # type: ignore[import-not-found]
+def create_parser() -> tuple[argparse.ArgumentParser, argparse._SubParsersAction, type]:
+    """构建完整 CLI parser (含全部子命令注册), 供 main() 与 command-audit 共用.
 
-        setup_tracing("cockpit-cli")
-    except ImportError:
-        pass  # Skip if observability package isn't installed
-
+    Returns:
+        (parser, sub, WorkspaceParserClass)
+    """
     class WorkspaceParser(argparse.ArgumentParser):
         def error(self, message):
             parser_console = Console()
@@ -300,6 +298,18 @@ def main() -> int:
     from ._subcommands import register_subcommands
 
     register_subcommands(sub, WorkspaceParser)
+    return parser, sub, WorkspaceParser
+
+
+def main() -> int:
+    try:
+        from kairon_observability.tracing import setup_tracing  # type: ignore[import-not-found]
+
+        setup_tracing("cockpit-cli")
+    except ImportError:
+        pass  # Skip if observability package isn't installed
+
+    parser, sub, _workspace_parser_cls = create_parser()
 
     # ── Pre-process: research 默认 create 模式 ──────────────────
     # argparse 子 parser 会贪婪匹配首参为子命令名, 导致 `cockpit research "topic"`
