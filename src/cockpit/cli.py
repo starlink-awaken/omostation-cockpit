@@ -318,6 +318,11 @@ def main() -> int:
             _argv = [_argv[0], "create"] + _argv[1:]
 
     args, unknown = parser.parse_known_args(_argv)
+    # Phase A1: argparse REMAINDER 不捕获前导 option (--help 落入 unknown),
+    # 对委派命令拼回 REMAINDER 实现真正透传。
+    from .commands.delegation import reclaim_unknown_for_delegation
+
+    unknown = reclaim_unknown_for_delegation(args, unknown)
 
     # ── Phase 2: --output tui 全自动分流路由 ──
     if getattr(args, "global_output", None) == "tui":
@@ -941,10 +946,23 @@ def main() -> int:
             ["policy"] + getattr(a, "policy_args", [])
         ),
     }
+    # Phase B: 并入薄委派命令组 handlers (gac/adr/sweep/project_cli/root_bin)
+    from .commands.delegation import DELEGATED_COMMANDS, inject_empty_help
+
+    handlers.update(DELEGATED_COMMANDS)
+
+    # Phase A1: 存量 REMAINDER 委派命令空参回退 → 注入 --help (裸命令显示下游帮助)
+    inject_empty_help(args)
 
     global_output = getattr(args, "global_output", "text")
     if global_output == "tui":
         return __import__("cockpit.tui", fromlist=["launch"]).launch(args)
+
+    # Phase A4: --output json 探测式分发 (JSON_CAPABLE 内命令注入 --json, 不静默)
+    if global_output == "json":
+        from .commands.output_mode import apply_json_mode
+
+        apply_json_mode(args)
 
     handler = handlers.get(args.command)
     if handler:
