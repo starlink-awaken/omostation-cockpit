@@ -458,6 +458,7 @@ def cmd_spine(args: argparse.Namespace) -> int:
         "ingress": cmd_spine_ingress,
         "review": cmd_spine_review,
         "send": cmd_spine_send,
+        "mail-draft": lambda a: __import__("cockpit.commands.inbox", fromlist=["cmd_inbox_draft"]).cmd_inbox_draft(a),
     }
     if subcmd in dispatch:
         return dispatch[subcmd](args)

@@ -720,6 +720,14 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     spine_send_p.add_argument("--to", required=True, help="外发目标地址")
     spine_send_p.add_argument("--sender", default="", help="可插拔 sender 脚本路径 (缺省仅入队)")
     spine_send_p.add_argument("--dry-run", action="store_true", help="仅入队不发送")
+    # ── T10-113: inbox mail draft (bos://inbox/mail/draft) ──
+    inbox_draft_p = spine_sub.add_parser("mail-draft", help="邮箱 3 档拟复 (经 BOS inbox/mail/draft 服务)")
+    inbox_draft_p.add_argument("--body", "-b", default="", help="来件正文 (内联)")
+    inbox_draft_p.add_argument("--body-file", default=None, help="来件正文文件路径")
+    inbox_draft_p.add_argument("--subject", default="", help="来件主题 (缺省从正文提取)")
+    inbox_draft_p.add_argument("--attachment", default="", help="表格附件文本 (CSV/HTML)")
+    inbox_draft_p.add_argument("--attachment-fmt", choices=["csv", "html"], default="csv", help="附件格式")
+    inbox_draft_p.add_argument("--json", action="store_true", help="机器可读输出")
 
     # ── dlp-guard ─────────────────────────────────────────────
     # BET-Y1Q4-T10-01: 外发前 DLP 扫描
