@@ -32,7 +32,7 @@ def test_voice_memo_to_spine_pool(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 
     args = argparse.Namespace(spine_command="voice-memo", audio=str(audio), engine=None, to_spine=True, json=False)
     assert cmd_voice_memo(args) == 0
-    pool = tmp_path / "runtime" / "cockpit" / "spine-draft-pool.jsonl"
+    pool = tmp_path / ".omo" / "state" / "spine-draft-pool.jsonl"
     entries = [json.loads(l) for l in pool.read_text(encoding="utf-8").splitlines() if l]
     assert len(entries) == 1 and entries[0]["source"] == "voice-memo"
     assert entries[0]["task_items"][0]["deadline"] == "下周前"

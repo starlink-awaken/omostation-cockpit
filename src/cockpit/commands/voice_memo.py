@@ -21,7 +21,7 @@ from rich.table import Table
 
 console = Console()
 
-SPINE_POOL_REL = "runtime/cockpit/spine-draft-pool.jsonl"  # runtime 平面（.omo/state 为 direct-io 禁写区）
+SPINE_POOL_REL = ".omo/state/spine-draft-pool.jsonl"
 
 
 def _ws() -> Path:
@@ -75,7 +75,7 @@ def cmd_voice_memo(args: argparse.Namespace) -> int:
         return 1
 
     if getattr(args, "to_spine", False):
-        pool = _ws() / SPINE_POOL_REL
+        pool = _ws() / ".omo" / "state" / "spine-draft-pool.jsonl"
         pool.parent.mkdir(parents=True, exist_ok=True)
         entry = {
             "ts": time.time(),
