@@ -1073,6 +1073,12 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     cal_min_p.add_argument("--route", action="store_true", help="督办事项经 signal_router 入库")
     cal_min_p.add_argument("--json", action="store_true", help="机器可读输出")
     cal_pre_p.add_argument("--json", action="store_true", help="机器可读输出")
+    # ── T2-01: voice memo ──
+    vm_p = sub.add_parser("voice-memo", help="语音随想 → 转录润色分拣 → Spine 备选池 (T2-01)")
+    vm_p.add_argument("--audio", "-a", required=True, help="音频文件路径")
+    vm_p.add_argument("--engine", default=None, help="强制指定 ASR 引擎 (whisper-cli/whisper-cpp/funasr)")
+    vm_p.add_argument("--to-spine", action="store_true", help="润色稿追加进 Spine 备选池")
+    vm_p.add_argument("--json", action="store_true", help="机器可读输出")
 
     # ── journey / panorama / project / monitor ────────────────
     journey_p = sub.add_parser("journey", help="🗺️ Journey State Graph 业务场景旅程与状态图校验器")
