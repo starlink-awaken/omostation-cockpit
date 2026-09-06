@@ -76,7 +76,11 @@ def cmd_voice_memo(args: argparse.Namespace) -> int:
 
     if getattr(args, "to_spine", False):
         pool = _ws() / ".omo" / "state" / "spine-draft-pool.jsonl"
-        pool.parent.mkdir(parents=True, exist_ok=True)
+        if not pool.parent.is_dir():
+            raise FileNotFoundError(
+                f".omo/state 不存在 ({pool.parent}) — state plane 未初始化,"
+                "禁止直接 mkdir (CR-L2-DIRECT-IO); 先运行 omo state init 或联系 owner"
+            )
         entry = {
             "ts": time.time(),
             "kind": payload.get("kind"),
