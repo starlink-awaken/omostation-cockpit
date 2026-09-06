@@ -1063,6 +1063,16 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     bdsk_p.add_argument("--demo", action="store_true", help="evaluate: 内置样例方案")
     bdsk_p.add_argument("--out", default=None, help="evaluate: MADR Markdown 输出路径")
     bdsk_p.add_argument("--json", action="store_true", help="evaluate: 机器可读结果")
+    # ── T7-02: calendar 感知与督办 ──
+    cal_p = sub.add_parser("calendar", help="多维日历感知与督办闭环 (T7-02)")
+    cal_sub = cal_p.add_subparsers(dest="calendar_command", parser_class=workspace_parser)
+    cal_pre_p = cal_sub.add_parser("prebrief", help="ICS 日历事件 → 会前速递简报")
+    cal_pre_p.add_argument("--ics", required=True, help="ICS 文件路径")
+    cal_min_p = cal_sub.add_parser("minutes", help="会议转写文本 → 交办事项督办清单")
+    cal_min_p.add_argument("--transcript", required=True, help="转写文本文件路径")
+    cal_min_p.add_argument("--route", action="store_true", help="督办事项经 signal_router 入库")
+    cal_min_p.add_argument("--json", action="store_true", help="机器可读输出")
+    cal_pre_p.add_argument("--json", action="store_true", help="机器可读输出")
 
     # ── journey / panorama / project / monitor ────────────────
     journey_p = sub.add_parser("journey", help="🗺️ Journey State Graph 业务场景旅程与状态图校验器")

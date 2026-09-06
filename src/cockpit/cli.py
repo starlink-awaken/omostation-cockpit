@@ -1254,6 +1254,7 @@ def main(argv: list[str] | None = None) -> int:
         "iterate": dispatch_iterate,
         "compass": dispatch_compass,
         "bdsk": dispatch_bdsk,
+        "calendar": lambda a: __import__("cockpit.commands.calendar", fromlist=["cmd_calendar"]).cmd_calendar(a),
         "journey": dispatch_journey,
         "panorama": dispatch_panorama,
         "project": dispatch_project,
