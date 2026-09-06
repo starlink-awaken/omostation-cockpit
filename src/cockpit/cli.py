@@ -1013,6 +1013,10 @@ def main(argv: list[str] | None = None) -> int:
 
     def dispatch_bdsk(a):
         subcmd = getattr(a, "bdsk_subcmd", "debate")
+        if subcmd == "evaluate":
+            from cockpit.commands.bdsk import cmd_bdsk
+
+            return cmd_bdsk(a)
         if subcmd == "simulate":
             import subprocess
 

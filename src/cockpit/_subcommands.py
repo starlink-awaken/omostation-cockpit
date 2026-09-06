@@ -733,7 +733,6 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     spine_lora_p = spine_sub.add_parser("lora", help="域 LoRA 适配层注册表 (T10-118 热插拔)")
     spine_lora_p.add_argument("--list-adapters", action="store_true", help="列出三域适配层")
     spine_lora_p.add_argument("--eval", action="store_true", help="附带 ROUGE-L 评估")
-
     # ── dlp-guard ─────────────────────────────────────────────
     # BET-Y1Q4-T10-01: 外发前 DLP 扫描
     dlp_p = sub.add_parser("dlp-guard", help="外发前防泄密扫描 (敏感识别+挂起+脱敏)")
@@ -1059,6 +1058,11 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     )
     bdsk_p.add_argument("bdsk_subcmd", nargs="?", default="debate", help="debate|simulate (default: debate)")
     bdsk_p.add_argument("topic", nargs="?", default="架构决策与技术选型", help="辩论主题或决策方案")
+    # T5-02: evaluate 子命令 flags (挂父 parser, debate/simulate 不受影响)
+    bdsk_p.add_argument("--spec", default=None, help="evaluate: 方案文件路径")
+    bdsk_p.add_argument("--demo", action="store_true", help="evaluate: 内置样例方案")
+    bdsk_p.add_argument("--out", default=None, help="evaluate: MADR Markdown 输出路径")
+    bdsk_p.add_argument("--json", action="store_true", help="evaluate: 机器可读结果")
 
     # ── journey / panorama / project / monitor ────────────────
     journey_p = sub.add_parser("journey", help="🗺️ Journey State Graph 业务场景旅程与状态图校验器")
