@@ -76,7 +76,11 @@ def cmd_voice_memo(args: argparse.Namespace) -> int:
 
     if getattr(args, "to_spine", False):
         pool = _ws() / ".omo" / "state" / "spine-draft-pool.jsonl"
-        pool.parent.mkdir(parents=True, exist_ok=True)
+        # CR-L2-DIRECT-IO 合规: 经 omo_io.ensure_parent_dir 授权助手创建父目录
+        # (替代裸 .mkdir()); tmp 落盘 + 原子 append, 单条不丢
+        import omo.omo_io as _omo_io
+
+        _omo_io.ensure_parent_dir(pool)
         entry = {
             "ts": time.time(),
             "kind": payload.get("kind"),
@@ -85,11 +89,12 @@ def cmd_voice_memo(args: argparse.Namespace) -> int:
             "source": "voice-memo",
         }
         tmp = pool.with_suffix(".tmp")
-        with tmp.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        tmp.write_text(json.dumps(entry, ensure_ascii=False) + "\n", encoding="utf-8")
+        with pool.open("a", encoding="utf-8") as f:
+            f.write(tmp.read_text(encoding="utf-8"))
             f.flush()
             os.fsync(f.fileno())
-        tmp.replace(pool)
+        tmp.unlink(missing_ok=True)
 
     if getattr(args, "json", False):
         print(json.dumps(payload, ensure_ascii=False, indent=2))
