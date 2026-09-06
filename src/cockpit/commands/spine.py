@@ -91,6 +91,23 @@ def cmd_spine_draft(args: argparse.Namespace) -> int:
         return 1
     model = getattr(args, "model", "qwen3.8-27b")
     adapter_name = getattr(args, "adapter", "adapter-xiamingxing-v1")
+    # T10-118: draft 域路由 — 自动激活对应业务域适配层（存在才挂载）
+    draft_domain = getattr(args, "domain", "") or ""
+    if draft_domain:
+        lrc, lout = _omlxc_python(
+            "import json\n"
+            "from omlxc.dataplane.lora_manager import LoraAdapterManager\n"
+            f"mgr = LoraAdapterManager()\n"
+            f"print(json.dumps(mgr.activate({draft_domain!r})))\n",
+            timeout=30.0,
+        )
+        if lrc == 0:
+            try:
+                act = json.loads(lout.splitlines()[-1])
+                if act.get("ok"):
+                    adapter_name = act["adapter"]
+            except Exception:
+                pass
 
     # Detect a trained personal-style adapter (BET-Y1Q3-T10-105).
     adapter_line = "[dim]无个人文风适配层 (先经 spine sign/distill 生成)[/dim]"
@@ -459,6 +476,7 @@ def cmd_spine(args: argparse.Namespace) -> int:
         "review": cmd_spine_review,
         "send": cmd_spine_send,
         "mail-draft": lambda a: __import__("cockpit.commands.inbox", fromlist=["cmd_inbox_draft"]).cmd_inbox_draft(a),
+        "lora": cmd_spine_lora,
     }
     if subcmd in dispatch:
         return dispatch[subcmd](args)
@@ -603,3 +621,51 @@ def cmd_spine_send(args: argparse.Namespace) -> int:
         return 0
     console.print(f"[red]外发失败（failed 状态已记录，台账未写入）: {msg_dir}[/red]")
     return 1
+
+
+def cmd_spine_lora(args: argparse.Namespace) -> int:
+    """Domain LoRA adapter registry: list / hot-swap status / evaluation (T10-118)."""
+    omlxc_root = _ws() / "projects" / "omlxc"
+    if not (omlxc_root / "pyproject.toml").is_file():
+        console.print("[red]omlxc checkout not found[/red]")
+        return 1
+    include_eval = bool(getattr(args, "eval", False))
+    snippet = (
+        "import json\n"
+        "from omlxc.dataplane.lora_manager import LoraAdapterManager\n"
+        "mgr = LoraAdapterManager()\n"
+        f"rows = mgr.list_adapters(include_eval={include_eval!r})\n"
+        "print(json.dumps(rows, ensure_ascii=False))\n"
+    )
+    rc, out = _omlxc_python(snippet, timeout=60.0)
+    if rc != 0:
+        console.print(f"[red]lora registry 读取失败: {out[:300]}[/red]")
+        return 1
+    try:
+        rows = json.loads(out.splitlines()[-1])
+    except Exception:
+        console.print(f"[red]输出解析失败: {out[:300]}[/red]")
+        return 1
+
+    if getattr(args, "json", False):
+        print(json.dumps(rows, ensure_ascii=False, indent=2))
+        return 0
+    t = Table(title="🧩 域 LoRA 适配层注册表 (热插拔)", header_style="bold cyan")
+    t.add_column("域", style="bold")
+    t.add_column("适配层")
+    t.add_column("状态")
+    if include_eval:
+        t.add_column("ROUGE-L 提升")
+    for r in rows:
+        status = (
+            "[green]active[/green]" if r["active"]
+            else ("[cyan]trained[/cyan]" if r["exists"] else "[dim]pending[/dim]")
+        )
+        row = [r["domain"], r["adapter"], status]
+        if include_eval:
+            imp = r.get("evaluated_improvement")
+            row.append(f"{imp:+.1%}" if imp is not None else "—")
+        t.add_row(*row)
+    console.print(t)
+    return 0
+

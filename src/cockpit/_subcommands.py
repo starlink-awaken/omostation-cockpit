@@ -693,6 +693,7 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     spine_draft_p = spine_sub.add_parser("draft", help="从本地主权大模型请求草稿")
     spine_draft_p.add_argument("--prompt", "-p", required=True, help="草稿生成提示词")
     spine_draft_p.add_argument("--model", "-m", default="qwen3.8-27b", help="模型 ID")
+    spine_draft_p.add_argument("--domain", default="", help="业务域路由 (gov/tech/email — 自动挂载对应 LoRA)")
     spine_sign_p = spine_sub.add_parser("sign", help="提交用户署名 Diff 并入队 Experience Replay")
     spine_sign_p.add_argument("--original", "-o", default="", help="原始草稿内容")
     spine_sign_p.add_argument("--signed", "-s", required=True, help="署名后的最终内容")
@@ -728,6 +729,10 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     inbox_draft_p.add_argument("--attachment", default="", help="表格附件文本 (CSV/HTML)")
     inbox_draft_p.add_argument("--attachment-fmt", choices=["csv", "html"], default="csv", help="附件格式")
     inbox_draft_p.add_argument("--json", action="store_true", help="机器可读输出")
+    # ── T10-118: domain LoRA registry ──
+    spine_lora_p = spine_sub.add_parser("lora", help="域 LoRA 适配层注册表 (T10-118 热插拔)")
+    spine_lora_p.add_argument("--list-adapters", action="store_true", help="列出三域适配层")
+    spine_lora_p.add_argument("--eval", action="store_true", help="附带 ROUGE-L 评估")
 
     # ── dlp-guard ─────────────────────────────────────────────
     # BET-Y1Q4-T10-01: 外发前 DLP 扫描
