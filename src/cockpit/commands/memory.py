@@ -27,7 +27,7 @@ def _invoke_mos(
 ) -> dict[str, Any]:
     """Call mos via stdin JSON (same contract as Agora StdioAdapter / api_memory)."""
     apply_memory_os_env()
-    kairon = Path(WORKSPACE_ROOT) / "projects" / "kairon"
+    kairon = Path(WORKSPACE_ROOT) / "projects" / "knowledge" / "kairon"
     proc_cmd = [
         "uv",
         "run",
