@@ -8,17 +8,17 @@
 
 | 通道 | 数量 |
 |------|------|
-| CLI 命令 (含子命令) | 207 |
-| MCP 工具 | 636 |
+| CLI 命令 (含子命令) | 214 |
+| MCP 工具 | 640 |
 | MCP 服务器 | 27 |
-| BOS 服务 | 299 |
-| BOS 域 | 22 |
+| BOS 服务 | 302 |
+| BOS 域 | 23 |
 
 ## MCP 服务器清单
 
 | 服务器 | 层 | 工具数 | 传输 | 文件 |
 |--------|-----|--------|------|------|
-| `agora` | I0 | 106 | stdio/sse | `projects/agora/src/agora/server/mcp.py` |
+| `agora` | I0 | 110 | stdio/sse | `projects/agora/src/agora/server/mcp.py` |
 | `gbrain` | L2 | 75 | stdio | `projects/knowledge/gbrain/src/core/operations/exports.ts` |
 | `runtime` | L1 | 50 | stdio | `projects/runtime/src/runtime/mcp_server.py` |
 | `l4-kernel` | L4 | 47 | stdio/http/sse | `projects/l4-kernel/src/l4_kernel/mcp_server.py` |
@@ -57,6 +57,7 @@
 | `capability` | 44 |
 | `cockpit` | 8 |
 | `compute` | 17 |
+| `documents` | 3 |
 | `ecos` | 10 |
 | `fabric` | 1 |
 | `forge` | 1 |
@@ -107,6 +108,7 @@
 | `cockpit bus` | Omni-Bus 三平面入口 |
 | `cockpit c2g` | 🎯 C2G 战略罗盘 (status/pipeline) |
 | `cockpit cache` | 检查三级分层缓存与 Radix 前缀树状态 (含基准压测) |
+| `cockpit calendar` | 多维日历感知与督办闭环 (T7-02) |
 | `cockpit capabilities` | 统一能力发现入口 — 搜索/推荐/全量列出 (CLI+BOS+Scene+Journey+Governance) |
 | `cockpit capability` | BOS capability 域 / toolbox 外部能力 |
 | `cockpit cards` | 显示 CARDS 卡片状态 |
@@ -193,12 +195,14 @@
 | `cockpit list` | 查看研究历史 |
 | `cockpit logs` | 查看日志 |
 | `cockpit lora` | 查看与测试端侧在线 LoRA 适配层热插拔 |
+| `cockpit mail-draft` | 邮箱 3 档拟复 (经 BOS inbox/mail/draft 服务) |
 | `cockpit mcp` | 启动 MCP server 或列出工具 |
 | `cockpit memory` | 🧠 Memory OS (status/recall/write/forget/consolidate/knowledge-ref) |
 | `cockpit memory-distill` |  |
 | `cockpit merge` | 合并多个研究结果为新研究 |
 | `cockpit mesh` | omlx 算力网格路由入口 |
 | `cockpit metrics` | 查看 bus metrics 快照 |
+| `cockpit minutes` | 会议转写文本 → 交办事项督办清单 |
 | `cockpit model-driven` |  |
 | `cockpit model-freshness` | 读取 Runtime 模型新鲜度回执 |
 | `cockpit mof` | MOF 元模型操作 (委派 mof CLI) |
@@ -217,6 +221,7 @@
 | `cockpit pipeline` | pipeline 概览 |
 | `cockpit policy` | ⚖️ 领域监管合规与 Policy-as-Code 红线审查 (E-POL-*) |
 | `cockpit pptx` | 渲染为 16:9 高管技术汇报 PPTX |
+| `cockpit prebrief` | ICS 日历事件 → 会前速递简报 |
 | `cockpit product-health` | 产品健康度检测 |
 | `cockpit profile` | 查看/编辑身份档案 (L4 入口) |
 | `cockpit project` | inspect|list (default: inspect) |
@@ -239,6 +244,7 @@
 | `cockpit resident` | Resident 常驻 Agent 体系 (status/roles/daemon/decision/execute/...) |
 | `cockpit resolve` | 统一 BOS URI 路由解析与目标元数据提取 |
 | `cockpit restore` | 恢复已隔离研究记录 |
+| `cockpit review` | 左右分栏 Diff 审阅工作台 (初稿 vs 编辑态) |
 | `cockpit route` | 为模型选择最优节点 |
 | `cockpit run` | 在隔离沙箱中挂载卡带并执行领域意图 |
 | `cockpit runtime` | runtime CLI 委派 (Matrix/Scheduler/KEI 沙箱) |
@@ -248,6 +254,7 @@
 | `cockpit scene` | 🗺️ 业务场景正交领域 (scenario/journey/gongwen/brief/family-hub) |
 | `cockpit score` | 评分债务项 |
 | `cockpit search` | 全文搜索 |
+| `cockpit send` | 一键确认署名并经外发网关真实外发 |
 | `cockpit serve` | stdio JSON-RPC serve mode |
 | `cockpit sign` | 提交用户署名 Diff 并入队 Experience Replay |
 | `cockpit skill` | 运行 L4 定时技能 |
@@ -279,6 +286,7 @@
 | `cockpit validate` | 验证 Workspace 契约 |
 | `cockpit vault` | 搜索 L4 Vault 知识库 |
 | `cockpit version` | 版本信息 |
+| `cockpit voice-memo` | 语音随想 → 转录润色分拣 → Spine 备选池 (T2-01) |
 | `cockpit vram` | 计算模型动态 KV Cache 显存预算 |
 | `cockpit warm` | 预热系统 Prompt 前缀缓存以实现 0ms TTFT |
 | `cockpit watch` | 监听 BOS Inbox 紧急待办与提醒快照 (Event-Driven Watcher) |
