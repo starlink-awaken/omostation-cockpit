@@ -32,7 +32,7 @@ InvokeFn = Callable[[str, dict[str, Any]], dict[str, Any]]
 def _default_invoke(cmd: str, kwargs: dict[str, Any]) -> dict[str, Any]:
     """Call mos via Agora-compatible stdin JSON protocol."""
     apply_memory_os_env()
-    kairon = Path(WORKSPACE_ROOT) / "projects" / "kairon"
+    kairon = Path(WORKSPACE_ROOT) / "projects" / "knowledge" / "kairon"
     proc_cmd = [
         "uv",
         "run",

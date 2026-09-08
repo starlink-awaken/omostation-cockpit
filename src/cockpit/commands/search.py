@@ -173,7 +173,7 @@ def _log_kos_skip(reason: str) -> None:
 
 def _invoke_kos_search(query: str, limit: int = 10, timeout: float = 60.0) -> list[dict]:
     ws_root = Path(os.environ.get("WORKSPACE_ROOT", str(Path.home() / "Workspace")))
-    kairon_dir = ws_root / "projects" / "kairon"
+    kairon_dir = ws_root / "projects" / "knowledge" / "kairon"
     if not kairon_dir.exists():
         _log_kos_skip(f"kairon dir not found: {kairon_dir}")
         return []

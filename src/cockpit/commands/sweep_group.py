@@ -15,7 +15,7 @@ SPECS: list[DelegatedSpec] = [
         category="🧹 代码质量 (Code Quality)",
         target=("python3", "<ws>/bin/sweep/ruff.py"),
         arg_attr="sweep_ruff_args",
-        example="cockpit sweep-ruff projects/kairon --max-rounds 1",
+        example="cockpit sweep-ruff projects/knowledge/kairon --max-rounds 1",
     ),
     DelegatedSpec(
         name="sweep-pyright",
@@ -39,6 +39,6 @@ SPECS: list[DelegatedSpec] = [
         category="🧹 代码质量 (Code Quality)",
         target=("python3", "<ws>/bin/sweep/nested-with.py"),
         arg_attr="sweep_nested_with_args",
-        example="cockpit sweep-nested-with projects/kairon --dry-run",
+        example="cockpit sweep-nested-with projects/knowledge/kairon --dry-run",
     ),
 ]

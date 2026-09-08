@@ -44,6 +44,6 @@ def cmd_kairon(args: argparse.Namespace) -> int:
         return 1
 
     rel_path, script = mapping
-    project_path = _workspace_root() / "projects" / "kairon" / rel_path
+    project_path = _workspace_root() / "projects" / "knowledge" / "kairon" / rel_path
     cmd = ["uv", "run", "--project", str(project_path.resolve()), script] + extra
     return subprocess.call(cmd)

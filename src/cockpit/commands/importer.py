@@ -32,7 +32,7 @@ def _workspace_root() -> Path:
 
 def _try_kronos_fetch(url: str, timeout: int = 30) -> tuple[str, str] | None:
     """Call kronos execute_fetch via uv. Return (text, method) or None on failure."""
-    project = _workspace_root() / "projects" / "kairon" / "packages" / "kronos"
+    project = _workspace_root() / "projects" / "knowledge" / "kairon" / "packages" / "kronos"
     if not project.is_dir():
         return None
 
