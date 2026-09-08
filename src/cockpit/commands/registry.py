@@ -49,11 +49,7 @@ def submodule_count() -> str:
             gm = parent / ".gitmodules"
             try:
                 return str(
-                    sum(
-                        1
-                        for ln in gm.read_text(encoding="utf-8").splitlines()
-                        if ln.strip().startswith("[submodule")
-                    )
+                    sum(1 for ln in gm.read_text(encoding="utf-8").splitlines() if ln.strip().startswith("[submodule"))
                 )
             except OSError:
                 return ""
@@ -156,7 +152,6 @@ LEGACY_COMMAND_MAPPING: dict[str, tuple[str, str]] = {
     "completion": ("user", "completion"),
     "docs": ("user", "docs"),
 }
-
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -660,7 +655,10 @@ COMMAND_CATALOG: dict[str, CommandMeta] = {
     "watchdog": CommandMeta(
         name="watchdog",
         category="🖥️ 基础设施 (Infra)",
-        summary="🐕 自治守护犬与自愈探针 (Agora Bus / Resident 监视器)",
+        summary="🐕 [DEPRECATED] 自治守护犬已退役 → Mesh-bound capability admission (Cockpit PR #78)",
+        maturity="deprecated",
+        risk="low",
+        example="cockpit watchdog --help\n  # → 提示: 守护犬已退役, 请用 mesh capability admission (cockpit mesh fabric)",
     ),
     "ask": CommandMeta(
         name="ask",
@@ -697,12 +695,18 @@ COMMAND_CATALOG: dict[str, CommandMeta] = {
     "audit-ledger": CommandMeta(
         name="audit-ledger",
         category="🏛️ 治理 (Governance)",
-        summary="治理审计账本查询 (隐藏运维面)",
+        summary="📒 [DEPRECATED] 治理审计账本 ADR-0201 → 查询 .omo/_knowledge/decisions/ + cockpit command-audit",
+        maturity="deprecated",
+        risk="low",
+        example="cockpit audit-ledger\n  # → 提示: 决策查询改用: ls .omo/_knowledge/decisions/ | grep ADR-0201",
     ),
     "fabric-mesh": CommandMeta(
         name="fabric-mesh",
         category="🖥️ 基础设施 (Infra)",
-        summary="算力网格 fabric 检视 (隐藏运维面)",
+        summary="🕸️ [DEPRECATED] 算力网格检视 ADR-0202 → omlxc-compute-fabric skill",
+        maturity="deprecated",
+        risk="low",
+        example="cockpit fabric-mesh\n  # → 提示: 改用 skill: omlxc-compute-fabric (本地大模型推理 + 算力调度)",
     ),
     "dlp-guard": CommandMeta(
         name="dlp-guard",
@@ -712,6 +716,9 @@ COMMAND_CATALOG: dict[str, CommandMeta] = {
     "memory-distill": CommandMeta(
         name="memory-distill",
         category="📚 研究 (Research)",
-        summary="记忆蒸馏 (隐藏运维面)",
+        summary="🧠 [DEPRECATED] 记忆蒸馏 ADR-0200 → KOS pipeline (gbrain + eidos)",
+        maturity="deprecated",
+        risk="low",
+        example="cockpit memory-distill\n  # → 提示: 改用: cockpit kairon --distill + cockpit gbrain --digest",
     ),
 }
