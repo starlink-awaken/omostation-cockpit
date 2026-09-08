@@ -17,3 +17,10 @@ if [ -d tests ]; then
 fi
 
 echo "✅ Pre-push check passed"
+
+# ── CLI-REFERENCE stale reminder ──────────────────────────────
+# cockpit 新增/修改命令时, 主仓 docs/CLI-REFERENCE.md 需重生成 (主仓跑 gen-help-docs)
+CHANGED_CMD=$(git diff --name-only origin/main..HEAD -- src/cockpit/commands/ src/cockpit/cli.py 2>/dev/null | head -1)
+if [ -n "$CHANGED_CMD" ]; then
+    echo "💡 cockpit commands changed — 主仓需重跑: uv run --with pyyaml python bin/ssot/gen-help-docs.py --write"
+fi
