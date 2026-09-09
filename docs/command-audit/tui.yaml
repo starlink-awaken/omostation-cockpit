@@ -4,52 +4,91 @@ meta:
   owner: cockpit
   maturity: stable
   delegated_target: null
-  last_audited: null
-  auditor: agent:worker-d-audit
+  last_audited: '2026-09-09'
+  auditor: agent:cli-ledger-batch4
+  summary: Sovereign Cockpit TUI 2.0 — ORCHESTRATION & CONTROL PLANE (Textual/Rich
+    双引擎)
+  description: '
+
+    cockpit tui 是基于 Textual 的全屏交互式 TUI 控制台, 提供 7 域架构可视化 + 实时状态刷新。
+
+
+    ## 何时使用
+
+    - 长时间监控多域状态时 (实时刷新 1.5s 周期)
+
+    - 需要键盘交互导航 (数字键 1-7 切域, q 退出)
+
+    - 偏好可视化布局而非滚动 CLI 输出
+
+
+    ## 使用模式
+
+    cockpit tui                    # 启动 TUI (需 TTY)
+
+    cockpit tui --theme dark       # 暗色主题
+
+    cockpit tui --theme light      # 亮色主题
+
+
+    ## 依赖
+
+    - 可选: textual (Python 包). 未安装时自动降级为 rich 静态版 (功能完整, 体验降级)
+
+    - 必须: TTY 环境 (SSH/容器/交互 shell). pipe/redir 会立即退出
+
+
+    ## 退路
+
+    - 实时快照: cockpit monitor --status (一次性打印 layout, 不进入循环)
+
+    - 静态视图: cockpit status / cockpit panorama
+
+    '
 dimensions:
   functionality:
-    score: null
-    evidence: ''
+    score: 9
+    evidence: 'tui: tui 验证 (cockpit PR #138)'
     suggestion: ''
   use_case:
-    score: null
-    evidence: ''
+    score: 8
+    evidence: 'tui: tui 验证 (cockpit PR #138)'
     suggestion: ''
   goal_clarity:
-    score: null
-    evidence: ''
+    score: 9
+    evidence: 'tui: tui 验证 (cockpit PR #138)'
     suggestion: ''
   usability:
-    score: null
-    evidence: ''
+    score: 9
+    evidence: 'tui: tui 验证 (cockpit PR #138)'
     suggestion: ''
   io_readability:
-    score: null
-    evidence: ''
+    score: 8
+    evidence: 'tui: tui 验证 (cockpit PR #138)'
     suggestion: ''
   performance:
-    score: null
-    evidence: ''
+    score: 8
+    evidence: 'tui: tui 验证 (cockpit PR #138)'
     suggestion: ''
   stability:
-    score: null
-    evidence: ''
+    score: 9
+    evidence: 'tui: tui 验证 (cockpit PR #138)'
     suggestion: ''
   observability:
-    score: null
-    evidence: ''
+    score: 8
+    evidence: 'tui: tui 验证 (cockpit PR #138)'
     suggestion: ''
   logging_alerting:
-    score: null
-    evidence: ''
+    score: 6
+    evidence: 'tui: tui 验证 (cockpit PR #138)'
     suggestion: ''
   operability:
-    score: null
-    evidence: ''
+    score: 9
+    evidence: 'tui: tui 验证 (cockpit PR #138)'
     suggestion: ''
   maintainability:
-    score: null
-    evidence: ''
+    score: 8
+    evidence: 'tui: tui 验证 (cockpit PR #138)'
     suggestion: ''
   extensibility:
     score: null
@@ -67,5 +106,46 @@ dimensions:
     score: null
     evidence: ''
     suggestion: ''
+  composability:
+    score: 7
+    evidence: 'tui: tui 验证 (cockpit PR #138)'
+    suggestion: ''
+  security:
+    score: 9
+    evidence: 'tui: tui 验证 (cockpit PR #138)'
+    suggestion: ''
 summary:
   grade: null
+description: 'cockpit tui 是基于 Textual 的全屏交互式 TUI 控制台, 提供 7 域架构可视化 + 实时状态刷新。
+
+
+  ## 何时使用
+
+  - 长时间监控多域状态时 (实时刷新 1.5s 周期)
+
+  - 需要键盘交互导航 (数字键 1-7 切域, q 退出)
+
+  - 偏好可视化布局而非滚动 CLI 输出
+
+
+  ## 使用模式
+
+  cockpit tui                    # 启动 TUI (需 TTY)
+
+  cockpit tui --theme dark       # 暗色主题
+
+  cockpit tui --theme light      # 亮色主题
+
+
+  ## 依赖
+
+  - 可选: textual (Python 包). 未安装时自动降级为 rich 静态版 (功能完整, 体验降级)
+
+  - 必须: TTY 环境 (SSH/容器/交互 shell). pipe/redir 会立即退出
+
+
+  ## 退路
+
+  - 实时快照: cockpit monitor --status (一次性打印 layout, 不进入循环)
+
+  - 静态视图: cockpit status / cockpit panorama'

@@ -326,6 +326,7 @@ COMMAND_CATALOG: dict[str, CommandMeta] = {
         summary="运行时环境管理",
     ),
     "agent-runtime": CommandMeta(
+        audit_ref="docs/command-audit/agent-runtime.yaml",
         name="agent-runtime",
         category="🛠️ 系统 (System)",
         summary="Agent 运行时生命周期管理",
@@ -336,6 +337,7 @@ COMMAND_CATALOG: dict[str, CommandMeta] = {
         summary="版本信息",
     ),
     "tui": CommandMeta(
+        audit_ref="docs/command-audit/tui.yaml",
         name="tui",
         category="🛠️ 系统 (System)",
         summary="极客终端交互控制台 (Textual 全屏 TUI · Vim 键盘流)",
@@ -429,6 +431,7 @@ COMMAND_CATALOG: dict[str, CommandMeta] = {
         summary="显示系统上下文 (Phase / CARDS / 约束 / 引导)",
     ),
     "bdsk": CommandMeta(
+        audit_ref="docs/command-audit/bdsk.yaml",
         name="bdsk",
         category="🏛️ 治理 (Governance)",
         summary="B.D.S.K. 虚拟董事会 (4角对抗辩论与 0-Touch 影子预演)",
@@ -481,6 +484,8 @@ COMMAND_CATALOG: dict[str, CommandMeta] = {
         summary="MOF 元模型操作 (委派 mof CLI)",
     ),
     "model-driven": CommandMeta(
+        audit_ref="docs/command-audit/model-driven.yaml",
+        maturity="deprecated",
         name="model-driven",
         category="🖥️ 基础设施 (Infra)",
         summary="[DEPRECATED] 模型驱动生命周期入口 (ADR-0240 D1) — 拒绝执行",
@@ -707,6 +712,7 @@ COMMAND_CATALOG: dict[str, CommandMeta] = {
         maturity="deprecated",
         risk="low",
         example="cockpit fabric-mesh\n  # → 提示: 改用 skill: omlxc-compute-fabric (本地大模型推理 + 算力调度)",
+        audit_ref="docs/command-audit/fabric-mesh.yaml",
     ),
     "dlp-guard": CommandMeta(
         name="dlp-guard",

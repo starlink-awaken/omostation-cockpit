@@ -2,54 +2,86 @@ meta:
   cmd_path: model-driven
   category: 🖥️ 基础设施 (Infra)
   owner: cockpit
-  maturity: stable
+  maturity: deprecated
   delegated_target: null
-  last_audited: null
-  auditor: agent:worker-d-audit
+  last_audited: '2026-09-09'
+  auditor: agent:cli-ledger-batch4
+  summary: Model-Driven 独立 CLI 已弃用 (ADR-0240 D1), 拒绝执行
+  description: '
+
+    cockpit model-driven 是 Model-Driven 独立 CLI 的 cockpit 入口。**已弃用** (ADR-0240 D1)。
+
+
+    ## 弃用原因
+
+    - Model-Driven 独立 CLI 与 cockpit 重复
+
+    - cockpit 仓已提供等价命令 (cockpit mof + cockpit model-freshness + cockpit capabilities)
+
+    - 维护两份 CLI 浪费工程资源
+
+
+    ## 迁移路径
+
+    - 原 model-driven CLI → cockpit mof / cockpit model-freshness
+
+    - 需 MODEL_DRIVEN_CLI_LEGACY=1 环境变量才执行 (显式 opt-in)
+
+
+    ## 何时会成功执行
+
+    - 极少见: 遗留脚本迁移过渡期, 显式 opt-in
+
+
+    ## 推荐
+
+    所有新代码用 cockpit 仓命令。Model-Driven 仓代码保留但只读参考。
+
+    '
 dimensions:
   functionality:
-    score: null
-    evidence: ''
-    suggestion: ''
+    score: 7
+    evidence: model-driven 已 deprecated (ADR-0240 D1 / ADR-0202), 拒绝执行返回 0 + 提示迁移
+    suggestion: 保持 deprecated, 不再投入维护
   use_case:
-    score: null
-    evidence: ''
-    suggestion: ''
+    score: 8
+    evidence: 已通过 command-audit 文档化弃用原因和迁移路径
+    suggestion: 迁移到 cockpit / omlxc skill
   goal_clarity:
-    score: null
-    evidence: ''
+    score: 9
+    evidence: '弃用目标明确: 单一 cockpit 入口 / skill 编排'
     suggestion: ''
   usability:
-    score: null
-    evidence: ''
+    score: 8
+    evidence: 显示 ADR +  + 替代品 + migration path
     suggestion: ''
   io_readability:
-    score: null
-    evidence: ''
+    score: 9
+    evidence: stdout 输出包含 ADR, migration, exit code
     suggestion: ''
   performance:
-    score: null
-    evidence: ''
+    score: 9
+    evidence: 立即拒绝执行 (fast-fail)
     suggestion: ''
   stability:
-    score: null
-    evidence: ''
+    score: 9
+    evidence: 弃用后不再变更
     suggestion: ''
   observability:
-    score: null
-    evidence: ''
+    score: 6
+    evidence: 无调用追踪 (deprecated 命令)
     suggestion: ''
   logging_alerting:
-    score: null
-    evidence: ''
+    score: 5
+    evidence: 无主动告警
     suggestion: ''
   operability:
-    score: null
-    evidence: ''
+    score: 8
+    evidence: 拒绝执行不污染状态
     suggestion: ''
   maintainability:
-    score: null
-    evidence: ''
+    score: 9
+    evidence: 代码路径稳定 (仅拒绝执行)
     suggestion: ''
   extensibility:
     score: null
@@ -67,5 +99,41 @@ dimensions:
     score: null
     evidence: ''
     suggestion: ''
+  composability:
+    score: 8
+    evidence: 无依赖, 可独立维护
+    suggestion: ''
+  security:
+    score: 9
+    evidence: 拒绝执行本身就是安全姿态
+    suggestion: ''
 summary:
   grade: null
+description: 'cockpit model-driven 是 Model-Driven 独立 CLI 的 cockpit 入口。**已弃用** (ADR-0240
+  D1)。
+
+
+  ## 弃用原因
+
+  - Model-Driven 独立 CLI 与 cockpit 重复
+
+  - cockpit 仓已提供等价命令 (cockpit mof + cockpit model-freshness + cockpit capabilities)
+
+  - 维护两份 CLI 浪费工程资源
+
+
+  ## 迁移路径
+
+  - 原 model-driven CLI → cockpit mof / cockpit model-freshness
+
+  - 需 MODEL_DRIVEN_CLI_LEGACY=1 环境变量才执行 (显式 opt-in)
+
+
+  ## 何时会成功执行
+
+  - 极少见: 遗留脚本迁移过渡期, 显式 opt-in
+
+
+  ## 推荐
+
+  所有新代码用 cockpit 仓命令。Model-Driven 仓代码保留但只读参考。'
