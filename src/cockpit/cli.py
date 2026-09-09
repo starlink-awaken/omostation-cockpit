@@ -501,11 +501,15 @@ def cmd_mof(a):
 
 
 def cmd_gac(a):
-    """GaC 治理健康检查 (ADR-0106, 调 bin/gac-healthcheck.py). cockpit GaC 集成入口 (第4项)."""
-    import subprocess
-    from pathlib import Path
+    """GaC 治理健康检查 (ADR-0106, 调 bin/gac-healthcheck.py). cockpit GaC 集成入口 (第4项).
 
-    workspace = Path(__file__).resolve().parents[4]  # cli.py→src/cockpit→src→cockpit(proj)→projects→workspace
+    跨 worktree/主仓兼容: 用 env_resolver 找 workspace root (含 projects/ + AGENTS.md),
+    不再用 parents[4] (worktree 子模块层级下不准)。
+    """
+    import subprocess
+    from cockpit.env_resolver import get_workspace_root
+
+    workspace = get_workspace_root()
     r = subprocess.run(
         ["python3", str(workspace / "bin" / "gac" / "gac-healthcheck.py")],
         capture_output=True,
