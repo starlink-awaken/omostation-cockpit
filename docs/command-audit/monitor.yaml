@@ -16,52 +16,52 @@ meta:
     \ 健康检查: cockpit gac\n"
 dimensions:
   functionality:
-    score: 9
+    score: 5
     evidence: monitor 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   use_case:
-    score: 9
+    score: 5
     evidence: monitor 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   goal_clarity:
-    score: 9
+    score: 5
     evidence: monitor 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   usability:
-    score: 9
+    score: 5
     evidence: monitor 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   io_readability:
-    score: 9
+    score: 5
     evidence: monitor 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   performance:
-    score: 9
+    score: 5
     evidence: monitor 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   stability:
-    score: 9
+    score: 5
     evidence: monitor 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   observability:
-    score: 8
+    score: 5
     evidence: monitor 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   logging_alerting:
-    score: 7
+    score: 5
     evidence: monitor 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   operability:
-    score: 9
+    score: 5
     evidence: monitor 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   maintainability:
-    score: 8
+    score: 5
     evidence: monitor 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   extensibility:
-    score: null
-    evidence: ''
+    score: 5
+    evidence: monitor 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   evolvability:
     score: null
@@ -75,20 +75,5 @@ dimensions:
     score: null
     evidence: ''
     suggestion: ''
-  composability:
-    score: 8
-    evidence: monitor 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
-    suggestion: ''
-  security:
-    score: 9
-    evidence: monitor 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
-    suggestion: ''
 summary:
   grade: null
-description: "cockpit monitor 监控 C2G 双擎编排 (Sandbox/Planned/Active/Done 7 域状态)。\n\n\
-  ## 两种使用模式\n\n### 1. 实时 TUI 大盘 (默认, 1.5s 刷新)\ncockpit monitor                  #\
-  \ 进入 TUI 交互循环 (Ctrl+C 退出)\n\n### 2. 一次性快照 (批次 3 已修复, 不进入循环)\ncockpit monitor --status\
-  \         # 打印 layout 一次后退出\ncockpit monitor --no-tui         # 同 --status\n  →\
-  \ 输出: eCOS v6 C2G 双擎编排监控大盘 + 各域状态\n\n## 何时使用\n- 长时间监控多域状态 → 模式 1 (需 TTY)\n- 脚本/管道抓取状态快照\
-  \ → 模式 2\n- CI/CD 集成检查 → 模式 2\n\n## 退路\n- 不需监控: cockpit status\n- 健康检查: cockpit\
-  \ gac"
