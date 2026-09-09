@@ -213,15 +213,28 @@ def cmd_governance(args: argparse.Namespace) -> int:
         cmd = ["python3", str(workspace_root / "bin" / "ssot" / "chaos-governance-drill.py"), *strict]
         return subprocess.run(cmd, cwd=str(workspace_root)).returncode
     script_name = f"arcnode-{subcmd}"
+    # 优先查找顺序: PATH > ~/.hermes/scripts/ > 主仓 bin/arcnode/
+    # (BET-Y1Q4-T12 完成后, 主仓 bin/arcnode/ 是首选)
     script = shutil.which(script_name)
     if not script:
         script = str(Path.home() / ".hermes" / "scripts" / script_name)
-    if not Path(script).exists():
-        # arcnode-* 是外部工具 (来自 hermes scripts). 没装不算命令 bug,
-        # 但 '未知' 文案会误导. 加 HINT 提示用户安装或用内置命令.
+    if not script or not Path(script).exists():
+        # 主仓 bin/arcnode/ 候选 (BET-Y1Q4-T12 集成后会启用)
+        try:
+            from cockpit.env_resolver import get_workspace_root
+            ws_bin = get_workspace_root() / "bin" / "arcnode" / script_name
+            if ws_bin.exists():
+                script = str(ws_bin)
+        except Exception:
+            pass
+    if not script or not Path(script).exists():
+        # arcnode-* 是外部工具. 没装不算命令 bug, 但 '未知' 文案会误导.
         c = _get_console()
         c.print(f"[red]❌ 未知治理命令: {subcmd}[/]")
-        c.print(f"[dim]   提示: {subcmd} 依赖 arcnode-* 脚本. 内置替代: cockpit governance report / verify[/]")
+        c.print(f"[dim]   提示: {subcmd} 依赖 arcnode-{subcmd} 脚本[/]")
+        c.print(f"[dim]   查找路径 (按序): PATH → ~/.hermes/scripts/ → 主仓 bin/arcnode/[/]")
+        c.print(f"[dim]   内置替代: cockpit governance report / verify[/]")
+        c.print(f"[dim]   跟踪: BET-Y1Q4-T12 (arcnode 集成到主仓) 完成后无需外部依赖[/]")
         return 1
     extra = args.extra_args or []
     result = subprocess.run([script] + extra)
