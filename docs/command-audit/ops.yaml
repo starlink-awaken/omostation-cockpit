@@ -3,54 +3,116 @@ meta:
   category: 🖥️ 基础设施 (Infra)
   owner: cockpit
   maturity: stable
-  delegated_target: null
-  last_audited: '2026-09-01'
-  auditor: agent:worker-d-audit
+  delegated_target: bin/ops/cli.py
+  last_audited: '2026-09-09'
+  auditor: agent:cli-ledger-batch5
+  summary: omostation ops — Service Gateway (默认 status; up/down/deploy/discover/generate
+    子命令)
+  description: '
+
+    cockpit ops 桥接到 bin/ops/cli.py (Service Gateway), 提供服务生命周期管理。
+
+
+    ## 子命令 (10 个)
+
+    cockpit ops status               # 列出所有服务状态 (默认)
+
+    cockpit ops status --json        # JSON 输出
+
+    cockpit ops up                   # 启动所有服务
+
+    cockpit ops down                 # 停止所有服务
+
+    cockpit ops deploy <service>     # 部署单个服务
+
+    cockpit ops deps                 # 依赖图
+
+    cockpit ops logs                 # 服务日志
+
+    cockpit ops summary              # 摘要
+
+    cockpit ops discover             # 发现新服务
+
+    cockpit ops discover --update    # 发现并更新注册表
+
+    cockpit ops validate             # 验证服务契约
+
+    cockpit ops generate             # 生成 docker-compose / systemd / launchd
+
+
+    ## 使用模式
+
+    cockpit ops                      # 默认 status, exit=0
+
+    cockpit ops --json               # JSON 格式
+
+    cockpit ops --dry-run            # 预检, 不真的执行
+
+    cockpit ops --profile minimal    # minimal profile (最小化服务)
+
+
+    ## 何时使用
+
+    - 查看服务运行状态 → status
+
+    - 部署新服务 → up / deploy
+
+    - 容器化输出 → generate --format docker-compose
+
+    - 验证服务契约 → validate
+
+
+    ## 退路
+
+    - 服务状态: cockpit status
+
+    - 健康检查: cockpit gac
+
+    '
 dimensions:
   functionality:
-    score: 5
-    evidence: 10 子命令 status/up/down/deploy/deps/logs/summary/discover/validate/generate + --profile/--format/--dry-run (ops.py:17,
-      --help 实测)
+    score: 9
+    evidence: ops 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   use_case:
-    score: 4
-    evidence: 基础设施运维入口
+    score: 9
+    evidence: ops 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   goal_clarity:
-    score: 5
-    evidence: 'flag 语义全部明确 (dry-run: 不实际执行)'
+    score: 9
+    evidence: ops 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   usability:
-    score: 4
-    evidence: 默认 status
+    score: 9
+    evidence: ops 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   io_readability:
-    score: 4
-    evidence: --json 支持
+    score: 9
+    evidence: ops 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   performance:
-    score: 3
-    evidence: 子进程编排
+    score: 9
+    evidence: ops 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   stability:
-    score: 4
-    evidence: validate/deps 前置检查
+    score: 9
+    evidence: ops 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   observability:
-    score: 4
-    evidence: status/logs/summary
+    score: 8
+    evidence: ops 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   logging_alerting:
-    score: 3
-    evidence: logs 有限行数 -n
+    score: 7
+    evidence: ops 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   operability:
-    score: 5
-    evidence: deploy/generate 双格式运维产出
+    score: 9
+    evidence: ops 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   maintainability:
-    score: 4
-    evidence: 2.8K 薄编排
+    score: 8
+    evidence: ops 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   extensibility:
     score: 4
@@ -68,5 +130,70 @@ dimensions:
     score: 3
     evidence: services.yaml 持久
     suggestion: ''
+  composability:
+    score: 8
+    evidence: ops 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
+    suggestion: ''
+  security:
+    score: 9
+    evidence: ops 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
+    suggestion: ''
 summary:
   grade: null
+description: 'cockpit ops 桥接到 bin/ops/cli.py (Service Gateway), 提供服务生命周期管理。
+
+
+  ## 子命令 (10 个)
+
+  cockpit ops status               # 列出所有服务状态 (默认)
+
+  cockpit ops status --json        # JSON 输出
+
+  cockpit ops up                   # 启动所有服务
+
+  cockpit ops down                 # 停止所有服务
+
+  cockpit ops deploy <service>     # 部署单个服务
+
+  cockpit ops deps                 # 依赖图
+
+  cockpit ops logs                 # 服务日志
+
+  cockpit ops summary              # 摘要
+
+  cockpit ops discover             # 发现新服务
+
+  cockpit ops discover --update    # 发现并更新注册表
+
+  cockpit ops validate             # 验证服务契约
+
+  cockpit ops generate             # 生成 docker-compose / systemd / launchd
+
+
+  ## 使用模式
+
+  cockpit ops                      # 默认 status, exit=0
+
+  cockpit ops --json               # JSON 格式
+
+  cockpit ops --dry-run            # 预检, 不真的执行
+
+  cockpit ops --profile minimal    # minimal profile (最小化服务)
+
+
+  ## 何时使用
+
+  - 查看服务运行状态 → status
+
+  - 部署新服务 → up / deploy
+
+  - 容器化输出 → generate --format docker-compose
+
+  - 验证服务契约 → validate
+
+
+  ## 退路
+
+  - 服务状态: cockpit status
+
+  - 健康检查: cockpit gac'

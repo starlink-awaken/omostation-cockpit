@@ -306,6 +306,7 @@ COMMAND_CATALOG: dict[str, CommandMeta] = {
         summary="产品健康度检测",
     ),
     "monitor": CommandMeta(
+        audit_ref="docs/command-audit/monitor.yaml",
         name="monitor",
         category="🛠️ 系统 (System)",
         summary="实时监控 (进程 / 资源 / 指标)",
@@ -316,6 +317,7 @@ COMMAND_CATALOG: dict[str, CommandMeta] = {
         summary="🔍 6 维度全方位审计",
     ),
     "gac": CommandMeta(
+        audit_ref="docs/command-audit/gac.yaml",
         name="gac",
         category="🛠️ 系统 (System)",
         summary="GaC 治理健康检查 (ADR-0106, 7 机制 + 115 规则 + drift)",
@@ -459,6 +461,7 @@ COMMAND_CATALOG: dict[str, CommandMeta] = {
     ),
     # ── 基础设施 (Infrastructure) ────────────────────────────────────────────
     "dashboard": CommandMeta(
+        audit_ref="docs/command-audit/dashboard.yaml",
         name="dashboard",
         category="🖥️ 基础设施 (Infra)",
         summary="打开 Web Dashboard",
@@ -544,6 +547,7 @@ COMMAND_CATALOG: dict[str, CommandMeta] = {
         summary="查看产品地图与快速入门",
     ),
     "demo": CommandMeta(
+        audit_ref="docs/command-audit/demo.yaml",
         name="demo",
         category="👤 用户 (User)",
         summary="快速演示",
@@ -653,6 +657,7 @@ COMMAND_CATALOG: dict[str, CommandMeta] = {
         summary="🧑‍💻 主权混合算力与 KV 缓存快照 (ADR-0197)",
     ),
     "ops": CommandMeta(
+        audit_ref="docs/command-audit/ops.yaml",
         name="ops",
         category="🖥️ 基础设施 (Infra)",
         summary="🔧 Service Gateway — 统一运维控制面",
