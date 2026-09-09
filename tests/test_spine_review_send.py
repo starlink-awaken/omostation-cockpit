@@ -46,6 +46,8 @@ def test_send_queue_state_machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     import cockpit.commands.spine as spine
 
     monkeypatch.setattr(spine, "_ws", lambda: tmp_path)
+    # T4-06 契约: 内建通道凭据缺失 fail closed — 成功路径经 monkeypatch 内建通道模拟
+    monkeypatch.setattr(spine, "_send_builtin", lambda channel, to, body, msg_id: (True, "test://mock"))
     body_file = tmp_path / "body.txt"
     body_file.write_text("正式外发内容", encoding="utf-8")
 
