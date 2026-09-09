@@ -6,11 +6,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[4]
+ROOT = _get_workspace_root()
 sys.path.insert(0, str(ROOT / "projects" / "omo" / "src"))
 
 from omo.digital_brain.memory_bridge import DigitalBrainMemoryBridge
 from omo.digital_brain.workplace_agent import WorkplaceAgent
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 
 def cmd_workplace(args: Any) -> int:
