@@ -217,7 +217,11 @@ def cmd_governance(args: argparse.Namespace) -> int:
     if not script:
         script = str(Path.home() / ".hermes" / "scripts" / script_name)
     if not Path(script).exists():
-        _get_console().print(f"[red]❌ 未知治理命令: {subcmd}[/]")
+        # arcnode-* 是外部工具 (来自 hermes scripts). 没装不算命令 bug,
+        # 但 '未知' 文案会误导. 加 HINT 提示用户安装或用内置命令.
+        c = _get_console()
+        c.print(f"[red]❌ 未知治理命令: {subcmd}[/]")
+        c.print(f"[dim]   提示: {subcmd} 依赖 arcnode-* 脚本. 内置替代: cockpit governance report / verify[/]")
         return 1
     extra = args.extra_args or []
     result = subprocess.run([script] + extra)
