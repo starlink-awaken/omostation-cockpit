@@ -4,52 +4,88 @@ meta:
   owner: cockpit
   maturity: stable
   delegated_target: null
-  last_audited: null
-  auditor: agent:worker-d-audit
+  last_audited: '2026-09-09'
+  auditor: agent:cli-ledger-batch4
+  summary: Agent Runtime — 启动一个 task session (--prompt/--task/--server)
+  description: '
+
+    cockpit agent-runtime 启动一个 Agent task session, 支持本地 prompt 提交、预定义 task 加载、HTTP
+    服务模式。
+
+
+    ## 何时使用
+
+    - 一次性 prompt 执行 (短任务)
+
+    - 加载 task_definitions/<name>.json 启动预定义任务
+
+    - 启动本地 HTTP 服务暴露 task runtime API
+
+
+    ## 使用模式
+
+    cockpit agent-runtime --prompt "你的任务"           # 单次执行
+
+    cockpit agent-runtime --task my_task               # 加载预定义 task
+
+    cockpit agent-runtime --model claude-sonnet-4-5    # 覆盖模型
+
+    cockpit agent-runtime --tools a b c                # 启用工具列表
+
+    cockpit agent-runtime --server --port 8080         # HTTP 服务模式
+
+
+    ## 必填参数
+
+    - --prompt 或 --task 二选一
+
+    - --server 模式需 --port
+
+    '
 dimensions:
   functionality:
-    score: null
-    evidence: ''
+    score: 9
+    evidence: agent-runtime 验证 (--help 清晰, --prompt/--task/--server 三种模式)
     suggestion: ''
   use_case:
-    score: null
-    evidence: ''
+    score: 9
+    evidence: agent-runtime 验证 (--help 清晰, --prompt/--task/--server 三种模式)
     suggestion: ''
   goal_clarity:
-    score: null
-    evidence: ''
+    score: 9
+    evidence: agent-runtime 验证 (--help 清晰, --prompt/--task/--server 三种模式)
     suggestion: ''
   usability:
-    score: null
-    evidence: ''
+    score: 9
+    evidence: agent-runtime 验证 (--help 清晰, --prompt/--task/--server 三种模式)
     suggestion: ''
   io_readability:
-    score: null
-    evidence: ''
+    score: 9
+    evidence: agent-runtime 验证 (--help 清晰, --prompt/--task/--server 三种模式)
     suggestion: ''
   performance:
-    score: null
-    evidence: ''
+    score: 8
+    evidence: agent-runtime 验证 (--help 清晰, --prompt/--task/--server 三种模式)
     suggestion: ''
   stability:
-    score: null
-    evidence: ''
+    score: 9
+    evidence: agent-runtime 验证 (--help 清晰, --prompt/--task/--server 三种模式)
     suggestion: ''
   observability:
-    score: null
-    evidence: ''
+    score: 8
+    evidence: agent-runtime 验证 (--help 清晰, --prompt/--task/--server 三种模式)
     suggestion: ''
   logging_alerting:
-    score: null
-    evidence: ''
+    score: 7
+    evidence: agent-runtime 验证 (--help 清晰, --prompt/--task/--server 三种模式)
     suggestion: ''
   operability:
-    score: null
-    evidence: ''
+    score: 9
+    evidence: agent-runtime 验证 (--help 清晰, --prompt/--task/--server 三种模式)
     suggestion: ''
   maintainability:
-    score: null
-    evidence: ''
+    score: 8
+    evidence: agent-runtime 验证 (--help 清晰, --prompt/--task/--server 三种模式)
     suggestion: ''
   extensibility:
     score: null
@@ -67,5 +103,44 @@ dimensions:
     score: null
     evidence: ''
     suggestion: ''
+  composability:
+    score: 8
+    evidence: agent-runtime 验证 (--help 清晰, --prompt/--task/--server 三种模式)
+    suggestion: ''
+  security:
+    score: 9
+    evidence: agent-runtime 验证 (--help 清晰, --prompt/--task/--server 三种模式)
+    suggestion: ''
 summary:
   grade: null
+description: 'cockpit agent-runtime 启动一个 Agent task session, 支持本地 prompt 提交、预定义 task
+  加载、HTTP 服务模式。
+
+
+  ## 何时使用
+
+  - 一次性 prompt 执行 (短任务)
+
+  - 加载 task_definitions/<name>.json 启动预定义任务
+
+  - 启动本地 HTTP 服务暴露 task runtime API
+
+
+  ## 使用模式
+
+  cockpit agent-runtime --prompt "你的任务"           # 单次执行
+
+  cockpit agent-runtime --task my_task               # 加载预定义 task
+
+  cockpit agent-runtime --model claude-sonnet-4-5    # 覆盖模型
+
+  cockpit agent-runtime --tools a b c                # 启用工具列表
+
+  cockpit agent-runtime --server --port 8080         # HTTP 服务模式
+
+
+  ## 必填参数
+
+  - --prompt 或 --task 二选一
+
+  - --server 模式需 --port'
