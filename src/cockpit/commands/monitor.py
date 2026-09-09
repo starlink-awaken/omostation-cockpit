@@ -97,8 +97,17 @@ def generate_layout(root: Path) -> Layout:
 
 
 def cmd_monitor(args):
+    """实时大盘 (默认) 或一次性快照 (--status / --no-tui).
+
+    --status: 打印当前 layout 一次后退出, 不进入 TUI 交互循环
+    """
     console = Console()
     root = get_workspace_root()
+
+    # --status / --no-tui: 一次性快照模式
+    if getattr(args, "status", False) or getattr(args, "no_tui", False):
+        console.print(generate_layout(root))
+        return 0
 
     try:
         with Live(generate_layout(root), refresh_per_second=1, screen=True) as live:

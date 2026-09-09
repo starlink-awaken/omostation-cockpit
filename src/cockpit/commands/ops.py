@@ -10,8 +10,12 @@ import sys
 from argparse import Namespace
 from pathlib import Path
 
-WORKSPACE = Path(__file__).resolve().parents[3]
-OPS_CLI = WORKSPACE / "bin" / "ops" / "cli.py"
+
+def _ops_workspace() -> Path:
+    """跨 worktree/主仓兼容: 找含 projects/ 和 AGENTS.md 的目录."""
+    from cockpit.env_resolver import get_workspace_root
+
+    return get_workspace_root()
 
 
 def cmd_ops(args: Namespace) -> int:
@@ -69,7 +73,10 @@ def cmd_ops(args: Namespace) -> int:
 
     # Import and run the ops CLI
     try:
-        sys.path.insert(0, str(WORKSPACE))
+        # 先先 path 找 (env_resolver 在所有 subproject sys.path 之后才这里)
+        workspace = _ops_workspace()
+        sys.path.insert(0, str(workspace))
+        # env_resolver 已加 bin, 但保险起见插入 workspace
         from bin.ops.cli import main as ops_main
 
         # Reconstruct sys.argv for the ops CLI
@@ -81,6 +88,7 @@ def cmd_ops(args: Namespace) -> int:
             sys.argv = old_argv
     except ImportError as e:
         print(f"ERROR: Failed to import ops CLI: {e}", file=sys.stderr)
+        print("HINT: 在主仓根目录运行 (含 bin/ops/cli.py 的位置)", file=sys.stderr)
         return 1
     except SystemExit as e:
         return e.code if isinstance(e.code, int) else 0

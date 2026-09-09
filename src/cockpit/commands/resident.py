@@ -28,4 +28,6 @@ def cmd_resident(args: argparse.Namespace) -> int:
         "omo.cli",
         "resident",
     ] + list(getattr(args, "resident_args", []))
-    return subprocess.call(cmd)
+    # 清掉冲突的 VIRTUAL_ENV env (uv 警告)
+    env = {k: v for k, v in __import__("os").environ.items() if k != "VIRTUAL_ENV"}
+    return subprocess.call(cmd, env=env)

@@ -406,10 +406,12 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
 
     # ── Harness 全生命周期合规 (Phase 8) ─────────────────────
     from cockpit.commands.harness import register_harness_subcommand
+
     register_harness_subcommand(sub)
 
     # ── Portfolio read-only view (BET-Y1Q4-T8-05) ─────────────
     from cockpit.commands.portfolio import register_portfolio_subcommand
+
     register_portfolio_subcommand(sub)
 
     # ── L4 Bridge commands ────────────────────────────────────
@@ -491,7 +493,6 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     cap_p.add_argument("--limit", type=int, default=50, help="展示数量上限 (默认 50)")
     cap_p.add_argument("--dry-run", action="store_true", help="预检模式，仅输出各来源能力统计摘要")
     cap_p.add_argument("--json", action="store_true", help="以结构化 JSON 输出能力列表")
-
 
     events_p = sub.add_parser("events", help="实时查看 Agora SSE 事件流 (Phase 34 L3 Dashboard)")
     events_p.add_argument(
@@ -1004,7 +1005,6 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     iterate_p.add_argument("--json", action="store_true", help="以结构化 JSON 输出任务元数据")
     iterate_p.add_argument("--non-interactive", action="store_true", help="非交互模式 (无 TTY 时默认采用)")
 
-
     compass_p = sub.add_parser(
         "compass",
         help="🧭 C2G 战略罗盘 (V2P -> C2G -> AGC 统一管理)",
@@ -1084,7 +1084,9 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     journey_p = sub.add_parser("journey", help="🗺️ Journey State Graph 业务场景旅程与状态图校验器")
     journey_p.add_argument("--dry-run", action="store_true", help="预检模式，检测旅程规范文件与 runner 就绪状态")
     journey_p.add_argument("--json", action="store_true", help="以结构化 JSON 输出校验与运行结果")
-    journey_p.add_argument("journey_args", nargs=argparse.REMAINDER, help="透传 journey-runner 的子命令与参数 (validate/run/templates)")
+    journey_p.add_argument(
+        "journey_args", nargs=argparse.REMAINDER, help="透传 journey-runner 的子命令与参数 (validate/run/templates)"
+    )
 
     sub.add_parser(
         "panorama",
@@ -1096,9 +1098,19 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     proj_p.add_argument("project_name", nargs="?", default="", help="指定项目名称")
     proj_p.add_argument("--json", action="store_true", help="JSON 输出")
 
-    sub.add_parser(
+    monitor_p = sub.add_parser(
         "monitor",
-        help="📊 实时终端大盘 (C2G Pipeline 监控仪, 实时刷新 Ctrl+C 退出)",
+        help="📊 实时终端大盘 (C2G Pipeline 监控仪, 默认实时; --status 一次性快照)",
+    )
+    monitor_p.add_argument(
+        "--status",
+        action="store_true",
+        help="一次性快照模式 (不进入 TUI, 直接打印当前状态后退出)",
+    )
+    monitor_p.add_argument(
+        "--no-tui",
+        action="store_true",
+        help="同 --status, 保留别名供脚本调用",
     )
 
     # ── code ──────────────────────────────────────────────────
@@ -1368,7 +1380,9 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     system_sub.add_parser("readiness", help="治理成熟度检查")
     system_sub.add_parser("runtime", help="运行时沙箱管理")
     system_tel = system_sub.add_parser("telemetry", help="命令遥测与 Prometheus 指标导出")
-    system_tel.add_argument("telemetry_action", nargs="?", choices=["status", "export", "reset", "diagnostics"], default="status")
+    system_tel.add_argument(
+        "telemetry_action", nargs="?", choices=["status", "export", "reset", "diagnostics"], default="status"
+    )
     system_tel.add_argument("--limit", type=int, default=None, help="diagnostics 视图最多返回的事件数")
     system_tel.add_argument("--json", action="store_true")
     system_tel.add_argument("--dry-run", action="store_true")
@@ -1399,7 +1413,13 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
 
     # ── 顶级常用命令直接快捷方式挂载 ──
     tel_p = sub.add_parser("telemetry", help="📊 命令全生命周期遥测与 Prometheus 指标导出")
-    tel_p.add_argument("telemetry_action", nargs="?", choices=["status", "export", "reset", "diagnostics"], default="status", help="操作类型 (status|export|reset|diagnostics)")
+    tel_p.add_argument(
+        "telemetry_action",
+        nargs="?",
+        choices=["status", "export", "reset", "diagnostics"],
+        default="status",
+        help="操作类型 (status|export|reset|diagnostics)",
+    )
     tel_p.add_argument("--limit", type=int, default=None, help="diagnostics 视图最多返回的事件数")
     tel_p.add_argument("--json", action="store_true", help="以纯净 JSON 格式输出")
     tel_p.add_argument("--dry-run", action="store_true", help="预检模式")
@@ -1410,8 +1430,9 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     comp_p.add_argument("--dry-run", action="store_true", help="预检模式")
 
     docs_p = sub.add_parser("docs", help="📚 CLI 参考手册生成与导出")
-    docs_p.add_argument("docs_action", nargs="?", choices=["export", "show"], default="export", help="操作类型 (export|show)")
+    docs_p.add_argument(
+        "docs_action", nargs="?", choices=["export", "show"], default="export", help="操作类型 (export|show)"
+    )
     docs_p.add_argument("--output", "-o", type=str, default=None, help="目标 Markdown 文件路径")
     docs_p.add_argument("--json", action="store_true", help="以纯净 JSON 格式输出")
     docs_p.add_argument("--dry-run", action="store_true", help="预检模式")
-
