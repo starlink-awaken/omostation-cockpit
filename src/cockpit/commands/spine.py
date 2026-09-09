@@ -678,9 +678,13 @@ def _send_builtin(channel: str, to: str, body: str, msg_id: str) -> tuple[bool, 
             msg["Subject"] = f"[spine] {msg_id}"
             msg.set_content(body)
             port = int(cfg.get("port", 587))
-            with smtplib.SMTP(cfg["host"], port, timeout=20) as server:
+            if cfg.get("use_ssl"):  # 465 隐式 SSL (网易 163 等无 STARTTLS 的 provider)
+                server = smtplib.SMTP_SSL(cfg["host"], port, timeout=20)
+            else:
+                server = smtplib.SMTP(cfg["host"], port, timeout=20)
                 if cfg.get("use_tls", True):
                     server.starttls()
+            with server:
                 if cfg.get("user"):
                     server.login(cfg["user"], cfg["password"])
                 server.send_message(msg)
