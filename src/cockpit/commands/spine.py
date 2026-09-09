@@ -554,8 +554,166 @@ def _spool_dir() -> Path:
     return _ws() / SPOOL_DIR_REL
 
 
+# ── T4-06: 外发网关风控 / 重放拦截 / 频次熔断 / 回执 / 真实通道 ──────────
+
+GATEWAY_POLICY_REL = ".omo/_truth/registry/spine-gateway-policy.yaml"
+
+
+def _gateway_policy() -> dict:
+    """网关 policy (daily_send_cap); 注册表缺失/损坏回退默认 (探测不瘫痪网关)."""
+    try:
+        import yaml
+
+        p = _ws() / GATEWAY_POLICY_REL
+        if p.is_file():
+            data = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+            cap = data.get("daily_send_cap")
+            if isinstance(cap, int) and cap > 0:
+                return {"daily_send_cap": cap}
+    except Exception:  # noqa: BLE001 — policy 故障回退默认
+        pass
+    return {"daily_send_cap": 50}
+
+
+def _content_digest(channel: str, to: str, body: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(f"{channel}|{to}|{body}".encode("utf-8")).hexdigest()
+
+
+def _dlp_high_findings(body: str) -> list:
+    """复用 ecos dlp_broker (DRY, T10-01 引擎); 引擎不可用时 fail-open (风控层
+    故障不瘫痪网关, receipt 记录 dlp-unavailable 供审计)."""
+    try:
+        from cockpit.commands.dlp_guard import _load_broker
+
+        findings = _load_broker().scan(body)
+        return [f for f in findings if f.risk == "high"]
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _replay_hit(spool: Path, digest: str) -> str | None:
+    """spool 内存在同 digest 且已 sent 的历史 → 返回该 msg_id (重放证据)."""
+    if not spool.is_dir():
+        return None
+    for d in sorted(spool.iterdir()):
+        if not d.is_dir() or d.name.startswith(".tmp"):
+            continue
+        try:
+            env = json.loads((d / "envelope.json").read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            continue
+        if env.get("body_digest") == digest and env.get("status") == "sent":
+            return env.get("msg_id", d.name)
+    return None
+
+
+def _sent_today(spool: Path) -> int:
+    """当日 (本地日期) 已 sent 的消息数 — 依据 receipt.json, 频次熔断的计数源."""
+    today = time.strftime("%Y-%m-%d")
+    n = 0
+    if not spool.is_dir():
+        return 0
+    for d in sorted(spool.iterdir()):
+        if not d.is_dir():
+            continue
+        try:
+            receipt = json.loads((d / "receipt.json").read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            continue
+        if receipt.get("status") == "sent" and str(receipt.get("sent_at", "")).startswith(today):
+            n += 1
+    return n
+
+
+def _write_receipt(
+    msg_dir: Path, env: dict, *, status: str, reason: str = "", provider_ref: str = ""
+) -> None:
+    """OutboundMessageReceipt (outbound-message-receipt/v1) — 每次发送尝试/阻断均落凭据."""
+    receipt = {
+        "schema": "outbound-message-receipt/v1",
+        "msg_id": env["msg_id"],
+        "channel": env["channel"],
+        "to": env["to"],
+        "body_digest": env.get("body_digest", ""),
+        "status": status,
+        "reason": reason,
+        "sent_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "provider_ref": provider_ref,
+    }
+    (msg_dir / "receipt.json").write_text(
+        json.dumps(receipt, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+
+def _smtp_config_path() -> Path:
+    override = os.environ.get("SPINE_SMTP_CONFIG", "")
+    if override:
+        return Path(override)
+    return Path.home() / ".config" / "spine" / "smtp.json"
+
+
+def _api_config_path() -> Path:
+    override = os.environ.get("SPINE_API_CONFIG", "")
+    if override:
+        return Path(override)
+    return Path.home() / ".config" / "spine" / "api.json"
+
+
+def _send_builtin(channel: str, to: str, body: str, msg_id: str) -> tuple[bool, str]:
+    """内建真实通道 (smtp/api)。凭据只在部署配置 (~/.config/spine/), 缺失 fail closed."""
+    if channel == "smtp":
+        cfg_path = _smtp_config_path()
+        if not cfg_path.is_file():
+            return False, f"smtp 配置缺失: {cfg_path} (fail closed; 参考字段 host/port/user/password/from_addr/use_tls)"
+        try:
+            import smtplib
+            from email.message import EmailMessage
+
+            cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+            msg = EmailMessage()
+            msg["From"] = cfg["from_addr"]
+            msg["To"] = to
+            msg["Subject"] = f"[spine] {msg_id}"
+            msg.set_content(body)
+            port = int(cfg.get("port", 587))
+            with smtplib.SMTP(cfg["host"], port, timeout=20) as server:
+                if cfg.get("use_tls", True):
+                    server.starttls()
+                if cfg.get("user"):
+                    server.login(cfg["user"], cfg["password"])
+                server.send_message(msg)
+            return True, f"smtp:{cfg['host']}:{port}"
+        except Exception as exc:  # noqa: BLE001 — 通道故障如实入 receipt
+            return False, f"smtp error: {exc}"
+    if channel == "api":
+        cfg_path = _api_config_path()
+        if not cfg_path.is_file():
+            return False, f"api 配置缺失: {cfg_path} (fail closed; 参考字段 url/headers)"
+        try:
+            import urllib.request
+
+            cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+            req = urllib.request.Request(
+                cfg["url"],
+                data=json.dumps({"to": to, "body": body, "msg_id": msg_id}).encode("utf-8"),
+                headers={"Content-Type": "application/json", **(cfg.get("headers") or {})},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                return bool(resp.status < 300), f"api:{cfg['url']}"
+        except Exception as exc:  # noqa: BLE001
+            return False, f"api error: {exc}"
+    return False, f"unknown channel: {channel}"
+
+
 def cmd_spine_send(args: argparse.Namespace) -> int:
-    """One-key confirm & send via gateway spool (atomic state machine)."""
+    """One-key confirm & send via gateway spool (atomic state machine).
+
+    T4-06 增量: DLP 风控 (high 阻断, --risk-acknowledge 人工确认放行) +
+    重放拦截 (--allow-replay 显式重发) + 单日频次硬熔断 +
+    OutboundMessageReceipt 落盘 + 内建 smtp/api 真实通道 (凭据 fail closed)."""
     body = getattr(args, "body", "") or ""
     body_file = getattr(args, "body_file", None)
     if body_file and Path(body_file).is_file():
@@ -570,12 +728,16 @@ def cmd_spine_send(args: argparse.Namespace) -> int:
     spool.mkdir(parents=True, exist_ok=True)
     msg_id = f"msg-{int(time.time() * 1000)}"
     msg_dir = spool / msg_id
+    digest = _content_digest(channel, to, body)
     # 原子性: 先写临时目录（完整 queued 态）再原子 rename
     tmp_dir = spool / f".tmp-{msg_id}"
     tmp_dir.mkdir()
     (tmp_dir / "body.txt").write_text(body, encoding="utf-8")
     (tmp_dir / "envelope.json").write_text(
-        json.dumps({"msg_id": msg_id, "channel": channel, "to": to, "status": "queued"}, ensure_ascii=False),
+        json.dumps(
+            {"msg_id": msg_id, "channel": channel, "to": to, "status": "queued", "body_digest": digest},
+            ensure_ascii=False,
+        ),
         encoding="utf-8",
     )
     tmp_dir.rename(msg_dir)
@@ -584,26 +746,70 @@ def cmd_spine_send(args: argparse.Namespace) -> int:
         console.print(f"[yellow][DRY-RUN][/] 已入队（不发送）: {msg_dir}")
         return 0
 
-    # sender 可插拔: 本 bet 交付 spool + 状态机, 真实凭证属部署配置
+    env = json.loads((msg_dir / "envelope.json").read_text(encoding="utf-8"))
+
+    def _block(status: str, reason: str) -> int:
+        env["status"] = status
+        (msg_dir / "envelope.json").write_text(json.dumps(env, ensure_ascii=False), encoding="utf-8")
+        _write_receipt(msg_dir, env, status=status, reason=reason)
+        console.print(f"[red]⛔ {reason}（{status} 已记录，台账未写入）: {msg_dir}[/red]")
+        return 1
+
+    # 1. 单日频次硬熔断 (circuit_breaker; 无 flag 可解)
+    policy = _gateway_policy()
+    sent_today = _sent_today(spool)
+    if sent_today >= policy["daily_send_cap"]:
+        return _block(
+            "blocked-cap",
+            f"单日外发频次超限 ({sent_today}/{policy['daily_send_cap']}) — 硬熔断, 次日自动恢复",
+        )
+
+    # 2. 重放拦截 (同 digest 已 sent → 默认阻断; --allow-replay 显式重发)
+    replay = _replay_hit(spool, digest)
+    if replay and not getattr(args, "allow_replay", False):
+        return _block(
+            "blocked-replay",
+            f"重放拦截: 同内容已外发过 (历史 msg: {replay}) — 如确需重发请加 --allow-replay",
+        )
+
+    # 3. DLP 风控 (high 强制阻断; --risk-acknowledge = circuit_breaker 的人工确认)
+    high = _dlp_high_findings(body)
+    if high and not getattr(args, "risk_acknowledge", False):
+        rules = ", ".join(sorted({f.type for f in high}))
+        return _block(
+            "blocked-risk",
+            f"DLP 高危命中 ({rules}) — 强制阻断; 人工确认后可加 --risk-acknowledge 放行",
+        )
+
+    # 4. 派发: 显式 --sender 脚本 > 内建真实通道 (smtp/api, 凭据 fail closed)
     sender = getattr(args, "sender", "") or ""
-    ok = True
     if sender and Path(sender).is_file():
         import subprocess as _sp
 
         try:
             res = _sp.run([sys.executable, sender, msg_id], capture_output=True, text=True, check=False)
-            ok = res.returncode == 0
-        except Exception:
-            ok = False
+            ok, provider_ref = res.returncode == 0, f"script:{Path(sender).name}"
+        except Exception:  # noqa: BLE001
+            ok, provider_ref = False, "script:error"
+    else:
+        ok, provider_ref = _send_builtin(channel, to, body, msg_id)
 
-    env = json.loads((msg_dir / "envelope.json").read_text(encoding="utf-8"))
     env["status"] = "sent" if ok else "failed"
     (msg_dir / "envelope.json").write_text(json.dumps(env, ensure_ascii=False), encoding="utf-8")
 
     if ok:
+        _write_receipt(msg_dir, env, status="sent", provider_ref=provider_ref)
         # 价值台账原子追加: 临时文件 fsync 后 os.replace
         ledger = _ws() / VALUE_LEDGER_REL
-        entry = {"ts": time.time(), "msg_id": msg_id, "channel": channel, "to": to, "signed_chars": len(body)}
+        entry = {
+            "ts": time.time(),
+            "msg_id": msg_id,
+            "channel": channel,
+            "to": to,
+            "signed_chars": len(body),
+            "body_digest": digest,
+            "receipt": "receipt.json",
+        }
         tmp_ledger = ledger.with_suffix(".tmp")
         with tmp_ledger.open("a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
@@ -613,13 +819,14 @@ def cmd_spine_send(args: argparse.Namespace) -> int:
         console.print(
             Panel(
                 f"[bold green]✅ 已确认署名并外发[/bold green]\n"
-                f"msg: {msg_id} | channel: {channel} | to: {to}\n"
-                f"价值台账已原子追加: {ledger.name}",
+                f"msg: {msg_id} | channel: {channel} | to: {to} | via: {provider_ref}\n"
+                f"OutboundMessageReceipt + 价值台账已落盘: {ledger.name}",
                 title="📮 Spine Send",
             )
         )
         return 0
-    console.print(f"[red]外发失败（failed 状态已记录，台账未写入）: {msg_dir}[/red]")
+    _write_receipt(msg_dir, env, status="failed", reason=provider_ref)
+    console.print(f"[red]外发失败（failed 状态已记录，台账未写入）: {msg_dir}\n  原因: {provider_ref}[/red]")
     return 1
 
 

@@ -722,6 +722,9 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     spine_send_p.add_argument("--to", required=True, help="外发目标地址")
     spine_send_p.add_argument("--sender", default="", help="可插拔 sender 脚本路径 (缺省仅入队)")
     spine_send_p.add_argument("--dry-run", action="store_true", help="仅入队不发送")
+    # ── T4-06: 网关风控人工确认 flag (circuit_breaker 语义) ──
+    spine_send_p.add_argument("--risk-acknowledge", action="store_true", help="人工确认放行 DLP 高危命中 (强制阻断的显式解除)")
+    spine_send_p.add_argument("--allow-replay", action="store_true", help="显式允许重发同内容 (收件人未收到场景)")
     # ── T10-113: inbox mail draft (bos://inbox/mail/draft) ──
     inbox_draft_p = spine_sub.add_parser("mail-draft", help="邮箱 3 档拟复 (经 BOS inbox/mail/draft 服务)")
     inbox_draft_p.add_argument("--body", "-b", default="", help="来件正文 (内联)")
