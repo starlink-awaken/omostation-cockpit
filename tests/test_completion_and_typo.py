@@ -82,11 +82,22 @@ def test_cli_reference_generated_scale():
         except Exception:
             pass
         ref = next((p for p in candidates if p.exists()), None)
-    # CI 环境 (GitHub Actions) 可能没有 cockpit docs export 必需的 uv workspace,
-    # 或 cockpit 仓 docs/CLI-REFERENCE.md 不存在. 这种情况下 skip 测试 (不 fail CI).
+    # 测试前主动生成 docs/CLI-REFERENCE.md (cockpit docs export)
+    # CI 环境 (GitHub Actions) 有 uv + cockpit submodule, 可以跑 docs export
     if ref is None:
+        try:
+            subprocess.run(
+                ["uv", "run", "python", "-m", "cockpit", "docs", "export"],
+                capture_output=True, timeout=60,
+                cwd=test_path.parents[1],  # projects/cockpit
+            )
+        except Exception:
+            pass
+        ref = next((p for p in candidates if p.exists()), None)
+    if ref is None:
+        # 兜底: skip (CI 没 cockpit submodule 的极端情况)
         import pytest
-        pytest.skip("CLI-REFERENCE.md not generated in this environment (no cockpit docs export or workspace)")
+        pytest.skip("CLI-REFERENCE.md not generated (no cockpit submodule / uv workspace in CI)")
     lines = ref.read_text(encoding="utf-8").splitlines()
     assert len(lines) >= 300, f"only {len(lines)} lines"
     text = "\n".join(lines)
