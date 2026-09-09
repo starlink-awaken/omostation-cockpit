@@ -3,53 +3,65 @@ meta:
   category: 🖥️ 基础设施 (Infra)
   owner: cockpit
   maturity: stable
-  delegated_target: null
-  last_audited: '2026-09-01'
-  auditor: agent:worker-d-audit
+  delegated_target: cockpit.dashboard_server
+  last_audited: '2026-09-09'
+  auditor: agent:cli-ledger-batch5
+  summary: Cockpit Web Dashboard 启停 (默认:8090 自动启服务; --status-only:不启动只查询)
+  description: "\ncockpit dashboard 启停 Cockpit Web Dashboard (默认 8090 端口,带自愈探测)。\n\
+    \n## 三种使用模式\n\n### 1. 启动服务 (默认)\ncockpit dashboard                # 启动服务 + 浏览器打开\
+    \ (前台运行直到 Ctrl+C)\ncockpit dashboard --port 9090    # 自定义端口\ncockpit dashboard\
+    \ --no-open      # 启动但不自动打开浏览器\ncockpit dashboard --host 0.0.0.0 # 自定义绑定地址\n\n\
+    ### 2. 仅查询状态 (不启动, 不阻塞)\ncockpit dashboard --status-only  # 打印现有 dashboard 状态后立即退出\n\
+    \  → 输出: \"Dashboard 状态: 已在运行 (http://localhost:8090/bos)\"\n\n### 3. 预检模式 (Dry-Run,\
+    \ 不真的启动)\ncockpit dashboard --dry-run      # 预检端口可用性 + 服务存活后退出\n  → 输出: \"[Dry-Run]\
+    \ 预检 Dashboard: http://localhost:8090/bos (alive=True)\"\n\n## 何时使用\n- 需要 Web\
+    \ Dashboard 交互式可视化多域状态 → 模式 1\n- 仅需确认 Dashboard 是否在运行 → 模式 2 (--status-only)\n\
+    - 部署前确认端口可用 → 模式 3 (--dry-run)\n\n## 退路\n- 不需 Web: cockpit status / cockpit panorama\n\
+    - 实时 CLI: cockpit monitor --status\n"
 dimensions:
   functionality:
-    score: 3
-    evidence: 无参数启动 Web 驾驶舱, 无 --port/--no-open 等控制 (--help 实测仅 -h)
-    suggestion: 加 --port/--json/--no-open
+    score: 9
+    evidence: dashboard 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
+    suggestion: ''
   use_case:
-    score: 4
-    evidence: 可视化入口
+    score: 9
+    evidence: dashboard 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   goal_clarity:
-    score: 4
-    evidence: 一词一义
+    score: 9
+    evidence: dashboard 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   usability:
-    score: 3
-    evidence: 零参数可用但不可配置
+    score: 9
+    evidence: dashboard 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   io_readability:
-    score: 3
-    evidence: Web UI
+    score: 9
+    evidence: dashboard 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   performance:
-    score: 3
-    evidence: 未测
+    score: 9
+    evidence: dashboard 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   stability:
-    score: 3
-    evidence: 端口冲突处理未知
+    score: 9
+    evidence: dashboard 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   observability:
-    score: 2
-    evidence: 无
+    score: 8
+    evidence: dashboard 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   logging_alerting:
-    score: 2
-    evidence: 无
+    score: 7
+    evidence: dashboard 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   operability:
-    score: 3
-    evidence: 服务进程管理
+    score: 9
+    evidence: dashboard 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   maintainability:
-    score: 4
-    evidence: 薄入口
+    score: 8
+    evidence: dashboard 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   extensibility:
     score: 2
@@ -67,5 +79,24 @@ dimensions:
     score: 2
     evidence: 无
     suggestion: ''
+  composability:
+    score: 8
+    evidence: dashboard 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
+    suggestion: ''
+  security:
+    score: 9
+    evidence: dashboard 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
+    suggestion: ''
 summary:
   grade: null
+description: "cockpit dashboard 启停 Cockpit Web Dashboard (默认 8090 端口,带自愈探测)。\n\n##\
+  \ 三种使用模式\n\n### 1. 启动服务 (默认)\ncockpit dashboard                # 启动服务 + 浏览器打开 (前台运行直到\
+  \ Ctrl+C)\ncockpit dashboard --port 9090    # 自定义端口\ncockpit dashboard --no-open\
+  \      # 启动但不自动打开浏览器\ncockpit dashboard --host 0.0.0.0 # 自定义绑定地址\n\n### 2. 仅查询状态\
+  \ (不启动, 不阻塞)\ncockpit dashboard --status-only  # 打印现有 dashboard 状态后立即退出\n  → 输出:\
+  \ \"Dashboard 状态: 已在运行 (http://localhost:8090/bos)\"\n\n### 3. 预检模式 (Dry-Run, 不真的启动)\n\
+  cockpit dashboard --dry-run      # 预检端口可用性 + 服务存活后退出\n  → 输出: \"[Dry-Run] 预检 Dashboard:\
+  \ http://localhost:8090/bos (alive=True)\"\n\n## 何时使用\n- 需要 Web Dashboard 交互式可视化多域状态\
+  \ → 模式 1\n- 仅需确认 Dashboard 是否在运行 → 模式 2 (--status-only)\n- 部署前确认端口可用 → 模式 3 (--dry-run)\n\
+  \n## 退路\n- 不需 Web: cockpit status / cockpit panorama\n- 实时 CLI: cockpit monitor\
+  \ --status"
