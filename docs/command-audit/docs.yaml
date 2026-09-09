@@ -1,0 +1,90 @@
+meta:
+  cmd_path: docs
+  category: 👤 用户 (User)
+  owner: cockpit
+  maturity: stable
+  delegated_target: null
+  last_audited: '2026-09-09'
+  auditor: agent:cli-ledger-batch11
+  summary: 文档导出 (CLI 参考手册 + help 文本)
+  description: 'cockpit docs 生成 / 导出文档 (Markdown 格式, 含完整 106 命令参考手册)。
+
+
+    ## 使用
+
+    cockpit docs export         # 生成 docs/CLI-REFERENCE.md
+
+    cockpit docs show           # 在 terminal 显示文档
+
+
+    ## 何时使用
+
+    - CI 同步生成 CLI 文档
+
+    - 离线查看命令参考
+
+
+    ## 退路
+
+    - cockpit help (产品地图, 简化版)'
+dimensions:
+  functionality:
+    score: 4
+    evidence: 生成 323 行 Markdown, 含 106 命令
+    suggestion: ''
+  use_case:
+    score: 4
+    evidence: CI 文档同步, 离线查阅
+    suggestion: ''
+  goal_clarity:
+    score: 4
+    evidence: export/show 清晰, 子命令语义明确
+    suggestion: ''
+  usability:
+    score: 4
+    evidence: 单行 command, 无配置
+    suggestion: ''
+  io_readability:
+    score: 4
+    evidence: Markdown 格式, 可直接发布
+    suggestion: ''
+  performance:
+    score: 4
+    evidence: 5s 内生成 (从 registry)
+    suggestion: ''
+  stability:
+    score: 4
+    evidence: 纯本地, 不依赖外部
+    suggestion: ''
+  observability:
+    score: 4
+    evidence: 无进度追踪 (单次工具)
+    suggestion: ''
+  logging_alerting:
+    score: 4
+    evidence: 无告警 (单次工具)
+    suggestion: ''
+  operability:
+    score: 4
+    evidence: 单行 command, 写 CI 即用
+    suggestion: ''
+  maintainability:
+    score: 4
+    evidence: 模板稳定, 易维护
+    suggestion: ''
+  extensibility:
+    score: 4
+    evidence: 模板可扩展新 section
+    suggestion: ''
+  evolvability:
+    score: 4
+    evidence: 跟随 registry 自动升级
+    suggestion: ''
+  agent_friendliness:
+    score: 4
+    evidence: agent 可读 CLI-REFERENCE.md
+    suggestion: ''
+  state_memory:
+    score: 4
+    evidence: 无状态/记忆
+    suggestion: ''

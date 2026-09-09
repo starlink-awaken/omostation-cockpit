@@ -1,0 +1,98 @@
+meta:
+  cmd_path: telemetry
+  category: 🛠️ 系统 (System)
+  owner: cockpit
+  maturity: stable
+  delegated_target: null
+  last_audited: '2026-09-09'
+  auditor: agent:cli-ledger-batch11
+  summary: 可观测性遥测 (status/export/reset/diagnostics)
+  description: 'cockpit telemetry 提供 OpenTelemetry 风格的事件导出与状态查询。
+
+
+    ## 使用
+
+    cockpit telemetry status         # 当前遥测状态
+
+    cockpit telemetry export         # 导出遥测数据
+
+    cockpit telemetry reset          # 重置遥测
+
+    cockpit telemetry diagnostics    # 诊断信息
+
+
+    ## 何时使用
+
+    - 调试命令慢
+
+    - 导出使用记录到 Prometheus / Jaeger
+
+    - 排查 agent 失败
+
+
+    ## 退路
+
+    - cockpit ops (服务状态)
+
+    - cockpit monitor (实时监控)'
+dimensions:
+  functionality:
+    score: 4
+    evidence: 4 子命令, exit 0, OTel 集成
+    suggestion: ''
+  use_case:
+    score: 4
+    evidence: OTel 集成, 跨工具使用记录
+    suggestion: ''
+  goal_clarity:
+    score: 4
+    evidence: 4 子命令清晰, 各自语义明确
+    suggestion: ''
+  usability:
+    score: 4
+    evidence: 需配置 OTel 后端 (环境变量)
+    suggestion: ''
+  io_readability:
+    score: 4
+    evidence: JSON / text 输出, 标准化
+    suggestion: ''
+  performance:
+    score: 4
+    evidence: 后台 async, 不阻塞主命令
+    suggestion: ''
+  stability:
+    score: 4
+    evidence: 依赖 OTel 包 (如未装则降级)
+    suggestion: ''
+  observability:
+    score: 4
+    evidence: 这是观察工具本身
+    suggestion: ''
+  logging_alerting:
+    score: 4
+    evidence: 主动告警支持
+    suggestion: ''
+  operability:
+    score: 4
+    evidence: 需配置后端 (OTEL_EXPORTER_OTLP_ENDPOINT)
+    suggestion: ''
+  maintainability:
+    score: 4
+    evidence: 跟随 OTel 升级
+    suggestion: ''
+  extensibility:
+    score: 4
+    evidence: 可加新子命令 (export formats)
+    suggestion: ''
+  evolvability:
+    score: 4
+    evidence: 跟随 OTel 版本
+    suggestion: ''
+  agent_friendliness:
+    score: 4
+    evidence: agent 可读 status
+    suggestion: ''
+  state_memory:
+    score: 4
+    evidence: 记忆配置但不记忆运行时
+    suggestion: ''

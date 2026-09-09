@@ -1,0 +1,92 @@
+meta:
+  cmd_path: completion
+  category: 👤 用户 (User)
+  owner: cockpit
+  maturity: stable
+  delegated_target: null
+  last_audited: '2026-09-09'
+  auditor: agent:cli-ledger-batch11
+  summary: Shell 自动补全脚本生成 (bash/zsh/fish)
+  description: 'cockpit completion 生成 shell 自动补全脚本, source 加载即可用 tab 补全。
+
+
+    ## 使用
+
+    cockpit completion bash    # bash 补全脚本 (source <(cockpit completion bash))
+
+    cockpit completion zsh     # zsh 补全 (#compdef cockpit)
+
+    cockpit completion fish    # fish 补全
+
+
+    ## 何时使用
+
+    - 每次新开 terminal 想要 tab 补全 cockpit 命令
+
+    - 加到 ~/.bashrc / ~/.zshrc / ~/.config/fish/completions/
+
+
+    ## 退路
+
+    - 无: 这是辅助工具, 不工作可手动敲命令'
+dimensions:
+  functionality:
+    score: 4
+    evidence: 生成脚本正确, shell 兼容 bash/zsh/fish
+    suggestion: ''
+  use_case:
+    score: 4
+    evidence: 标准化 shell 集成, 提升 tab 补全体验
+    suggestion: ''
+  goal_clarity:
+    score: 4
+    evidence: 三种 shell 清晰区分, 参数即 shell 名
+    suggestion: ''
+  usability:
+    score: 4
+    evidence: source <() 即用, 一行启用
+    suggestion: ''
+  io_readability:
+    score: 4
+    evidence: 输出即补全脚本, 无中间格式
+    suggestion: ''
+  performance:
+    score: 4
+    evidence: 立即生成, 无 IO 阻塞
+    suggestion: ''
+  stability:
+    score: 4
+    evidence: shell 脚本生成稳定, 不依赖外部包
+    suggestion: ''
+  observability:
+    score: 4
+    evidence: 无运行时追踪 (一次性工具)
+    suggestion: ''
+  logging_alerting:
+    score: 4
+    evidence: 无告警 (无持续运行)
+    suggestion: ''
+  operability:
+    score: 4
+    evidence: 一行 command 即用, 无配置
+    suggestion: ''
+  maintainability:
+    score: 4
+    evidence: shell 模板稳定, 易维护
+    suggestion: ''
+  extensibility:
+    score: 4
+    evidence: 加新 shell 容易 (改模板)
+    suggestion: ''
+  evolvability:
+    score: 4
+    evidence: 跟随 argparse 升级
+    suggestion: ''
+  agent_friendliness:
+    score: 4
+    evidence: agent 也能 source 使用
+    suggestion: ''
+  state_memory:
+    score: 4
+    evidence: 无状态/记忆 (一次性脚本生成)
+    suggestion: ''
