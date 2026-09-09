@@ -383,18 +383,30 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
         "subcommand",
         nargs="?",
         choices=[
+            # arcnode-* 脚本 (来自 ~/.hermes/scripts)
             "calibrate",
             "rechain",
             "evolve",
-            "report",
             "drift-check",
             "validate",
+            # omo governance 委派
+            "report",
             "verify",
             "evolution",
             "surfaces",
             "ingress-goal",
             "ingress-task",
             "ingress-debt",
+            # cockpit 治理命令透传
+            "rhythm",
+            "intent",
+            "challenge",
+            "cartridge",
+            "patrol",
+            "patrol-strict",
+            "chaos",
+            "chaos-drill",
+            "chaos-strict",
         ],
         help="治理子命令",
     )
@@ -723,7 +735,9 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     spine_send_p.add_argument("--sender", default="", help="可插拔 sender 脚本路径 (缺省仅入队)")
     spine_send_p.add_argument("--dry-run", action="store_true", help="仅入队不发送")
     # ── T4-06: 网关风控人工确认 flag (circuit_breaker 语义) ──
-    spine_send_p.add_argument("--risk-acknowledge", action="store_true", help="人工确认放行 DLP 高危命中 (强制阻断的显式解除)")
+    spine_send_p.add_argument(
+        "--risk-acknowledge", action="store_true", help="人工确认放行 DLP 高危命中 (强制阻断的显式解除)"
+    )
     spine_send_p.add_argument("--allow-replay", action="store_true", help="显式允许重发同内容 (收件人未收到场景)")
     # ── T10-113: inbox mail draft (bos://inbox/mail/draft) ──
     inbox_draft_p = spine_sub.add_parser("mail-draft", help="邮箱 3 档拟复 (经 BOS inbox/mail/draft 服务)")

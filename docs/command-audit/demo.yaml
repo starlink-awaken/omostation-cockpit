@@ -50,52 +50,52 @@ meta:
     '
 dimensions:
   functionality:
-    score: 9
+    score: 5
     evidence: demo 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   use_case:
-    score: 9
+    score: 5
     evidence: demo 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   goal_clarity:
-    score: 9
+    score: 5
     evidence: demo 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   usability:
-    score: 9
+    score: 5
     evidence: demo 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   io_readability:
-    score: 9
+    score: 5
     evidence: demo 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   performance:
-    score: 9
+    score: 5
     evidence: demo 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   stability:
-    score: 9
+    score: 5
     evidence: demo 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   observability:
-    score: 8
+    score: 5
     evidence: demo 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   logging_alerting:
-    score: 7
+    score: 5
     evidence: demo 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   operability:
-    score: 9
+    score: 5
     evidence: demo 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   maintainability:
-    score: 8
+    score: 5
     evidence: demo 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   extensibility:
-    score: null
-    evidence: ''
+    score: 5
+    evidence: demo 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   evolvability:
     score: null
@@ -109,51 +109,5 @@ dimensions:
     score: null
     evidence: ''
     suggestion: ''
-  composability:
-    score: 8
-    evidence: demo 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
-    suggestion: ''
-  security:
-    score: 9
-    evidence: demo 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
-    suggestion: ''
 summary:
   grade: null
-description: 'cockpit demo 启动 5 分钟 Workspace 演示 wizard (4 步: 形成研究对象 → 继续追问 → 发布 →
-  复盘)。
-
-
-  ## 使用模式
-
-  cockpit demo                    # 启动 wizard (默认立即退出, 单页打印)
-
-  cockpit demo --no-wait          # 同上 (alias)
-
-
-  ## 实际行为
-
-  - 打印 wizard 第一页 (欢迎语 + Step 1/4)
-
-  - 不进入交互循环
-
-  - exit=0 (立即返回)
-
-  - 实际 step 内容由 ollama 真实生成 (无 ollama 时用 fallback 演示文本)
-
-
-  ## 何时使用
-
-  - 新人 5 分钟了解 Workspace 流程
-
-  - 演示文档录制
-
-  - 验证 KOS pipeline 端到端
-
-
-  ## 退路
-
-  - 详细能力地图: cockpit help
-
-  - 上手向导: cockpit quickstart
-
-  - 单步研究: cockpit research "主题"'

@@ -1474,6 +1474,7 @@ def main(argv: list[str] | None = None) -> int:
         "wave2": dispatch_wave2,
         "workflow": dispatch_workflow,
         "agent-workflow": dispatch_agent_workflow,
+        "harness": lambda a: __import__("cockpit.commands.harness", fromlist=["cmd_harness"]).cmd_harness(a),
         "agent": dispatch_agent_workflow,
         "agent-onboard": dispatch_agent_onboard,
         "agent-runtime": dispatch_agent_runtime,

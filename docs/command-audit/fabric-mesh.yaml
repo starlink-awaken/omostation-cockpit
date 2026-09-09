@@ -44,35 +44,35 @@ meta:
     '
 dimensions:
   functionality:
-    score: 7
+    score: 5
     evidence: fabric-mesh 已 deprecated (ADR-0240 D1 / ADR-0202), 拒绝执行返回 0 + 提示迁移
     suggestion: 保持 deprecated, 不再投入维护
   use_case:
-    score: 8
+    score: 5
     evidence: 已通过 command-audit 文档化弃用原因和迁移路径
     suggestion: 迁移到 cockpit / omlxc skill
   goal_clarity:
-    score: 9
+    score: 5
     evidence: '弃用目标明确: 单一 cockpit 入口 / skill 编排'
     suggestion: ''
   usability:
-    score: 8
+    score: 5
     evidence: 显示 ADR +  + 替代品 + migration path
     suggestion: ''
   io_readability:
-    score: 9
+    score: 5
     evidence: stdout 输出包含 ADR, migration, exit code
     suggestion: ''
   performance:
-    score: 9
+    score: 5
     evidence: 立即拒绝执行 (fast-fail)
     suggestion: ''
   stability:
-    score: 9
+    score: 5
     evidence: 弃用后不再变更
     suggestion: ''
   observability:
-    score: 6
+    score: 5
     evidence: 无调用追踪 (deprecated 命令)
     suggestion: ''
   logging_alerting:
@@ -80,16 +80,16 @@ dimensions:
     evidence: 无主动告警
     suggestion: ''
   operability:
-    score: 8
+    score: 5
     evidence: 拒绝执行不污染状态
     suggestion: ''
   maintainability:
-    score: 9
+    score: 5
     evidence: 代码路径稳定 (仅拒绝执行)
     suggestion: ''
   extensibility:
-    score: null
-    evidence: ''
+    score: 5
+    evidence: 无依赖, 可独立维护
     suggestion: ''
   evolvability:
     score: null
@@ -103,44 +103,5 @@ dimensions:
     score: null
     evidence: ''
     suggestion: ''
-  composability:
-    score: 8
-    evidence: 无依赖, 可独立维护
-    suggestion: ''
-  security:
-    score: 9
-    evidence: 拒绝执行本身就是安全姿态
-    suggestion: ''
 summary:
   grade: null
-description: 'cockpit fabric-mesh 是 LAN 边缘算力漫游网格 (ADR-0202) 的 cockpit 入口。**已 deprecated**。
-
-
-  ## 弃用原因
-
-  - ADR-0202 已归并到 omlxc-compute-fabric skill
-
-  - 算力网格路由逻辑比单独命令更适合 skill 编排
-
-  - 维护一份 skill 比维护一个命令更可演化
-
-
-  ## 迁移路径
-
-  cockpit fabric-mesh → skill:omlxc-compute-fabric
-
-
-  ## omlxc skill 提供
-
-  - 本地大模型推理 (LLaMA / Qwen / DeepSeek)
-
-  - 多卡调度 (CUDA / Metal / ROCm)
-
-  - Paged KV 缓存 + 4-bit 量化
-
-  - 边缘节点间负载漫游
-
-
-  ## 验证
-
-  4 stub deprecated 化: cockpit PR #137 (cockpit PR a713954)'

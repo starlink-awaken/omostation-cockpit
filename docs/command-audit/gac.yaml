@@ -65,52 +65,52 @@ meta:
     '
 dimensions:
   functionality:
-    score: 9
+    score: 5
     evidence: gac 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   use_case:
-    score: 9
+    score: 5
     evidence: gac 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   goal_clarity:
-    score: 9
+    score: 5
     evidence: gac 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   usability:
-    score: 9
+    score: 5
     evidence: gac 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   io_readability:
-    score: 9
+    score: 5
     evidence: gac 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   performance:
-    score: 9
+    score: 5
     evidence: gac 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   stability:
-    score: 9
+    score: 5
     evidence: gac 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   observability:
-    score: 8
+    score: 5
     evidence: gac 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   logging_alerting:
-    score: 7
+    score: 5
     evidence: gac 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   operability:
-    score: 9
+    score: 5
     evidence: gac 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   maintainability:
-    score: 8
+    score: 5
     evidence: gac 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   extensibility:
     score: 5
-    evidence: 加子命令只需加 DelegatedSpec
+    evidence: gac 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
     suggestion: ''
   evolvability:
     score: 4
@@ -124,65 +124,5 @@ dimensions:
     score: 3
     evidence: 无
     suggestion: ''
-  composability:
-    score: 8
-    evidence: gac 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
-    suggestion: ''
-  security:
-    score: 9
-    evidence: gac 验证 (worktree 实测 exit=0; 多种 no-deps 模式已文档化)
-    suggestion: ''
 summary:
   grade: null
-description: 'cockpit gac 启动 GaC (Governance as Code) 体系健康检查, 覆盖 85 规则 + 8 维度。
-
-
-  ## 使用模式
-
-  cockpit gac                      # 默认全量检查 (8 类), exit=0
-
-  cockpit gac drift                # GaC drift 检测
-
-  cockpit gac validate             # 规则注册表结构校验
-
-  cockpit gac arch-drift           # 架构漂移 (代码 vs ARCHITECTURE 声明)
-
-  cockpit gac pre-pr               # PR 前预检
-
-  cockpit gac ci-fast              # CI fast check
-
-  cockpit gac coverage             # 覆盖率
-
-  cockpit gac hygiene              # 卫生检查
-
-  cockpit gac readiness            # 准备度
-
-
-  ## 输出维度
-
-  {''X1'': 29, ''X2'': 19, ''X3'': 5, ''X4'': 32}  (Layer: L0/L1/L2/L3/L4/M0/meta/X)
-
-
-  ## 何时使用
-
-  - 任意时间点的健康体检 → 默认 (8 类一次)
-
-  - 提交前快速预检 → ci-fast
-
-  - PR 合并前 → pre-pr
-
-  - CI 失败排查 → drift + validate + arch-drift
-
-
-  ## 退出码
-
-  - 0: 通过 (即使报告内有 ❌, 也是健康结果)
-
-  - 1: 工具错误
-
-
-  ## 退路
-
-  - 仅看 phase: cockpit status
-
-  - 项目级治理: cockpit governance'
