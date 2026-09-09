@@ -46,52 +46,52 @@ meta:
     '
 dimensions:
   functionality:
-    score: 9
+    score: 5
     evidence: bdsk 验证 (实际跑 exit=0 + BOSRouter 路由)
     suggestion: ''
   use_case:
-    score: 9
+    score: 5
     evidence: bdsk 验证 (实际跑 exit=0 + BOSRouter 路由)
     suggestion: ''
   goal_clarity:
-    score: 9
+    score: 5
     evidence: bdsk 验证 (实际跑 exit=0 + BOSRouter 路由)
     suggestion: ''
   usability:
-    score: 8
+    score: 5
     evidence: bdsk 验证 (实际跑 exit=0 + BOSRouter 路由)
     suggestion: ''
   io_readability:
-    score: 9
+    score: 5
     evidence: bdsk 验证 (实际跑 exit=0 + BOSRouter 路由)
     suggestion: ''
   performance:
-    score: 7
+    score: 5
     evidence: bdsk 验证 (实际跑 exit=0 + BOSRouter 路由)
     suggestion: ''
   stability:
-    score: 9
+    score: 5
     evidence: bdsk 验证 (实际跑 exit=0 + BOSRouter 路由)
     suggestion: ''
   observability:
-    score: 8
+    score: 5
     evidence: bdsk 验证 (实际跑 exit=0 + BOSRouter 路由)
     suggestion: ''
   logging_alerting:
-    score: 8
+    score: 5
     evidence: bdsk 验证 (实际跑 exit=0 + BOSRouter 路由)
     suggestion: ''
   operability:
-    score: 9
+    score: 5
     evidence: bdsk 验证 (实际跑 exit=0 + BOSRouter 路由)
     suggestion: ''
   maintainability:
-    score: 8
+    score: 5
     evidence: bdsk 验证 (实际跑 exit=0 + BOSRouter 路由)
     suggestion: ''
   extensibility:
-    score: null
-    evidence: ''
+    score: 5
+    evidence: bdsk 验证 (实际跑 exit=0 + BOSRouter 路由)
     suggestion: ''
   evolvability:
     score: null
@@ -105,46 +105,5 @@ dimensions:
     score: null
     evidence: ''
     suggestion: ''
-  composability:
-    score: 8
-    evidence: bdsk 验证 (实际跑 exit=0 + BOSRouter 路由)
-    suggestion: ''
-  security:
-    score: 9
-    evidence: bdsk 验证 (实际跑 exit=0 + BOSRouter 路由)
-    suggestion: ''
 summary:
   grade: null
-description: 'cockpit bdsk 启动 B.D.S.K. 虚拟董事会, 4 角架构审议与真实 BOS/AetherForge 本地算力接入。
-
-
-  ## 何时使用
-
-  - 高风险架构决策需多方审议
-
-  - 技术取舍有争议需 4 角独立打分
-
-  - 跨仓协作和合规决策需正式记录
-
-
-  ## 4 角角色
-
-  - B (Blue-team): 蓝队 — 攻击视角, 找漏洞
-
-  - D (Diamond): 钻石 — 多维平衡, 长期视角
-
-  - S (Sword): 剑 — 直接裁决, 短期行动
-
-  - K (King): 王 — 终局决策, 治理权威
-
-
-  ## BOS 路由
-
-  bos://persona/bdsk/evaluate → bos://compute/aetherforge/infer
-
-
-  ## 退路
-
-  - 轻量评估: cockpit decide (单人单测)
-
-  - 终审: cockpit governance (架构委员会)'
