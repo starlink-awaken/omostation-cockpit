@@ -9,6 +9,7 @@ from rich.layout import Layout
 from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
+
 from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 

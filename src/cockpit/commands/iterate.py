@@ -10,6 +10,7 @@ from pathlib import Path
 import yaml
 from rich.console import Console
 from rich.prompt import Confirm
+
 from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 console = Console()
@@ -26,7 +27,6 @@ def cmd_iterate(args) -> int:
     sandbox_dir = workspace_root / "runtime" / "sandbox"
     sandbox_dir.mkdir(parents=True, exist_ok=True)
     omo_dir = workspace_root / "projects" / "omo"
-
 
     as_json = getattr(args, "json", False) or getattr(args, "global_output", "text") == "json"
     is_dry_run = getattr(args, "dry_run", False)
@@ -75,6 +75,7 @@ def cmd_iterate(args) -> int:
 
         if as_json:
             import json
+
             payload = {
                 "ok": True,
                 "mode": "fast_track",
@@ -94,7 +95,6 @@ def cmd_iterate(args) -> int:
                 f"[bold green]✅ Fast-Track 成功: 已直接落盘为 OMO CARDS ({task_id}.yaml)，立即进入 GSD 模式。[/]"
             )
         return 0
-
 
     console.print("\n[bold yellow]► Phase 1: 认知发散 (Mode A: MetaOS Sandbox)[/]")
     console.print(f"主题: '{topic}'")

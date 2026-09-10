@@ -59,7 +59,9 @@ def generate_bash_completion() -> str:
 
     domain_cases = []
     for dom, subs in domain_subs.items():
-        domain_cases.append(f'        "{dom}")\n            COMPREPLY=( $(compgen -W "{" ".join(subs)}" -- "$cur") )\n            return 0\n            ;;')
+        domain_cases.append(
+            f'        "{dom}")\n            COMPREPLY=( $(compgen -W "{" ".join(subs)}" -- "$cur") )\n            return 0\n            ;;'
+        )
 
     domain_case_block = "\n".join(domain_cases)
 
@@ -225,12 +227,16 @@ def cmd_completion(args: argparse.Namespace) -> int:
         if is_json:
             import json
 
-            print(json.dumps({
-                "ok": False,
-                "error": "Missing shell argument. Supported shells: bash, zsh, fish",
-                "exit_code": int(ExitCode.USAGE_ERROR),
-                "supported_shells": list(SUPPORTED_SHELLS),
-            }))
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "error": "Missing shell argument. Supported shells: bash, zsh, fish",
+                        "exit_code": int(ExitCode.USAGE_ERROR),
+                        "supported_shells": list(SUPPORTED_SHELLS),
+                    }
+                )
+            )
         else:
             print("❌ 用法: cockpit completion [bash|zsh|fish]", file=sys.stderr)
             print("示例: source <(cockpit completion bash)", file=sys.stderr)
@@ -241,11 +247,15 @@ def cmd_completion(args: argparse.Namespace) -> int:
         if is_json:
             import json
 
-            print(json.dumps({
-                "ok": False,
-                "error": f"Unsupported shell '{shell}'. Supported: {', '.join(SUPPORTED_SHELLS)}",
-                "exit_code": int(ExitCode.USAGE_ERROR),
-            }))
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "error": f"Unsupported shell '{shell}'. Supported: {', '.join(SUPPORTED_SHELLS)}",
+                        "exit_code": int(ExitCode.USAGE_ERROR),
+                    }
+                )
+            )
         else:
             print(f"❌ 不支持的 Shell: '{shell}'。可选值: {', '.join(SUPPORTED_SHELLS)}", file=sys.stderr)
         return int(ExitCode.USAGE_ERROR)
@@ -254,12 +264,16 @@ def cmd_completion(args: argparse.Namespace) -> int:
         if is_json:
             import json
 
-            print(json.dumps({
-                "dry_run": True,
-                "shell": shell_lower,
-                "generator_available": True,
-                "ready": True,
-            }))
+            print(
+                json.dumps(
+                    {
+                        "dry_run": True,
+                        "shell": shell_lower,
+                        "generator_available": True,
+                        "ready": True,
+                    }
+                )
+            )
         else:
             print(f"[DRY-RUN] Shell 自动补全生成器预检通过: {shell_lower}")
         return int(ExitCode.SUCCESS)
@@ -276,11 +290,15 @@ def cmd_completion(args: argparse.Namespace) -> int:
     if is_json:
         import json
 
-        print(json.dumps({
-            "shell": shell_lower,
-            "script": script,
-            "exit_code": int(ExitCode.SUCCESS),
-        }))
+        print(
+            json.dumps(
+                {
+                    "shell": shell_lower,
+                    "script": script,
+                    "exit_code": int(ExitCode.SUCCESS),
+                }
+            )
+        )
     else:
         print(script, end="")
 
@@ -288,6 +306,7 @@ def cmd_completion(args: argparse.Namespace) -> int:
 
 
 # ── T8-16: typo correction (Levenshtein did-you-mean) ────────────────────
+
 
 def _levenshtein(a: str, b: str) -> int:
     """Classic edit distance (insert/delete/substitute, all cost 1)."""
@@ -320,9 +339,5 @@ def suggest_commands(unknown: str, max_distance: int = 2, limit: int = 3) -> lis
     token = unknown.strip().lower()
     if not token:
         return []
-    scored = sorted(
-        (_levenshtein(token, c), c)
-        for c in candidates
-        if abs(len(c) - len(token)) <= max_distance + 1
-    )
+    scored = sorted((_levenshtein(token, c), c) for c in candidates if abs(len(c) - len(token)) <= max_distance + 1)
     return [cmd for dist, cmd in scored if dist <= max_distance][:limit]

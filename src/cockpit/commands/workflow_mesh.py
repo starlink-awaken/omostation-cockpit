@@ -22,9 +22,11 @@ import os
 from collections import Counter
 from pathlib import Path
 
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
+
 from .base import _get_console, _panel
 
-_WORKSPACE = Path(__file__).resolve().parents[5]
+_WORKSPACE = _get_workspace_root()
 _EVENTS_PATH = _WORKSPACE / ".omo" / "_knowledge" / "workflow-mesh" / "events.jsonl"
 _DELIVERY_EVENTS = _WORKSPACE / ".omo" / "_delivery" / "agent-workflows" / "events.jsonl"
 

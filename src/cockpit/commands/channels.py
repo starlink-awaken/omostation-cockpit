@@ -7,10 +7,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
+
 
 def _workspace_root() -> Path:
     # commands/ → cockpit/ → src/ → cockpit package root → projects/cockpit → projects → workspace
-    return Path(__file__).resolve().parents[5]
+    return _get_workspace_root()
 
 
 def cmd_channels(args: Any) -> int:

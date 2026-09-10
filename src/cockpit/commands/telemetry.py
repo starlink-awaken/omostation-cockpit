@@ -59,16 +59,18 @@ def cmd_telemetry(args: argparse.Namespace) -> int:
         if is_json:
             import json
 
-            print(json.dumps(
-                {
-                    "status": "ok",
-                    "capacity": ring.capacity,
-                    "total_events": len(events),
-                    "diagnostics": events,
-                },
-                ensure_ascii=False,
-                indent=2,
-            ))
+            print(
+                json.dumps(
+                    {
+                        "status": "ok",
+                        "capacity": ring.capacity,
+                        "total_events": len(events),
+                        "diagnostics": events,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
             return int(ExitCode.SUCCESS)
 
         console.print(f"[bold cyan]🩺 诊断环形缓冲区 (容量 {ring.capacity}, 当前 {len(events)} 条)[/bold cyan]")
@@ -127,7 +129,9 @@ def cmd_telemetry(args: argparse.Namespace) -> int:
     summary_table.add_row("整体错误率 (Error Rate)", err_rate_pct)
     lat = summary["latency_seconds"]
     summary_table.add_row("平均执行延迟 (Avg Latency)", f"{lat['avg'] * 1000:.1f} ms")
-    summary_table.add_row("P50 / P90 / P99 延迟", f"{lat['p50'] * 1000:.1f}ms / {lat['p90'] * 1000:.1f}ms / {lat['p99'] * 1000:.1f}ms")
+    summary_table.add_row(
+        "P50 / P90 / P99 延迟", f"{lat['p50'] * 1000:.1f}ms / {lat['p90'] * 1000:.1f}ms / {lat['p99'] * 1000:.1f}ms"
+    )
     console.print(summary_table)
 
     if summary["domain_distribution"]:

@@ -13,8 +13,9 @@ from pathlib import Path
 from urllib import error as urlerror
 from urllib import request as urlrequest
 
-from .base import (
 from cockpit.env_resolver import get_workspace_root as _get_workspace_root
+
+from .base import (
     _get_console,
     _get_data_access,
     _get_err,

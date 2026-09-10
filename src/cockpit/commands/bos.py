@@ -4,6 +4,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+
 from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 # commands/ → cockpit/ → src/ → cockpit package root → projects/cockpit → projects → workspace
@@ -102,12 +103,11 @@ def _load_bos_yaml_services() -> list[dict]:
     """Load raw bos-services.yaml entries (includes non-routable statuses)."""
     import yaml
 
-    # projects/cockpit → projects → workspace
-    root = Path(__file__).resolve().parents[4]
-    path = root / "agora" / "etc" / "bos-services.yaml"
+    _ws = _get_workspace_root()
+    path = _ws / "projects" / "agora" / "etc" / "bos-services.yaml"
     if not path.is_file():
-        # fallback: workspace-relative via parents[5] if layout differs
-        alt = Path(__file__).resolve().parents[5] / "projects" / "agora" / "etc" / "bos-services.yaml"
+        # fallback: older layout (projects/agora as sibling of cockpit)
+        alt = _ws.parent / "agora" / "etc" / "bos-services.yaml"
         path = alt if alt.is_file() else path
     docs = list(yaml.safe_load_all(path.read_text(encoding="utf-8")))
     for d in docs:

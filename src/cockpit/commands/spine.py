@@ -56,8 +56,12 @@ def _omlxc_python(code: str, timeout: float = 120.0) -> tuple[int, str]:
     cmd = ["uv", "run", "python", "-c", code]
     try:
         res = subprocess.run(
-            cmd, cwd=str(omlxc_root), capture_output=True, text=True,
-            timeout=timeout, check=False,
+            cmd,
+            cwd=str(omlxc_root),
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
         )
     except subprocess.TimeoutExpired:
         return 124, "omlxc python snippet timed out"
@@ -337,18 +341,21 @@ def cmd_spine_distill(args: argparse.Namespace) -> int:
             cfg = out_dir / "adapter_config.json"
             if not cfg.exists():
                 cfg.write_text(
-                    json.dumps({
-                        "base_model_name_or_path": "qwen3.8-27b",
-                        "bias": "none",
-                        "lora_alpha": 16,
-                        "lora_dropout": 0.05,
-                        "r": 8,
-                        "target_modules": ["q_proj", "v_proj"],
-                        "task_type": "CAUSAL_LM",
-                        "domain": domain,
-                        "sample_count": job.get("sample_count", 0),
-                        "target_node": job.get("target_node", "node-macmini-m4"),
-                    }, indent=2),
+                    json.dumps(
+                        {
+                            "base_model_name_or_path": "qwen3.8-27b",
+                            "bias": "none",
+                            "lora_alpha": 16,
+                            "lora_dropout": 0.05,
+                            "r": 8,
+                            "target_modules": ["q_proj", "v_proj"],
+                            "task_type": "CAUSAL_LM",
+                            "domain": domain,
+                            "sample_count": job.get("sample_count", 0),
+                            "target_node": job.get("target_node", "node-macmini-m4"),
+                        },
+                        indent=2,
+                    ),
                     encoding="utf-8",
                 )
             weights = out_dir / "adapters.safetensors"
@@ -357,14 +364,17 @@ def cmd_spine_distill(args: argparse.Namespace) -> int:
             manifest = out_dir / "training_manifest.json"
             if not manifest.exists():
                 manifest.write_text(
-                    json.dumps({
-                        "job_id": job.get("job_id"),
-                        "domain": domain,
-                        "epochs": epochs,
-                        "status": status,
-                        "target_node": job.get("target_node"),
-                        "target_endpoint": job.get("target_endpoint"),
-                    }, indent=2),
+                    json.dumps(
+                        {
+                            "job_id": job.get("job_id"),
+                            "domain": domain,
+                            "epochs": epochs,
+                            "status": status,
+                            "target_node": job.get("target_node"),
+                            "target_endpoint": job.get("target_endpoint"),
+                        },
+                        indent=2,
+                    ),
                     encoding="utf-8",
                 )
 
@@ -393,9 +403,7 @@ def cmd_spine_distill(args: argparse.Namespace) -> int:
         )
         return 0
     if status == "insufficient_samples":
-        console.print(
-            f"[yellow]样本不足: {detail} — 先用 spine sign 积累真实署名样本[/yellow]"
-        )
+        console.print(f"[yellow]样本不足: {detail} — 先用 spine sign 积累真实署名样本[/yellow]")
         return 1
     console.print(f"[red]派发未执行 ({status}): {detail}[/red]")
     console.print("[dim]本机安装 mlx-lm 或提供 mesh 节点后可真实训练 (不模拟成功)[/dim]")
@@ -627,9 +635,7 @@ def _sent_today(spool: Path) -> int:
     return n
 
 
-def _write_receipt(
-    msg_dir: Path, env: dict, *, status: str, reason: str = "", provider_ref: str = ""
-) -> None:
+def _write_receipt(msg_dir: Path, env: dict, *, status: str, reason: str = "", provider_ref: str = "") -> None:
     """OutboundMessageReceipt (outbound-message-receipt/v1) — 每次发送尝试/阻断均落凭据."""
     receipt = {
         "schema": "outbound-message-receipt/v1",
@@ -642,9 +648,7 @@ def _write_receipt(
         "sent_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "provider_ref": provider_ref,
     }
-    (msg_dir / "receipt.json").write_text(
-        json.dumps(receipt, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    (msg_dir / "receipt.json").write_text(json.dumps(receipt, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def _smtp_config_path() -> Path:
@@ -869,7 +873,8 @@ def cmd_spine_lora(args: argparse.Namespace) -> int:
         t.add_column("ROUGE-L 提升")
     for r in rows:
         status = (
-            "[green]active[/green]" if r["active"]
+            "[green]active[/green]"
+            if r["active"]
             else ("[cyan]trained[/cyan]" if r["exists"] else "[dim]pending[/dim]")
         )
         row = [r["domain"], r["adapter"], status]
@@ -879,4 +884,3 @@ def cmd_spine_lora(args: argparse.Namespace) -> int:
         t.add_row(*row)
     console.print(t)
     return 0
-

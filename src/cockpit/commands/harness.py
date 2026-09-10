@@ -88,7 +88,9 @@ def cmd_harness(a: argparse.Namespace) -> int:
         return _run_harness_script("bin/gac/harness-compliance-check.py", extra_args, workspace_root)
     else:
         c = _get_console()
-        c.print("[red]未知子命令。可用: trace/verify/probe/gac/retro/run/explain + compliance/mof/omo/enforce/full/status[/]")
+        c.print(
+            "[red]未知子命令。可用: trace/verify/probe/gac/retro/run/explain + compliance/mof/omo/enforce/full/status[/]"
+        )
         return 1
 
 
@@ -101,8 +103,25 @@ def register_harness_subcommand(sub: argparse._SubParsersAction) -> None:
     harness_p.add_argument(
         "subcommand",
         nargs="?",
-        choices=["trace", "verify", "probe", "gac", "retro", "run", "explain", "ledger", "grill", "audit", "closeout",
-                 "compliance", "mof", "omo", "enforce", "full", "status"],
+        choices=[
+            "trace",
+            "verify",
+            "probe",
+            "gac",
+            "retro",
+            "run",
+            "explain",
+            "ledger",
+            "grill",
+            "audit",
+            "closeout",
+            "compliance",
+            "mof",
+            "omo",
+            "enforce",
+            "full",
+            "status",
+        ],
         help="Harness 子命令 (P4 可观测或 Phase 8 合规)",
     )
     harness_p.add_argument(

@@ -17,6 +17,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
+
 from .base import _get_console, _panel
 
 
@@ -239,7 +241,7 @@ def _cmd_quickstart_check(args: argparse.Namespace, output_format: str = "tty") 
         }
     )
     # Memory OS surfaces (cold start; no live Neo4j required)
-    ws = Path(__file__).resolve().parents[5]
+    ws = _get_workspace_root()
     if not (ws / ".omo" / "_truth" / "registry" / "memory-os.yaml").is_file():
         for candidate in (Path.cwd(), Path.home() / "Workspace"):
             if (candidate / ".omo" / "_truth" / "registry" / "memory-os.yaml").is_file():
@@ -420,7 +422,7 @@ def cmd_quickstart(args: argparse.Namespace) -> int:
 
     # ── Memory OS 冷启动（ADR-0372）──
     c.print(_panel("[bold]Memory OS 冷启动[/bold]", "cyan", title="🧠"))
-    ws_root = Path(__file__).resolve().parents[5]
+    ws_root = _get_workspace_root()
     if not (ws_root / "bin" / "memory-os-env.sh").is_file():
         # cockpit package may live under projects/cockpit → parents[5] is workspace
         for candidate in (Path.cwd(), Path.home() / "Workspace"):

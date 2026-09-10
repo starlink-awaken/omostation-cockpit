@@ -16,6 +16,7 @@ from typing import Any
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+
 from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 _WORKSPACE = _get_workspace_root()  # commands → cockpit → src → cockpit(proj) → projects → workspace
@@ -35,13 +36,15 @@ def _collect_cli_commands() -> list[dict[str, str]]:
     items: list[dict[str, str]] = []
     for group_name, _color, rows in GROUPS:
         for row in rows:
-            items.append({
-                "name": row.name,
-                "description": row.blurb,
-                "example": row.example,
-                "source": "cli",
-                "group": group_name,
-            })
+            items.append(
+                {
+                    "name": row.name,
+                    "description": row.blurb,
+                    "example": row.example,
+                    "source": "cli",
+                    "group": group_name,
+                }
+            )
     return items
 
 
@@ -52,6 +55,7 @@ def _collect_bos_services() -> list[dict[str, str]]:
         return []
     try:
         import yaml
+
         data = yaml.safe_load(registry.read_text(encoding="utf-8"))
     except Exception:
         return []
@@ -65,14 +69,16 @@ def _collect_bos_services() -> list[dict[str, str]]:
             if not isinstance(svc, dict):
                 continue
             uri = svc.get("uri", "")
-            items.append({
-                "name": uri,
-                "description": svc.get("description", ""),
-                "example": uri,
-                "source": "bos",
-                "group": f"bos://{domain}/",
-                "transport": svc.get("transport", ""),
-            })
+            items.append(
+                {
+                    "name": uri,
+                    "description": svc.get("description", ""),
+                    "example": uri,
+                    "source": "bos",
+                    "group": f"bos://{domain}/",
+                    "transport": svc.get("transport", ""),
+                }
+            )
     return items
 
 
@@ -85,6 +91,7 @@ def _collect_scene_cards() -> list[dict[str, str]]:
     for f in sorted(cards_dir.glob("*.yaml")):
         try:
             import yaml
+
             text = f.read_text(encoding="utf-8")
             docs = list(yaml.safe_load_all(text))
             # 找到包含 scene_id 的文档, 否则用第一个
@@ -95,14 +102,16 @@ def _collect_scene_cards() -> list[dict[str, str]]:
         if not isinstance(data, dict):
             continue
         lifecycle = data.get("lifecycle", data.get("status", "unknown"))
-        items.append({
-            "name": data.get("scene_id", f.stem),
-            "description": data.get("goal", data.get("description", data.get("summary", ""))),
-            "example": f"cockpit scenario {data.get('scene_id', f.stem)}",
-            "source": "scene-card",
-            "group": f"lifecycle={lifecycle}",
-            "activation": data.get("activation", ""),
-        })
+        items.append(
+            {
+                "name": data.get("scene_id", f.stem),
+                "description": data.get("goal", data.get("description", data.get("summary", ""))),
+                "example": f"cockpit scenario {data.get('scene_id', f.stem)}",
+                "source": "scene-card",
+                "group": f"lifecycle={lifecycle}",
+                "activation": data.get("activation", ""),
+            }
+        )
     return items
 
 
@@ -115,6 +124,7 @@ def _collect_journeys() -> list[dict[str, str]]:
     for f in sorted(specs_dir.glob("*.yaml")):
         try:
             import yaml
+
             text = f.read_text(encoding="utf-8")
             docs = list(yaml.safe_load_all(text))
             data = next((d for d in docs if isinstance(d, dict) and "journey_id" in d), docs[0] if docs else None)
@@ -123,13 +133,15 @@ def _collect_journeys() -> list[dict[str, str]]:
             continue
         if not isinstance(data, dict):
             continue
-        items.append({
-            "name": data.get("journey_id", f.stem),
-            "description": data.get("description", data.get("summary", "")),
-            "example": f"cockpit journey {data.get('journey_id', f.stem)}",
-            "source": "journey",
-            "group": "journey",
-        })
+        items.append(
+            {
+                "name": data.get("journey_id", f.stem),
+                "description": data.get("description", data.get("summary", "")),
+                "example": f"cockpit journey {data.get('journey_id', f.stem)}",
+                "source": "journey",
+                "group": "journey",
+            }
+        )
     return items
 
 
@@ -150,13 +162,15 @@ def _collect_governance_tools() -> list[dict[str, str]]:
         # 提取 docstring 第一行作为描述
         m = re.search(r'"""(.*?)"""', text, re.DOTALL)
         desc = m.group(1).strip().split("\n")[0] if m else ""
-        items.append({
-            "name": f"bin/gac/{f.name}",
-            "description": desc,
-            "example": f"python3 bin/gac/{f.name} --help",
-            "source": "governance",
-            "group": "gac",
-        })
+        items.append(
+            {
+                "name": f"bin/gac/{f.name}",
+                "description": desc,
+                "example": f"python3 bin/gac/{f.name} --help",
+                "source": "governance",
+                "group": "gac",
+            }
+        )
     return items
 
 
@@ -187,16 +201,14 @@ def _search_capabilities(items: list[dict[str, str]], query: str) -> list[dict[s
         if len(t) > 4:
             for i in range(len(t) - 1):
                 for j in range(2, min(5, len(t) - i + 1)):
-                    sub = t[i:i+j]
+                    sub = t[i : i + j]
                     if sub not in terms:
                         terms.append(sub)
     if not terms:
         return items
     scored: list[tuple[int, dict[str, str]]] = []
     for item in items:
-        haystack = " ".join(
-            str(v) for v in item.values() if isinstance(v, str)
-        ).lower()
+        haystack = " ".join(str(v) for v in item.values() if isinstance(v, str)).lower()
         score = sum(2 if t in haystack else 0 for t in raw_terms)  # 完整词权重2
         score += sum(1 for t in terms if t not in raw_terms and t in haystack)  # 子串权重1
         if score > 0:
@@ -292,14 +304,19 @@ def cmd_capabilities(args: Namespace) -> int:
 
     # JSON 输出 (Agent 消费)
     if as_json:
-        print(json.dumps({
-            "total": len(items),
-            "query": query or task,
-            "source_filter": source or None,
-            "capabilities": items,
-        }, ensure_ascii=False, indent=2))
+        print(
+            json.dumps(
+                {
+                    "total": len(items),
+                    "query": query or task,
+                    "source_filter": source or None,
+                    "capabilities": items,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
         return ExitCode.SUCCESS
-
 
     console.print(
         Panel.fit(

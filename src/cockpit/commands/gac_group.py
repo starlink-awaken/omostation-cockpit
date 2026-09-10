@@ -77,11 +77,13 @@ def dispatch_gac_group(args: argparse.Namespace) -> int:
     if passthrough and passthrough[0] in ("--help", "-h"):
         print(f"用法: cockpit gac {sub_name} [args...]\n说明: {desc}\n下游: {' '.join(target)}")
         return 0
-    resolved = [str(_GAC_WS_ROOT / a[len("<ws>/"):]) if a.startswith("<ws>/") else a for a in target]
+    resolved = [str(_GAC_WS_ROOT / a[len("<ws>/") :]) if a.startswith("<ws>/") else a for a in target]
     return subprocess.call(resolved + passthrough, env=delegation.clean_env())
 
 
-def register(sub: argparse._SubParsersAction, workspace_parser: type[argparse.ArgumentParser]) -> dict[str, Callable[[argparse.Namespace], int]]:
+def register(
+    sub: argparse._SubParsersAction, workspace_parser: type[argparse.ArgumentParser]
+) -> dict[str, Callable[[argparse.Namespace], int]]:
     """挂载 gac 子命令 parser; 返回覆盖 cli.py cmd_gac 的组 handler."""
     gac_parser = sub.choices["gac"]
     gac_sub = gac_parser.add_subparsers(dest="gac_command")

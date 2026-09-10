@@ -21,8 +21,9 @@ from rich.console import Console
 from rich.table import Table
 
 from cockpit.domain.exit_codes import ExitCode
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
-WORKSPACE_ROOT = Path(__file__).resolve().parents[4]
+WORKSPACE_ROOT = _get_workspace_root()
 METAOS_DIR = WORKSPACE_ROOT / "projects" / "metaos"
 ECOS_DIR = WORKSPACE_ROOT / "projects" / "ecos"
 WORKFLOW_CATALOG_PATH = ECOS_DIR / "src" / "ecos" / "ssot" / "registry" / "workflow-catalog.yaml"
@@ -68,7 +69,9 @@ def _get_workflow_catalog_summary() -> dict[str, Any]:
         with open(WORKFLOW_CATALOG_PATH, encoding="utf-8") as f:
             data = yaml.safe_load(f)
             domains = list((data.get("domains") or {}).keys())
-            total = sum(len(d.get("workflows", [])) for d in (data.get("domains") or {}).values() if isinstance(d, dict))
+            total = sum(
+                len(d.get("workflows", [])) for d in (data.get("domains") or {}).values() if isinstance(d, dict)
+            )
             return {"total": total, "domains": domains}
     except Exception:
         return {"total": 0, "domains": []}
@@ -114,7 +117,9 @@ def handle_workflow(args: list[str] | None = None, ns: Any = None) -> int:
         table.add_column("典型命令 (Example)", style="green")
 
         table.add_row("MetaOS", "L2 动态规划", "自然语言转 DAG / 审批门控 / 执行历史", 'cockpit workflow plan "目标"')
-        table.add_row("ecos M1", "L0 协议引擎", f"契约状态机执行 ({summary['total']} 个注册工作流)", "cockpit workflow ecos list")
+        table.add_row(
+            "ecos M1", "L0 协议引擎", f"契约状态机执行 ({summary['total']} 个注册工作流)", "cockpit workflow ecos list"
+        )
         table.add_row("Mesh", "L1 算力漫游", "分布式工作流与节点调度", "cockpit workflow mesh")
         console.print(table)
 

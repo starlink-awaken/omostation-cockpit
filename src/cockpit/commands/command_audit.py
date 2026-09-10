@@ -41,16 +41,41 @@ STALE_DAYS = 180
 
 # P0 高频命令 (report 达标率统计口径)
 P0_COMMANDS = [
-    "research", "memory", "knowledge", "health", "status", "daily", "audit",
-    "gac", "bos", "agent", "agent-workflow", "omo", "debt", "scenario",
-    "chain", "data", "search", "brain", "dashboard", "help", "quickstart",
-    "capabilities", "ops", "mesh", "workflow", "iterate", "compass", "journey",
+    "research",
+    "memory",
+    "knowledge",
+    "health",
+    "status",
+    "daily",
+    "audit",
+    "gac",
+    "bos",
+    "agent",
+    "agent-workflow",
+    "omo",
+    "debt",
+    "scenario",
+    "chain",
+    "data",
+    "search",
+    "brain",
+    "dashboard",
+    "help",
+    "quickstart",
+    "capabilities",
+    "ops",
+    "mesh",
+    "workflow",
+    "iterate",
+    "compass",
+    "journey",
 ]
 
 HELP_HEADER = "cockpit command-audit — 15 维命令评分卡管理 (功能完整度/应用场景/目标清晰度/可用性/输入输出易读性/性能/稳定性/可观察性/日志监控告警/可运营性/可维护性/扩展性/可进化能力/Agent 友好度/状态与长期记忆)"
 
 
 # ── 命令树枚举 (权威节点来源) ────────────────────────────────────────────────
+
 
 def walk_command_tree() -> list[str]:
     """从 create_parser() 递归枚举全部命令节点, 如 ["research", "research.list"].
@@ -82,6 +107,7 @@ def walk_command_tree() -> list[str]:
 
 
 # ── 评分卡读写 ────────────────────────────────────────────────────────────────
+
 
 def card_path(cmd_path: str, root: Path | None = None) -> Path:
     return (root or AUDIT_DIR) / f"{cmd_path}.yaml"
@@ -122,6 +148,7 @@ def dump_card(data: dict, path: Path) -> None:
 
 # ── 校验 / 统计 ───────────────────────────────────────────────────────────────
 
+
 def validate_card(data: dict, cmd_path: str) -> list[str]:
     """返回违规列表 (空 = 通过)。"""
     errs: list[str] = []
@@ -141,7 +168,9 @@ def validate_card(data: dict, cmd_path: str) -> list[str]:
         if set(dim) - {"score", "evidence", "suggestion"}:
             errs.append(f"{key}: 未知字段 {set(dim) - {'score', 'evidence', 'suggestion'}}")
         score = dim.get("score")
-        if score is not None and (not isinstance(score, int) or isinstance(score, bool) or score not in {1, 2, 3, 4, 5}):
+        if score is not None and (
+            not isinstance(score, int) or isinstance(score, bool) or score not in {1, 2, 3, 4, 5}
+        ):
             errs.append(f"{key}: score 非法 ({score!r}), 须为 1-5 或 null")
         if score is not None and not str(dim.get("evidence") or "").strip():
             errs.append(f"{key}: score 非 null 时 evidence 必填")
@@ -195,6 +224,7 @@ def is_stale(data: dict, today: _dt.date | None = None) -> bool:
 
 # ── 子命令实现 ────────────────────────────────────────────────────────────────
 
+
 def cmd_init(args: argparse.Namespace) -> int:
     nodes = walk_command_tree()
     only = set(args.only or [])
@@ -207,7 +237,9 @@ def cmd_init(args: argparse.Namespace) -> int:
         dump_card(skeleton(n), p)
         created += 1
     have, missing = coverage(nodes)
-    print(f"命令树节点: {len(nodes)} · 本次新建: {created} · 已有评分卡: {len(have)}/{len(nodes)} ({len(have) * 100 // len(nodes)}%)")
+    print(
+        f"命令树节点: {len(nodes)} · 本次新建: {created} · 已有评分卡: {len(have)}/{len(nodes)} ({len(have) * 100 // len(nodes)}%)"
+    )
     if missing:
         print(f"缺失: {', '.join(missing[:20])}{' …' if len(missing) > 20 else ''}")
     return 0
@@ -240,7 +272,9 @@ def cmd_lint(args: argparse.Namespace) -> int:
             print(f"[LINT] schema 违规 {n}: {e}")
             violations += 1
         if any((d.get("score") is not None) for d in data.get("dimensions", {}).values()) and is_stale(data):
-            print(f"[LINT] 过期 {n}: last_audited={data.get('meta', {}).get('last_audited')} 超 {STALE_DAYS} 天或未评审")
+            print(
+                f"[LINT] 过期 {n}: last_audited={data.get('meta', {}).get('last_audited')} 超 {STALE_DAYS} 天或未评审"
+            )
             violations += 1
     if missing:
         print(f"[LINT] 覆盖不全: {len(missing)}/{len(nodes)} 节点缺评分卡")
@@ -266,7 +300,9 @@ def cmd_report(args: argparse.Namespace) -> int:
     lines: list[str] = []
     lines.append("# Cockpit 命令评分卡报告 (command-audit)")
     lines.append("")
-    lines.append(f"> 生成: {_dt.date.today().isoformat()} · 节点总数: {len(nodes)} · 评分卡: {len(have)} · 覆盖率: {len(have) * 100 // len(nodes)}%")
+    lines.append(
+        f"> 生成: {_dt.date.today().isoformat()} · 节点总数: {len(nodes)} · 评分卡: {len(have)} · 覆盖率: {len(have) * 100 // len(nodes)}%"
+    )
     lines.append("")
 
     lines.append("## 各维度均分")
@@ -293,7 +329,9 @@ def cmd_report(args: argparse.Namespace) -> int:
     p0_pass = [a for a in p0_scored if a[2] >= 3.5]
     lines.append("## P0 高频命令达标率")
     lines.append("")
-    lines.append(f"- P0 列表: {len(P0_COMMANDS)} 个 · 有评分卡: {len(p0_have)} · 已评分: {len(p0_scored)} · 达标 (total≥3.5): {len(p0_pass)}/{len(p0_scored) if p0_scored else 0}")
+    lines.append(
+        f"- P0 列表: {len(P0_COMMANDS)} 个 · 有评分卡: {len(p0_have)} · 已评分: {len(p0_scored)} · 达标 (total≥3.5): {len(p0_pass)}/{len(p0_scored) if p0_scored else 0}"
+    )
     for n, data, total in sorted(audited, key=lambda a: a[0]):
         if n in P0_COMMANDS and total is not None:
             mark = "✅" if total >= 3.5 else "❌"
@@ -310,6 +348,7 @@ def cmd_report(args: argparse.Namespace) -> int:
 
 
 # ── 注册 ──────────────────────────────────────────────────────────────────────
+
 
 def register(sub: argparse._SubParsersAction, workspace_parser: type) -> None:
     p = sub.add_parser(

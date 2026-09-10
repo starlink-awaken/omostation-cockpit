@@ -6,9 +6,11 @@ import argparse
 import subprocess
 from pathlib import Path
 
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
+
 
 def _workspace_root() -> Path:
-    return Path(__file__).resolve().parents[5]
+    return _get_workspace_root()
 
 
 # package 别名 -> (project 子目录, script 名)

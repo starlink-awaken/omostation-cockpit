@@ -38,7 +38,11 @@ def _agora_python(code: str, timeout: float = 180.0) -> tuple[int, str]:
         return 127, "agora checkout not found"
     res = subprocess.run(
         ["uv", "run", "python", "-c", code],
-        cwd=str(agora_root), capture_output=True, text=True, timeout=timeout, check=False,
+        cwd=str(agora_root),
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        check=False,
     )
     return res.returncode, (res.stdout or res.stderr).strip()
 
@@ -67,11 +71,13 @@ def cmd_voice_memo(args: argparse.Namespace) -> int:
         return 1
 
     if not payload.get("ok"):
-        console.print(Panel(
-            f"[yellow]{payload.get('error_code')}[/yellow]\n{payload.get('detail', '')}\n"
-            f"[dim]{payload.get('install_hint', '')}[/dim]",
-            title="🎙 语音便签 — 诚实失败",
-        ))
+        console.print(
+            Panel(
+                f"[yellow]{payload.get('error_code')}[/yellow]\n{payload.get('detail', '')}\n"
+                f"[dim]{payload.get('install_hint', '')}[/dim]",
+                title="🎙 语音便签 — 诚实失败",
+            )
+        )
         return 1
 
     if getattr(args, "to_spine", False):

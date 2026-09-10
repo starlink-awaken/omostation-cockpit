@@ -55,8 +55,7 @@ def cmd_compass(args: argparse.Namespace) -> int:
                 "adapter": "ecos",
                 "subcommands": [c[0] for c in C2G_SUBCOMMANDS],
                 "subcommand_details": [
-                    {"name": name, "description": desc, "example": ex}
-                    for name, desc, ex in C2G_SUBCOMMANDS
+                    {"name": name, "description": desc, "example": ex} for name, desc, ex in C2G_SUBCOMMANDS
                 ],
                 "ready": True,
             }
@@ -109,7 +108,12 @@ def cmd_compass(args: argparse.Namespace) -> int:
 
     env = {k: v for k, v in os.environ.items() if not k.startswith("VIRTUAL_ENV") and k != "PYTHONHOME"}
     import types
-    if not isinstance(subprocess.call, types.FunctionType) or subprocess.call.__name__ != "call" or getattr(subprocess.call, "__code__", None) != subprocess.run.__code__:
+
+    if (
+        not isinstance(subprocess.call, types.FunctionType)
+        or subprocess.call.__name__ != "call"
+        or getattr(subprocess.call, "__code__", None) != subprocess.run.__code__
+    ):
         # Check if subprocess.call was patched
         if getattr(subprocess.call, "__module__", None) != "subprocess":
             return subprocess.call(cmd, cwd=str(_WORKSPACE_ROOT), env=env)
