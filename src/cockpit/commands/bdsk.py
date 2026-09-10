@@ -60,28 +60,42 @@ def _role_verdicts(text: str, radar: dict[str, int]) -> dict[str, dict[str, str]
             "verdict": "approve_with_conditions" if radar["cost"] >= 4 else "approve",
             "comment": (
                 f"方案要点 {len(points)} 项。"
-                + ("成本信号密集（雷达 cost={}），建议先锁定预算边界与 ROI 度量口径。".format(radar["cost"]) if radar["cost"] >= 4 else "成本面信号温和，可按 MVP 切片验证。")
+                + (
+                    "成本信号密集（雷达 cost={}），建议先锁定预算边界与 ROI 度量口径。".format(radar["cost"])
+                    if radar["cost"] >= 4
+                    else "成本面信号温和，可按 MVP 切片验证。"
+                )
             ),
         },
         "developer": {
-            "verdict": "approve_with_conditions" if radar["maintainability"] >= 4 or radar["schedule"] >= 4 else "approve",
+            "verdict": "approve_with_conditions"
+            if radar["maintainability"] >= 4 or radar["schedule"] >= 4
+            else "approve",
             "comment": (
                 "实现路径可行。"
-                + ("拆分/迁移面大，建议先出接口契约与回滚方案再动工。" if radar["maintainability"] >= 4 else "建议按模块切片交付，保持每片可独立验证。")
+                + (
+                    "拆分/迁移面大，建议先出接口契约与回滚方案再动工。"
+                    if radar["maintainability"] >= 4
+                    else "建议按模块切片交付，保持每片可独立验证。"
+                )
             ),
         },
         "security": {
-            "verdict": "reject" if radar["security"] >= 4 else ("approve_with_conditions" if radar["security"] >= 3 else "approve"),
+            "verdict": "reject"
+            if radar["security"] >= 4
+            else ("approve_with_conditions" if radar["security"] >= 3 else "approve"),
             "comment": (
-                "安全信号强：敏感/外发面需先过 DLP 扫描、权限收敛与重放拦截，"
-                "未闭环前不应外发。" if radar["security"] >= 4 else "常规安全面可控，保持审计与最小权限即可。"
+                "安全信号强：敏感/外发面需先过 DLP 扫描、权限收敛与重放拦截，未闭环前不应外发。"
+                if radar["security"] >= 4
+                else "常规安全面可控，保持审计与最小权限即可。"
             ),
         },
         "knowledge": {
             "verdict": "approve_with_conditions" if radar["unknown"] >= 4 else "approve",
             "comment": (
-                "未知度偏高：探索性假设需逐条配 falsifier 与复盘锚点，"
-                "结论沉淀回 ADR/Skills。" if radar["unknown"] >= 4 else "已有决策记录路径，按 ADR 惯例沉淀即可。"
+                "未知度偏高：探索性假设需逐条配 falsifier 与复盘锚点，结论沉淀回 ADR/Skills。"
+                if radar["unknown"] >= 4
+                else "已有决策记录路径，按 ADR 惯例沉淀即可。"
             ),
         },
     }
@@ -116,8 +130,14 @@ def evaluate_spec(spec_text: str) -> dict[str, Any]:
     radar = _radar_scores(spec_text)
     verdicts = _role_verdicts(spec_text, radar)
     compromise = _compromise(verdicts, radar)
-    overall = "reject" if any(v["verdict"] == "reject" for v in verdicts.values()) else (
-        "approve_with_conditions" if any(v["verdict"] == "approve_with_conditions" for v in verdicts.values()) else "approve"
+    overall = (
+        "reject"
+        if any(v["verdict"] == "reject" for v in verdicts.values())
+        else (
+            "approve_with_conditions"
+            if any(v["verdict"] == "approve_with_conditions" for v in verdicts.values())
+            else "approve"
+        )
     )
     return {
         "schema": "cockpit.bdsk.evaluate.v1",
@@ -150,14 +170,30 @@ def render_madr(result: dict[str, Any], spec_path: str) -> str:
         lines.append(v["comment"])
         lines.append("")
     lines.extend(["## 风险雷达", "", "| 维度 | 风险分 (0-5) | 量级 |", "|------|------|------|"])
-    dim_labels = {"cost": "成本", "schedule": "工期", "security": "安全", "maintainability": "可维护性", "unknown": "未知度"}
+    dim_labels = {
+        "cost": "成本",
+        "schedule": "工期",
+        "security": "安全",
+        "maintainability": "可维护性",
+        "unknown": "未知度",
+    }
     for dim, score in result["radar"].items():
         bar = "█" * score + "░" * (5 - score)
         lines.append(f"| {dim_labels[dim]} | {score} | {bar} |")
-    lines.extend(["", "## 折中方案", "", result["compromise"], "",
-                  "## 决议建议", "",
-                  f"总体结论: **{result['overall']}**", "",
-                  f"*由 cockpit bdsk evaluate 生成于 {ts}*"])
+    lines.extend(
+        [
+            "",
+            "## 折中方案",
+            "",
+            result["compromise"],
+            "",
+            "## 决议建议",
+            "",
+            f"总体结论: **{result['overall']}**",
+            "",
+            f"*由 cockpit bdsk evaluate 生成于 {ts}*",
+        ]
+    )
     return "\n".join(lines)
 
 
@@ -201,9 +237,11 @@ def cmd_bdsk_evaluate(args: argparse.Namespace) -> int:
     if getattr(args, "json", False):
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
-        console.print(Panel(
-            f"总体结论: [bold]{result['overall']}[/bold] | "
-            f"雷达: {result['radar']}\n折中: {result['compromise'][:80]}",
-            title=f"🧭 B.D.S.K. 评审 — {label}",
-        ))
+        console.print(
+            Panel(
+                f"总体结论: [bold]{result['overall']}[/bold] | "
+                f"雷达: {result['radar']}\n折中: {result['compromise'][:80]}",
+                title=f"🧭 B.D.S.K. 评审 — {label}",
+            )
+        )
     return 0

@@ -168,6 +168,7 @@ def cmd_dashboard(args: argparse.Namespace) -> int:
 
     try:
         from cockpit.web.memory_env import apply_memory_os_env
+
         apply_memory_os_env()
         child_env = os.environ.copy()
     except Exception:
@@ -214,5 +215,3 @@ def cmd_dashboard(args: argparse.Namespace) -> int:
         proc.terminate()
         console.print("\n[yellow]Dashboard 已停止[/]")
     return ExitCode.SUCCESS
-
-

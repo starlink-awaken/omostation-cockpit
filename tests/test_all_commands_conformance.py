@@ -5,13 +5,13 @@ from __future__ import annotations
 import pytest
 
 from cockpit.cli import main
-from cockpit.domain.exit_codes import ExitCode
 from cockpit.commands.registry import (
-    COMMAND_CATALOG,
     CATEGORY_GROUPS,
-    ORTHOGONAL_DOMAINS,
+    COMMAND_CATALOG,
     LEGACY_COMMAND_MAPPING,
+    ORTHOGONAL_DOMAINS,
 )
+from cockpit.domain.exit_codes import ExitCode
 
 
 def test_command_catalog_metadata_integrity():
@@ -91,3 +91,28 @@ def test_modernized_commands_help_smoke(cmd: str, capsys):
     captured = capsys.readouterr()
     assert len(captured.out) > 20
 
+
+
+def test_every_command_module_imports():
+    """全量 import cockpit.commands 下每个模块。
+
+    防御回归: 未被任何测试引用的模块一旦有语法错误/缺失符号, 现有测试套件
+    不会发现 (batch 13 曾在 importer.py 引入该类错误并合入 main)。
+    """
+    import importlib
+    import pkgutil
+
+    import cockpit.commands as pkg
+
+    failures: list[str] = []
+    count = 0
+    for mod in pkgutil.iter_modules(pkg.__path__):
+        name = f"{pkg.__name__}.{mod.name}"
+        try:
+            importlib.import_module(name)
+            count += 1
+        except Exception as exc:
+            failures.append(f"{mod.name}: {type(exc).__name__}: {exc}")
+
+    assert count > 80, f"只 import 到 {count} 个模块, 疑似发现机制失效"
+    assert not failures, "以下命令模块 import 失败:\n" + "\n".join(failures)

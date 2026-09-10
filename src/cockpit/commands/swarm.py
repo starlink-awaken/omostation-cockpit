@@ -6,8 +6,8 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Any
-from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 
 def _workspace_root() -> Path:

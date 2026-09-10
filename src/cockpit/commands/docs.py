@@ -33,7 +33,9 @@ def generate_cli_reference_markdown() -> str:
     # Title & Metadata Header
     md.append("# Cockpit CLI Reference Manual")
     md.append("")
-    md.append(f"> **Version**: v{__version__} | **Standard**: Tier-1 Open Source CLI Specification (gh / kubectl compatible)")
+    md.append(
+        f"> **Version**: v{__version__} | **Standard**: Tier-1 Open Source CLI Specification (gh / kubectl compatible)"
+    )
     md.append("> **Generated**: Automatic via `cockpit docs export`")
     md.append("")
     md.append("---")
@@ -43,7 +45,9 @@ def generate_cli_reference_markdown() -> str:
     md.append("## Table of Contents")
     md.append("1. [Global Flags & Universal Contract](#1-global-flags--universal-contract)")
     md.append("2. [Standard Exit Codes](#2-standard-exit-codes)")
-    md.append("3. [The 8 Orthogonal Domains (Dual-Track Architecture)](#3-the-8-orthogonal-domains-dual-track-architecture)")
+    md.append(
+        "3. [The 8 Orthogonal Domains (Dual-Track Architecture)](#3-the-8-orthogonal-domains-dual-track-architecture)"
+    )
     md.append("4. [Command Catalog](#4-command-catalog)")
     md.append("5. [Observability & Prometheus Telemetry](#5-observability--prometheus-telemetry)")
     md.append("6. [Shell Auto-completion](#6-shell-auto-completion)")
@@ -53,7 +57,9 @@ def generate_cli_reference_markdown() -> str:
 
     # Section 1: Global Flags
     md.append("## 1. Global Flags & Universal Contract")
-    md.append("Cockpit implements universal flags across all subcommands. Output purity is strictly guaranteed: `--json` guarantees 100% pure JSON without ANSI color escape codes.")
+    md.append(
+        "Cockpit implements universal flags across all subcommands. Output purity is strictly guaranteed: `--json` guarantees 100% pure JSON without ANSI color escape codes."
+    )
     md.append("")
     md.append("| Flag | Alias | Description | Output Mode |")
     md.append("| :--- | :--- | :--- | :--- |")
@@ -87,7 +93,9 @@ def generate_cli_reference_markdown() -> str:
 
     # Section 3: 8 Orthogonal Domains
     md.append("## 3. The 8 Orthogonal Domains (Dual-Track Architecture)")
-    md.append("Commands are organized into 8 orthogonal top-level domains. Both hierarchical calls (`cockpit <domain> <subcommand>`) and legacy flat calls (`cockpit <subcommand>`) are 100% equivalent and supported.")
+    md.append(
+        "Commands are organized into 8 orthogonal top-level domains. Both hierarchical calls (`cockpit <domain> <subcommand>`) and legacy flat calls (`cockpit <subcommand>`) are 100% equivalent and supported."
+    )
     md.append("")
     md.append("| Domain | Icon | Description | Core Subcommands | Example |")
     md.append("| :--- | :---: | :--- | :--- | :--- |")
@@ -101,7 +109,7 @@ def generate_cli_reference_markdown() -> str:
         subs = sorted(domain_subs.get(dom, []))
         subs_preview = ", ".join(f"`{s}`" for s in subs[:6])
         if len(subs) > 6:
-            subs_preview += f" (+{len(subs)-6} more)"
+            subs_preview += f" (+{len(subs) - 6} more)"
         ex = f"`cockpit {dom} {subs[0]}`" if subs else f"`cockpit {dom}`"
         md.append(f"| `{dom}` | {desc.split()[0]} | {desc} | {subs_preview} | {ex} |")
 
@@ -138,7 +146,9 @@ def generate_cli_reference_markdown() -> str:
 
     # Section 5: Telemetry & Prometheus
     md.append("## 5. Observability & Prometheus Telemetry")
-    md.append("Cockpit tracks command execution latency, counts, and error rates using an atomic local ring buffer (`~/.workspace/telemetry/cockpit_metrics.json`) with zero external daemon requirements.")
+    md.append(
+        "Cockpit tracks command execution latency, counts, and error rates using an atomic local ring buffer (`~/.workspace/telemetry/cockpit_metrics.json`) with zero external daemon requirements."
+    )
     md.append("")
     md.append("```bash")
     md.append("# View telemetry summary table")
@@ -200,12 +210,16 @@ def cmd_docs(args: argparse.Namespace) -> int:
     # Action: export (write to disk)
     if is_dry_run:
         if is_json:
-            print(json.dumps({
-                "dry_run": True,
-                "target_file": str(output_path),
-                "bytes_to_write": len(content.encode("utf-8")),
-                "ready": True,
-            }))
+            print(
+                json.dumps(
+                    {
+                        "dry_run": True,
+                        "target_file": str(output_path),
+                        "bytes_to_write": len(content.encode("utf-8")),
+                        "ready": True,
+                    }
+                )
+            )
         else:
             print(f"[DRY-RUN] 预检: 即将向 {output_path} 写入 {len(content.encode('utf-8'))} 字节的参考手册。")
         return int(ExitCode.SUCCESS)
@@ -214,22 +228,30 @@ def cmd_docs(args: argparse.Namespace) -> int:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(content, encoding="utf-8")
         if is_json:
-            print(json.dumps({
-                "ok": True,
-                "target_file": str(output_path),
-                "bytes_written": len(content.encode("utf-8")),
-                "lines": len(content.splitlines()),
-            }))
+            print(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "target_file": str(output_path),
+                        "bytes_written": len(content.encode("utf-8")),
+                        "lines": len(content.splitlines()),
+                    }
+                )
+            )
         else:
             print(f"✓ 已成功生成 CLI 参考手册: {output_path} ({len(content.splitlines())} 行)")
         return int(ExitCode.SUCCESS)
     except Exception as e:
         if is_json:
-            print(json.dumps({
-                "ok": False,
-                "error": str(e),
-                "exit_code": int(ExitCode.GENERAL_FAILURE),
-            }))
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "error": str(e),
+                        "exit_code": int(ExitCode.GENERAL_FAILURE),
+                    }
+                )
+            )
         else:
             print(f"❌ 写入参考手册失败: {e}", file=sys.stderr)
         return int(ExitCode.GENERAL_FAILURE)

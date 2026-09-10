@@ -14,6 +14,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from cockpit.domain.exit_codes import ExitCode
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 from .base import (
     _discover_services,
@@ -845,7 +846,7 @@ def cmd_dashboard(args: argparse.Namespace) -> int:
     c = _get_console()
     port = getattr(args, "port", None) or os.environ.get("COCKPIT_DASHBOARD_PORT", "8090")
     url = f"http://localhost:{port}/bos"
-    workspace_root = Path(__file__).resolve().parents[4]
+    workspace_root = _get_workspace_root()
 
     is_dry_run = getattr(args, "dry_run", False)
     is_json = getattr(args, "json", False) or getattr(args, "global_output", "text") == "json"
@@ -942,7 +943,11 @@ def cmd_dashboard(args: argparse.Namespace) -> int:
         return 1
 
     if is_json:
-        print(json.dumps({"ok": True, "running": True, "url": url, "port": str(port), "pid": proc.pid}, ensure_ascii=False))
+        print(
+            json.dumps(
+                {"ok": True, "running": True, "url": url, "port": str(port), "pid": proc.pid}, ensure_ascii=False
+            )
+        )
         return 0
 
     if not no_open:
@@ -955,5 +960,3 @@ def cmd_dashboard(args: argparse.Namespace) -> int:
         proc.terminate()
         c.print("\n[yellow]Dashboard 已停止[/]")
     return 0
-
-

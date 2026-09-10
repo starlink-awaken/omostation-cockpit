@@ -7,9 +7,9 @@ from argparse import Namespace
 from pathlib import Path
 
 from cockpit.adapters import governance_context
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 from .base import _get_console, _get_err, _panel
-from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 
 def cmd_context(_args: Namespace) -> int:

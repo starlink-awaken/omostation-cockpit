@@ -16,6 +16,7 @@ import json
 import os
 import subprocess
 from pathlib import Path
+
 from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 WORKSPACE = _get_workspace_root()

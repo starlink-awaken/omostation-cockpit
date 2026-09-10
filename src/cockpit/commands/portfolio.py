@@ -12,6 +12,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
+
 CONTROL_REL = Path(".omo/_control/portfolio-status.json")
 
 # Hostile-test surface: imported names that must never be called for writes.
@@ -25,7 +27,7 @@ _FORBIDDEN_WRITE_HINTS = (
 
 def _workspace_root() -> Path:
     # commands/portfolio.py → commands → cockpit → src → cockpit project → projects → workspace
-    return Path(__file__).resolve().parents[5]
+    return _get_workspace_root()
 
 
 def load_control_projection(workspace: Path | None = None) -> dict[str, Any]:
@@ -105,9 +107,7 @@ def _format_objectives(result: dict[str, Any]) -> str:
         return _format_status(result)
     # Control projection may not embed objectives; surface digest-bound honesty.
     return (
-        f"digest={result['source_digest']}\n"
-        "objectives=unavailable\n"
-        "reason=control_projection_has_no_objectives_field\n"
+        f"digest={result['source_digest']}\nobjectives=unavailable\nreason=control_projection_has_no_objectives_field\n"
     )
 
 
@@ -124,11 +124,7 @@ def _format_critical_path(result: dict[str, Any]) -> str:
 def _format_blockers(result: dict[str, Any]) -> str:
     if result["status"] != "ok":
         return _format_status(result)
-    return (
-        f"digest={result['source_digest']}\n"
-        "blockers=unavailable\n"
-        "reason=control_projection_has_no_blockers_field\n"
-    )
+    return f"digest={result['source_digest']}\nblockers=unavailable\nreason=control_projection_has_no_blockers_field\n"
 
 
 def cmd_portfolio(args: argparse.Namespace) -> int:

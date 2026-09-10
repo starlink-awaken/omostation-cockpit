@@ -8,8 +8,8 @@ import subprocess
 from pathlib import Path
 
 from rich.console import Console
-from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 console = Console()
 

@@ -240,6 +240,7 @@ def cmd_governance(args: argparse.Namespace) -> int:
         # 主仓 bin/arcnode/ 候选 (BET-Y1Q4-T12 集成后会启用)
         try:
             from cockpit.env_resolver import get_workspace_root
+
             ws_bin = get_workspace_root() / "bin" / "arcnode" / script_name
             if ws_bin.exists():
                 script = str(ws_bin)

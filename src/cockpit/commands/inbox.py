@@ -35,7 +35,11 @@ def _agora_python(code: str, timeout: float = 120.0) -> tuple[int, str]:
         return 127, "agora checkout not found"
     res = subprocess.run(
         ["uv", "run", "python", "-c", code],
-        cwd=str(agora_root), capture_output=True, text=True, timeout=timeout, check=False,
+        cwd=str(agora_root),
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        check=False,
     )
     return res.returncode, (res.stdout or res.stderr).strip()
 
@@ -90,7 +94,9 @@ def cmd_inbox_draft(args: argparse.Namespace) -> int:
 
     for att in payload.get("attachments", []):
         if att.get("ok"):
-            console.print(Panel(att["markdown"][:2000], title=f"📎 {att['name']} (Markdown 还原 {att.get('fidelity', 0):.0%})"))
+            console.print(
+                Panel(att["markdown"][:2000], title=f"📎 {att['name']} (Markdown 还原 {att.get('fidelity', 0):.0%})")
+            )
     console.print(
         f"[dim]延迟 {payload.get('latency_ms', 0)}ms (预算 {payload.get('ttft_budget_ms', 0)}ms) | "
         "审阅与外发: cockpit spine review / spine send[/dim]"

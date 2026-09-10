@@ -15,41 +15,43 @@ from __future__ import annotations
 import argparse
 
 # 声明支持结构化 JSON 输出的顶级命令 (各命令自带 --json / --format json)
-JSON_CAPABLE: frozenset[str] = frozenset({
-    "status",          # status --json
-    "dashboard",       # dashboard --json
-    "journey",         # journey --json
-    "quickstart",      # quickstart --json
-    "init",            # init --json
-    "capabilities",    # capabilities --json
-    "iterate",         # iterate --json
-    "telemetry",       # telemetry --json
-    "completion",      # completion --json
-    "docs",            # docs --json
-    "workflow",        # workflow --json
-    "compass",         # compass --json
-    "brain",           # brain --json
-    "daily",           # daily --json
-    "health",          # health --json
-    "data",            # data index/types/gc --json
-    "readiness",       # readiness --format json (注入 format)
-    "research",        # research list/open --json
-    "scenario",        # scenario --json
-    "watchdog",        # watchdog --json
-    "swarm",           # swarm --json
-    "audit",           # audit --format json (注入 format)
-    "kems",            # kems status --json
-    "ops",             # ops --json
-    "agent-onboard",   # agent-onboard --json
-    "quickstart-check",  # --json
-    "domain-status",
-    "facts-audit",
-    "facts-validation",
-    "model-freshness",
-    "sanyi-status",
-    "controller-shadow",
-    "events-watch",
-})
+JSON_CAPABLE: frozenset[str] = frozenset(
+    {
+        "status",  # status --json
+        "dashboard",  # dashboard --json
+        "journey",  # journey --json
+        "quickstart",  # quickstart --json
+        "init",  # init --json
+        "capabilities",  # capabilities --json
+        "iterate",  # iterate --json
+        "telemetry",  # telemetry --json
+        "completion",  # completion --json
+        "docs",  # docs --json
+        "workflow",  # workflow --json
+        "compass",  # compass --json
+        "brain",  # brain --json
+        "daily",  # daily --json
+        "health",  # health --json
+        "data",  # data index/types/gc --json
+        "readiness",  # readiness --format json (注入 format)
+        "research",  # research list/open --json
+        "scenario",  # scenario --json
+        "watchdog",  # watchdog --json
+        "swarm",  # swarm --json
+        "audit",  # audit --format json (注入 format)
+        "kems",  # kems status --json
+        "ops",  # ops --json
+        "agent-onboard",  # agent-onboard --json
+        "quickstart-check",  # --json
+        "domain-status",
+        "facts-audit",
+        "facts-validation",
+        "model-freshness",
+        "sanyi-status",
+        "controller-shadow",
+        "events-watch",
+    }
+)
 
 
 # --format json 型命令 (注入 format=json 而非 json=True)

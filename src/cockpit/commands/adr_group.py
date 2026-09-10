@@ -95,6 +95,7 @@ def register(
     root = str(delegation.workspace_root())
     handlers: dict[str, Callable[[argparse.Namespace], int]] = {}
     for spec in SPECS:
+
         def handler(ns: argparse.Namespace, _spec: DelegatedSpec = spec) -> int:
             passthrough = list(getattr(ns, _spec.arg_attr, []) or []) or ["--help"]
             return subprocess.call(

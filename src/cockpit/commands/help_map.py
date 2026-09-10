@@ -45,8 +45,8 @@ GUIDE_SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
         [
             ("memory", "默认记忆入口 (write/recall/forget/consolidate) — cockpit memory"),
             ("knowledge", "结构化 KOS 索引检索 — cockpit knowledge search q"),
-            ("vault", "本地笔记/精读最快 — cockpit vault \"q\""),
-            ("search", "跨源聚合 — cockpit search \"q\" --all"),
+            ("vault", '本地笔记/精读最快 — cockpit vault "q"'),
+            ("search", '跨源聚合 — cockpit search "q" --all'),
             ("bos", "任意 BOS URI (含 mos/*) — cockpit bos resolve bos://memory/mos/status"),
         ],
     ),
@@ -54,11 +54,16 @@ GUIDE_SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
 
 # 引导段引用的命令必须存在于 catalog (test_help_map_ssot 校验, 防悬空)
 GUIDE_REFERENCED_COMMANDS: tuple[str, ...] = (
-    "memory", "knowledge", "vault", "search", "bos",
+    "memory",
+    "knowledge",
+    "vault",
+    "search",
+    "bos",
 )
 
 
 # ── SSOT: 从 COMMAND_CATALOG 生成分组 ────────────────────────────────────────
+
 
 def _build_groups() -> list[tuple[str, str, list[CmdRow]]]:
     from cockpit.commands.delegation import category_color, category_order, ensure_delegated_catalog
@@ -234,7 +239,9 @@ def render_discover_map(console: Console) -> None:
     """Command map for `cockpit discover` — same GROUPS SSOT as `cockpit help`."""
     n = len(all_command_names())
     g = len(GROUPS)
-    console.print(f"[bold]命令地图[/] ([cyan]{n}[/] 个命令 · [cyan]{g}[/] 组 · 与 [cyan]cockpit help[/] 同源 (COMMAND_CATALOG))")
+    console.print(
+        f"[bold]命令地图[/] ([cyan]{n}[/] 个命令 · [cyan]{g}[/] 组 · 与 [cyan]cockpit help[/] 同源 (COMMAND_CATALOG))"
+    )
     t = Table(box=box.SIMPLE_HEAD, show_header=True, header_style="bold green", expand=True, pad_edge=False)
     t.add_column("分组", style="bold green", min_width=16)
     t.add_column("命令", style="cyan")

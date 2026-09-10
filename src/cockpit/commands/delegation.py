@@ -30,9 +30,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from cockpit.commands.registry import CATEGORY_GROUPS, CommandMeta
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 # workspace 根: delegation.py → [0]commands → [1]cockpit(包) → [2]src → [3]cockpit(项目) → [4]projects → [5]workspace
-_WS_ROOT = Path(__file__).resolve().parents[5]
+_WS_ROOT = _get_workspace_root()
 
 # 预声明的 B 组模块 (存在才注册, 允许分批落地)
 GROUP_MODULES: tuple[str, ...] = (
@@ -176,14 +177,9 @@ SHELL_HELP: dict[str, str] = {
         "完整帮助: uv run --project projects/knowledge/kairon kairon --help"
     ),
     "gbrain": (
-        "用法: cockpit gbrain <sub> [args...]\n"
-        "子命令: search / import / stats\n"
-        "示例: cockpit gbrain search \"关键词\""
+        '用法: cockpit gbrain <sub> [args...]\n子命令: search / import / stats\n示例: cockpit gbrain search "关键词"'
     ),
-    "l4-kernel": (
-        "用法: cockpit l4-kernel <sub> [args...]\n"
-        "说明: L4 自我层管理面 (委派 projects/l4-kernel CLI)。"
-    ),
+    "l4-kernel": ("用法: cockpit l4-kernel <sub> [args...]\n说明: L4 自我层管理面 (委派 projects/l4-kernel CLI)。"),
     "bcos": (
         "用法: cockpit bcos <sub> [args...]\n"
         "子命令: evolve / signals / north-star\n"
@@ -194,19 +190,13 @@ SHELL_HELP: dict[str, str] = {
         "说明: mof 独立 CLI 已弃用, 日常请使用 cockpit 替代命令\n"
         "      (cockpit mof-contract-lint / cockpit mof-contract-agent)。"
     ),
-    "runtime": (
-        "用法: cockpit runtime <sub> [args...]\n"
-        "说明: 委派 runtime 项目 CLI (projects/runtime)。"
-    ),
+    "runtime": ("用法: cockpit runtime <sub> [args...]\n说明: 委派 runtime 项目 CLI (projects/runtime)。"),
     "omo": (
         "用法: cockpit omo <sub> [args...]\n"
         "说明: OMO Agent OS CLI (治理/任务/证据面)。omo 顶层不支持 --help,\n"
         "      子命令级帮助: cockpit omo <sub> --help。"
     ),
-    "resident": (
-        "用法: cockpit resident <sub> [args...]\n"
-        "子命令: status / roles / daemon 等 (委派 omo resident)。"
-    ),
+    "resident": ("用法: cockpit resident <sub> [args...]\n子命令: status / roles / daemon 等 (委派 omo resident)。"),
     "ssb": (
         "用法: cockpit ssb <sub> [options]\n"
         "子命令: publish / query / state / recover / events / stats\n"
@@ -227,9 +217,7 @@ SHELL_HELP: dict[str, str] = {
 # 仅拦截显式 --help/-h、空参保持原行为的命令
 # (omo/resident 空参委派下游是既有约定; submodule-gitlink-check / gac <sub>
 #  空参默认执行检查 —— 与 bin/gac-local-gate.py 调用方式一致)
-SHELL_HELP_HELP_ONLY: frozenset[str] = frozenset(
-    {"omo", "resident", "ssb", "submodule-gitlink-check", "gac"}
-)
+SHELL_HELP_HELP_ONLY: frozenset[str] = frozenset({"omo", "resident", "ssb", "submodule-gitlink-check", "gac"})
 
 # 仅拦截 -h 短旗标的命令 (--help 仍透传; Click 系下游不认 -h 但认 --help)
 SHELL_HELP_SHORT_ONLY: frozenset[str] = frozenset({"omlxc"})
@@ -322,9 +310,7 @@ def register_all(
             handlers[spec.name] = make_handler(spec)
             # 登记 REMAINDER attr, 供 main() 回收前导 --help 等 unknown options
             EXISTING_REMAINDER_DELEGATIONS.setdefault(spec.name, spec.arg_attr)
-        custom: Callable[..., dict[str, Callable[[argparse.Namespace], int]]] | None = getattr(
-            mod, "register", None
-        )
+        custom: Callable[..., dict[str, Callable[[argparse.Namespace], int]]] | None = getattr(mod, "register", None)
         if callable(custom):
             handlers.update(custom(sub, workspace_parser))
     DELEGATED_COMMANDS.clear()

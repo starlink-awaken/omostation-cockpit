@@ -8,9 +8,9 @@ from pathlib import Path
 from rich.console import Console
 
 from cockpit.adapters import governance_context
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 from .base import _panel
-from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 console = Console()
 
@@ -88,6 +88,8 @@ def _cmd_brief_morning(args: Namespace) -> int:
     for tag in sorted(by_tag):
         console.print(f"\n[bold]📌 {tag}[/]")
         for it in by_tag[tag][:4]:
-            console.print(f"  ▪ [{it.get('source','?')}] {str(it.get('title',''))[:64]}")
-    console.print(f"\n[dim]{brief.get('date','')} · {len(items)} 条 · 生成 {str(brief.get('generated_at',''))[:16]}[/]")
+            console.print(f"  ▪ [{it.get('source', '?')}] {str(it.get('title', ''))[:64]}")
+    console.print(
+        f"\n[dim]{brief.get('date', '')} · {len(items)} 条 · 生成 {str(brief.get('generated_at', ''))[:16]}[/]"
+    )
     return 0

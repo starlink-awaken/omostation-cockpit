@@ -66,13 +66,13 @@ def parse_ics(text: str) -> list[dict[str, str]]:
             continue
         if cur is None:
             continue
-        if (m := _ICS_SUMMARY.match(line)):
+        if m := _ICS_SUMMARY.match(line):
             cur["summary"] = m.group(1).strip()
-        elif (m := _ICS_DT.match(line)):
+        elif m := _ICS_DT.match(line):
             cur["dtstart"] = _fmt_dt(m.group(1))
-        elif (m := _ICS_DTEND.match(line)):
+        elif m := _ICS_DTEND.match(line):
             cur["dtend"] = _fmt_dt(m.group(1))
-        elif (m := _ICS_LOCATION.match(line)):
+        elif m := _ICS_LOCATION.match(line):
             cur["location"] = m.group(1).strip()
         elif line.startswith("DESCRIPTION"):
             desc.append(line.split(":", 1)[-1] if ":" in line else "")
@@ -114,7 +114,9 @@ def prebrief(event: dict[str, str]) -> dict[str, Any]:
 
 _ACTION_VERBS = r"(?:落实|跟进|牵头|负责|完成|提交|梳理|输出|反馈|组织|协调|编制|推动|复审)"
 _RESPONSIBLE = r"([\u4e00-\u9fff]{2,4}(?:处|科|室|中心|组|团队|部门)|夏明星|[A-Z][a-z]+)"
-_TIME_HINT = r"(?:(本周|下周|本月|月底|周五|下周一|[一二三四五六日]月底?)[之]?前|\d{1,2}月\d{1,2}日前|(\d+) 个?工作日[之]?内)"
+_TIME_HINT = (
+    r"(?:(本周|下周|本月|月底|周五|下周一|[一二三四五六日]月底?)[之]?前|\d{1,2}月\d{1,2}日前|(\d+) 个?工作日[之]?内)"
+)
 
 _ACTION_LINE = re.compile(rf"{_ACTION_VERBS}[^。；\n]*")
 _RESP_IN_LINE = re.compile(_RESPONSIBLE + r"\s*(?:负责|牵头|落实|跟进)")
@@ -154,6 +156,7 @@ def extract_action_items(transcript: str) -> dict[str, Any]:
 
 # ── signal 路由投递（督办入库）───────────────────────────────────────
 
+
 def _route_to_signal(items: dict[str, Any], source: str = "calendar-minutes") -> dict[str, Any]:
     """把督办清单逐项经 bc-os signal_router 的 route_calendar_event 路由入库。"""
     router = _ws() / "bin" / "bc-os" / "signal_router.py"
@@ -174,7 +177,10 @@ def _route_to_signal(items: dict[str, Any], source: str = "calendar-minutes") ->
         )
         res = subprocess.run(
             [sys.executable, "-c", snippet],
-            capture_output=True, text=True, check=False, timeout=60,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
         )
         if res.returncode == 0:
             try:
@@ -185,6 +191,7 @@ def _route_to_signal(items: dict[str, Any], source: str = "calendar-minutes") ->
 
 
 # ── CLI 命令面 ────────────────────────────────────────────────────────
+
 
 def cmd_calendar(args: argparse.Namespace) -> int:
     """Dispatch calendar subcommand."""
@@ -203,12 +210,14 @@ def cmd_calendar(args: argparse.Namespace) -> int:
             print(json.dumps(briefs, ensure_ascii=False, indent=2))
             return 0
         for b in briefs:
-            console.print(Panel(
-                f"时间: {b['when']}  |  地点: {b['location']}\n"
-                f"议题: {'；'.join(b['agenda_points']) or '—'}\n"
-                f"建议准备: {'、'.join(b['prep_materials'])}",
-                title=f"📅 会前速递 · {b['title']}",
-            ))
+            console.print(
+                Panel(
+                    f"时间: {b['when']}  |  地点: {b['location']}\n"
+                    f"议题: {'；'.join(b['agenda_points']) or '—'}\n"
+                    f"建议准备: {'、'.join(b['prep_materials'])}",
+                    title=f"📅 会前速递 · {b['title']}",
+                )
+            )
         return 0
 
     if sub == "minutes":
@@ -231,7 +240,9 @@ def cmd_calendar(args: argparse.Namespace) -> int:
         console.print(t)
         if items["decisions"]:
             console.print(Panel("；".join(items["decisions"]), title="✅ 决策要点"))
-        console.print(f"[dim]交办 {len(items['action_items'])} 项（责任人已定 {items['owner_assigned']}，时限已定 {items['deadline_assigned']}）[/dim]")
+        console.print(
+            f"[dim]交办 {len(items['action_items'])} 项（责任人已定 {items['owner_assigned']}，时限已定 {items['deadline_assigned']}）[/dim]"
+        )
         return 0
 
     console.print("可用: calendar prebrief --ics <f> | calendar minutes --transcript <f> [--route]")

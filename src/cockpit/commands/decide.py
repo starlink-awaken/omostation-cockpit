@@ -209,7 +209,8 @@ def _hitl_update(proposal_id: str, action: str) -> int:
         return 1
     result = subprocess.run(
         [sys.executable, str(hitl_script), action, proposal_id],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     if result.returncode != 0:
         console.print(f"[red]❌ HITL {action} failed:[/] {result.stderr.strip()}")
@@ -266,7 +267,9 @@ def cmd_status(args: argparse.Namespace) -> int:
     console.print(f"  已拒绝: [red]{len(rejected)}[/]")
     console.print(f"  总计: {len(items)}")
     if hitl_pending or hitl_approved or hitl_rejected:
-        console.print(f"\n[HITL 提案] 待审批: [yellow]{hitl_pending}[/]  已批准: [green]{hitl_approved}[/]  已拒绝/过期: [red]{hitl_rejected}[/]")
+        console.print(
+            f"\n[HITL 提案] 待审批: [yellow]{hitl_pending}[/]  已批准: [green]{hitl_approved}[/]  已拒绝/过期: [red]{hitl_rejected}[/]"
+        )
     return 0
 
 

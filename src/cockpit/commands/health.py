@@ -8,6 +8,7 @@ from pathlib import Path
 from rich.console import Console
 
 from cockpit.adapters import governance_context
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 console = Console()
 
@@ -85,6 +86,7 @@ def _cmd_health(args: Namespace) -> int:
             import subprocess as _sp
 
             from cockpit.env_resolver import get_workspace_root
+
             ws = Path(os.environ.get("WORKSPACE_ROOT", str(get_workspace_root())))
             agora_bin = ws / "projects" / "agora" / ".venv" / "bin" / "agora"
             if agora_bin.exists():
@@ -152,7 +154,7 @@ def _cmd_health(args: Namespace) -> int:
 
         # ── Full: OMO Debt ───────────────────────────────────────
         console.print("\n[bold cyan]═══ L2 治理 ═══[/]\n")
-        ws = Path(os.environ.get("WORKSPACE_ROOT", str(Path(__file__).resolve().parents[5])))
+        ws = Path(os.environ.get("WORKSPACE_ROOT", str(_get_workspace_root())))
         debt_path = ws / ".omo" / "state" / "system.yaml"
         if debt_path.exists():
             try:

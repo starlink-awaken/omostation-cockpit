@@ -670,8 +670,8 @@ def output_result(data: Any, args: Any = None, default_render_fn: Any = None) ->
 
     console = _get_console()
     if isinstance(data, (dict, list)):
-        render_geek_panel(data)
+        # ANSI-pure pretty print (此前引用未定义的 render_geek_panel → NameError)
+        console.print_json(json.dumps(data, ensure_ascii=False))
     else:
         console.print(data)
     return 0
-
