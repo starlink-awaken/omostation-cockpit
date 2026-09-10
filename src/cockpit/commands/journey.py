@@ -15,6 +15,7 @@ from pathlib import Path
 from rich.console import Console
 
 from cockpit.domain.exit_codes import ExitCode
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 console = Console()
 
@@ -25,7 +26,7 @@ def cmd_journey(args: argparse.Namespace) -> int:
     subcmd = getattr(args, "journey_subcommand", None)
     raw_args = list(getattr(args, "journey_args", []))
 
-    ws_root = Path(__file__).resolve().parents[5]
+    ws_root = _get_workspace_root()
     runner = ws_root / "bin" / "ssot" / "journey-runner.py"
 
     if not runner.is_file():

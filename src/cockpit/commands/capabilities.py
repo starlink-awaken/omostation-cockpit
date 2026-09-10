@@ -16,8 +16,9 @@ from typing import Any
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
-_WORKSPACE = Path(__file__).resolve().parents[5]  # commands → cockpit → src → cockpit(proj) → projects → workspace
+_WORKSPACE = _get_workspace_root()  # commands → cockpit → src → cockpit(proj) → projects → workspace
 
 
 # ---------------------------------------------------------------------------

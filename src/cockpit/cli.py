@@ -7,7 +7,6 @@ import argparse
 import os
 import sys
 import time as _time_mod
-from urllib import request as urlrequest
 
 from rich import box
 from rich.panel import Panel

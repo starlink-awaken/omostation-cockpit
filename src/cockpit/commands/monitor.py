@@ -9,6 +9,7 @@ from rich.layout import Layout
 from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 
 def get_workspace_root() -> Path:
@@ -102,7 +103,7 @@ def cmd_monitor(args):
     --status: 打印当前 layout 一次后退出, 不进入 TUI 交互循环
     """
     console = Console()
-    root = get_workspace_root()
+    root = _get_workspace_root()
 
     # --status / --no-tui: 一次性快照模式
     if getattr(args, "status", False) or getattr(args, "no_tui", False):

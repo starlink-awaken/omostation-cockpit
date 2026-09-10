@@ -10,12 +10,13 @@ from pathlib import Path
 from urllib import request as urlrequest
 
 from rich.console import Console
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 console = Console()
 
 
 def _workspace_root() -> Path:
-    return Path(__file__).resolve().parents[5]
+    return _get_workspace_root()
 
 
 def _mesh_router_url() -> str:

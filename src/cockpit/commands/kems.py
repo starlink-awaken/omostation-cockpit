@@ -22,6 +22,7 @@ from pathlib import Path
 from cockpit.adapters import governance_context
 
 from .base import _get_console, _get_err, _panel
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 
 def cmd_kems_domains(args: argparse.Namespace) -> int:
@@ -89,7 +90,7 @@ def cmd_kems_scan(args: argparse.Namespace) -> int:
     console = _get_console()
     console.print("[cyan]🔍 Documents 内容主权面扫描中...[/cyan]")
 
-    workspace = Path(__file__).resolve().parents[5]
+    workspace = _get_workspace_root()
     documents_root = Path(os.environ.get("L4_DOCUMENTS_ROOT", Path.home() / "Documents")).expanduser()
     cmd = [
         "uv",

@@ -65,7 +65,7 @@ def _get_workflow_catalog_summary() -> dict[str, Any]:
     try:
         import yaml
 
-        with open(WORKFLOW_CATALOG_PATH, "r", encoding="utf-8") as f:
+        with open(WORKFLOW_CATALOG_PATH, encoding="utf-8") as f:
             data = yaml.safe_load(f)
             domains = list((data.get("domains") or {}).keys())
             total = sum(len(d.get("workflows", [])) for d in (data.get("domains") or {}).values() if isinstance(d, dict))

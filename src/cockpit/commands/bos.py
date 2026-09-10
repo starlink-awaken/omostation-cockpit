@@ -4,9 +4,10 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 # commands/ → cockpit/ → src/ → cockpit package root → projects/cockpit → projects → workspace
-_WORKSPACE = Path(__file__).resolve().parents[5]
+_WORKSPACE = _get_workspace_root()
 # resolve/read 依赖 agora resolver + ecos 工具链, 需注入 src (与 agora.py 委派同理)
 for _src in (
     _WORKSPACE / "projects" / "agora" / "src",
