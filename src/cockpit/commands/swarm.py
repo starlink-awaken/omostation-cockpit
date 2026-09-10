@@ -9,6 +9,7 @@ from typing import Any
 from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 
+
 def _workspace_root() -> Path:
     # commands/ → cockpit/ → src/ → cockpit package root → projects/cockpit → projects → workspace
     return _get_workspace_root()

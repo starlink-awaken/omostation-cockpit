@@ -10,6 +10,7 @@ from pathlib import Path
 import yaml
 from rich.console import Console
 from rich.prompt import Confirm
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 console = Console()
 
@@ -21,7 +22,7 @@ def cmd_iterate(args) -> int:
 
     topic = getattr(args, "topic", "未命名探索主题")
 
-    workspace_root = Path(__file__).resolve().parents[5]
+    workspace_root = _get_workspace_root()
     sandbox_dir = workspace_root / "runtime" / "sandbox"
     sandbox_dir.mkdir(parents=True, exist_ok=True)
     omo_dir = workspace_root / "projects" / "omo"

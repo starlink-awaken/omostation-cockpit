@@ -23,9 +23,11 @@ import webbrowser
 from pathlib import Path
 from urllib import request as urlrequest
 
-from cockpit.domain.exit_codes import ExitCode
-from cockpit.commands.base import output_result, is_interactive
 from rich.console import Console
+
+from cockpit.commands.base import is_interactive, output_result
+from cockpit.domain.exit_codes import ExitCode
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 console = Console()
 
@@ -77,7 +79,7 @@ def cmd_dashboard(args: argparse.Namespace) -> int:
         return ExitCode.CONFIG_ERROR
 
     url = f"http://{host}:{port}/bos"
-    workspace_root = Path(__file__).resolve().parents[5]
+    workspace_root = _get_workspace_root()
 
     # 1. 探针：检查是否已经在运行
     alive = is_dashboard_alive(url, timeout=1.0)

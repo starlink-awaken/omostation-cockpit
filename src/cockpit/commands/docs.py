@@ -13,15 +13,16 @@ from pathlib import Path
 from typing import Any
 
 from cockpit import __version__
-from cockpit.domain.exit_codes import ExitCode
 from cockpit.commands.registry import (
-    ORTHOGONAL_DOMAINS,
-    LEGACY_COMMAND_MAPPING,
-    COMMAND_CATALOG,
     CATEGORY_GROUPS,
+    COMMAND_CATALOG,
+    LEGACY_COMMAND_MAPPING,
+    ORTHOGONAL_DOMAINS,
 )
+from cockpit.domain.exit_codes import ExitCode
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
-WORKSPACE_ROOT = Path(__file__).resolve().parents[5]
+WORKSPACE_ROOT = _get_workspace_root()
 DEFAULT_OUTPUT_PATH = WORKSPACE_ROOT / "docs" / "CLI-REFERENCE.md"
 
 

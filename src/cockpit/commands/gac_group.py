@@ -12,10 +12,11 @@ from collections.abc import Callable
 from pathlib import Path
 
 from cockpit.commands import delegation
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 # 真实 workspace 根: delegation._WS_ROOT 在已安装布局下会误判 (算出 projects/),
 # 这里锚定 workspace 根: commands/ 比 cli.py 深一层, 故 parents[5] ≡ cli.py parents[4].
-_GAC_WS_ROOT = Path(__file__).resolve().parents[5]
+_GAC_WS_ROOT = _get_workspace_root()
 
 # 子命令 → (target argv, 中文说明); <ws> 占位符由 delegation.resolve_target 解析
 GAC_SUBCOMMANDS: dict[str, tuple[tuple[str, ...], str]] = {

@@ -7,8 +7,9 @@ import sys
 from pathlib import Path
 
 import yaml
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
-WORKSPACE = Path(__file__).resolve().parents[5]
+WORKSPACE = _get_workspace_root()
 MOF_CAPABILITIES_PATH = WORKSPACE / ".omo" / "_truth" / "registry" / "mof-capabilities.yaml"
 
 

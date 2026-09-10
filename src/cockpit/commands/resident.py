@@ -20,7 +20,7 @@ def cmd_resident(args: argparse.Namespace) -> int:
     """
     omo_project = _SCRIPT_DIR.parent.parent.parent.parent / "omo"
     omo_venv_python = omo_project / ".venv" / "bin" / "python"
-    
+
     if omo_venv_python.exists():
         # 优先: 用 omo/.venv/bin/python (直接, 无 uv 警告)
         cmd = [
@@ -32,7 +32,7 @@ def cmd_resident(args: argparse.Namespace) -> int:
             "resident",
         ] + list(getattr(args, "resident_args", []))
         return subprocess.call(cmd, cwd=str(omo_project))
-    
+
     # 回退: 用 uv run (需 OMO_PROJECT_READY, 触发 VIRTUAL_ENV 警告但不致命)
     cmd = [
         "uv",

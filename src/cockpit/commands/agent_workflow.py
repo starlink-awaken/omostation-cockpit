@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
-WORKSPACE = Path(__file__).resolve().parents[5]
+WORKSPACE = _get_workspace_root()
 
 
 def cmd_agent_workflow(args) -> int:

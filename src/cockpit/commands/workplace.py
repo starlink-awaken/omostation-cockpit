@@ -5,13 +5,14 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 from typing import Any
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 ROOT = _get_workspace_root()
 sys.path.insert(0, str(ROOT / "projects" / "omo" / "src"))
 
 from omo.digital_brain.memory_bridge import DigitalBrainMemoryBridge
 from omo.digital_brain.workplace_agent import WorkplaceAgent
-from cockpit.env_resolver import get_workspace_root as _get_workspace_root
+
 
 
 def cmd_workplace(args: Any) -> int:

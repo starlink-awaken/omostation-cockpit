@@ -84,7 +84,8 @@ def _cmd_health(args: Namespace) -> int:
             # Agora stats via subprocess as fallback
             import subprocess as _sp
 
-            ws = Path(os.environ.get("WORKSPACE_ROOT", str(Path(__file__).resolve().parents[5])))
+            from cockpit.env_resolver import get_workspace_root
+            ws = Path(os.environ.get("WORKSPACE_ROOT", str(get_workspace_root())))
             agora_bin = ws / "projects" / "agora" / ".venv" / "bin" / "agora"
             if agora_bin.exists():
                 result = _sp.run([str(agora_bin), "stats"], capture_output=True, text=True, timeout=15)

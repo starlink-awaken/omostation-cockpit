@@ -5,8 +5,9 @@ import subprocess
 from pathlib import Path
 
 from cockpit.commands.base import _get_console as get_console
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
-_WORKSPACE_ROOT = Path(__file__).resolve().parents[5]
+_WORKSPACE_ROOT = _get_workspace_root()
 
 
 def cmd_code_workflow(args: argparse.Namespace) -> int:

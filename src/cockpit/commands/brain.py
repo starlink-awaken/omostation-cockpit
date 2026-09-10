@@ -305,6 +305,7 @@ def cmd_brain_context(_args: argparse.Namespace) -> int:
     """cockpit brain context — 显示记忆摘要 (支持 --json, --dry-run 与 Rich 表格)."""
     from rich.console import Console
     from rich.table import Table
+
     from cockpit.domain.exit_codes import ExitCode
 
     prefs = get_preferences()

@@ -14,6 +14,7 @@ from urllib import error as urlerror
 from urllib import request as urlrequest
 
 from .base import (
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
     _get_console,
     _get_data_access,
     _get_err,
@@ -27,7 +28,7 @@ from .base import (
 
 
 def _workspace_root() -> Path:
-    return Path(__file__).resolve().parents[5]
+    return _get_workspace_root()
 
 
 def _try_kronos_fetch(url: str, timeout: int = 30) -> tuple[str, str] | None:

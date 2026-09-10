@@ -570,7 +570,7 @@ def _gateway_policy() -> dict:
             cap = data.get("daily_send_cap")
             if isinstance(cap, int) and cap > 0:
                 return {"daily_send_cap": cap}
-    except Exception:  # noqa: BLE001 — policy 故障回退默认
+    except Exception:
         pass
     return {"daily_send_cap": 50}
 
@@ -578,7 +578,7 @@ def _gateway_policy() -> dict:
 def _content_digest(channel: str, to: str, body: str) -> str:
     import hashlib
 
-    return hashlib.sha256(f"{channel}|{to}|{body}".encode("utf-8")).hexdigest()
+    return hashlib.sha256(f"{channel}|{to}|{body}".encode()).hexdigest()
 
 
 def _dlp_high_findings(body: str) -> list:
@@ -589,7 +589,7 @@ def _dlp_high_findings(body: str) -> list:
 
         findings = _load_broker().scan(body)
         return [f for f in findings if f.risk == "high"]
-    except Exception:  # noqa: BLE001
+    except Exception:
         return []
 
 
@@ -602,7 +602,7 @@ def _replay_hit(spool: Path, digest: str) -> str | None:
             continue
         try:
             env = json.loads((d / "envelope.json").read_text(encoding="utf-8"))
-        except Exception:  # noqa: BLE001
+        except Exception:
             continue
         if env.get("body_digest") == digest and env.get("status") == "sent":
             return env.get("msg_id", d.name)
@@ -620,7 +620,7 @@ def _sent_today(spool: Path) -> int:
             continue
         try:
             receipt = json.loads((d / "receipt.json").read_text(encoding="utf-8"))
-        except Exception:  # noqa: BLE001
+        except Exception:
             continue
         if receipt.get("status") == "sent" and str(receipt.get("sent_at", "")).startswith(today):
             n += 1
@@ -689,7 +689,7 @@ def _send_builtin(channel: str, to: str, body: str, msg_id: str) -> tuple[bool, 
                     server.login(cfg["user"], cfg["password"])
                 server.send_message(msg)
             return True, f"smtp:{cfg['host']}:{port}"
-        except Exception as exc:  # noqa: BLE001 — 通道故障如实入 receipt
+        except Exception as exc:
             return False, f"smtp error: {exc}"
     if channel == "api":
         cfg_path = _api_config_path()
@@ -707,7 +707,7 @@ def _send_builtin(channel: str, to: str, body: str, msg_id: str) -> tuple[bool, 
             )
             with urllib.request.urlopen(req, timeout=20) as resp:
                 return bool(resp.status < 300), f"api:{cfg['url']}"
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             return False, f"api error: {exc}"
     return False, f"unknown channel: {channel}"
 
@@ -793,7 +793,7 @@ def cmd_spine_send(args: argparse.Namespace) -> int:
         try:
             res = _sp.run([sys.executable, sender, msg_id], capture_output=True, text=True, check=False)
             ok, provider_ref = res.returncode == 0, f"script:{Path(sender).name}"
-        except Exception:  # noqa: BLE001
+        except Exception:
             ok, provider_ref = False, "script:error"
     else:
         ok, provider_ref = _send_builtin(channel, to, body, msg_id)

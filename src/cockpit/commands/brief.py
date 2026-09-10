@@ -10,6 +10,7 @@ from rich.console import Console
 from cockpit.adapters import governance_context
 
 from .base import _panel
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 console = Console()
 
@@ -67,7 +68,7 @@ def _cmd_brief(args: Namespace) -> int:
 def _cmd_brief_morning(args: Namespace) -> int:
     """每日业务与技术早报 (BET-Y1Q4-T7-03): 渲染 policy_radar 当日 JSON。"""
     console.print(_panel("[bold cyan]🌅 每日业务与技术早报[/]", "cyan"))
-    root = Path(__file__).resolve().parents[4]
+    root = _get_workspace_root()
     day = datetime.now().strftime("%Y%m%d")
     brief_path = root / ".omo/state/policy-radar" / f"brief-{day}.json"
     if not brief_path.exists():

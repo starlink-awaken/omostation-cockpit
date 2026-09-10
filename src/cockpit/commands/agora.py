@@ -6,10 +6,11 @@ import argparse
 import shutil
 import subprocess
 from pathlib import Path
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 
 def _workspace_root() -> Path:
-    return Path(__file__).resolve().parents[5]
+    return _get_workspace_root()
 
 
 def cmd_agora(args: argparse.Namespace) -> int:

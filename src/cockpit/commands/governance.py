@@ -250,9 +250,9 @@ def cmd_governance(args: argparse.Namespace) -> int:
         c = _get_console()
         c.print(f"[red]❌ 未知治理命令: {subcmd}[/]")
         c.print(f"[dim]   提示: {subcmd} 依赖 arcnode-{subcmd} 脚本[/]")
-        c.print(f"[dim]   查找路径 (按序): PATH → ~/.hermes/scripts/ → 主仓 bin/arcnode/[/]")
-        c.print(f"[dim]   内置替代: cockpit governance report / verify[/]")
-        c.print(f"[dim]   跟踪: BET-Y1Q4-T12 (arcnode 集成到主仓) 完成后无需外部依赖[/]")
+        c.print("[dim]   查找路径 (按序): PATH → ~/.hermes/scripts/ → 主仓 bin/arcnode/[/]")
+        c.print("[dim]   内置替代: cockpit governance report / verify[/]")
+        c.print("[dim]   跟踪: BET-Y1Q4-T12 (arcnode 集成到主仓) 完成后无需外部依赖[/]")
         return 1
     extra = args.extra_args or []
     result = subprocess.run([script] + extra)
