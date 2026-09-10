@@ -159,6 +159,16 @@ def cmd_governance(args: argparse.Namespace) -> int:
     if not args.subcommand:
         # 产品走查 v3 #18: 无参数显示治理概览(surfaces), 而非裸命令列表 — 用户敲了期待看状态
         workspace_root = resolve_workspace_root()
+        # 如果传了 --help 或 -h, 直接 print 概览 (不要进 omo 进程)
+        extra = list(args.extra_args or [])
+        if "--help" in extra or "-h" in extra:
+            _get_console().print(
+                "[bold cyan]cockpit governance[/] — 治理命令 (P4 可观测 + Phase 8 合规)\n"
+                "  [cyan]可观测 (P4):[/] surfaces / report / verify / calibrate / drift-check\n"
+                "  [cyan]合规 (Phase 8):[/] rhythm / evolution / ingress-* / patrol / chaos\n"
+                "  [cyan]cockpit 透传:[/] intent / challenge / cartridge"
+            )
+            return 0
         _get_console().print("[cyan]📋 治理概览:[/]")
         _run_omo_governance(["surfaces"], workspace_root)
         _get_console().print(
@@ -169,6 +179,14 @@ def cmd_governance(args: argparse.Namespace) -> int:
         # 严格检查请使用 cockpit governance verify / surfaces --json。
         return 0
     subcmd = args.subcommand
+    extra = list(args.extra_args or [])
+    # --help 短路: 不实际跑, 显示 usage
+    if "--help" in extra or "-h" in extra:
+        _get_console().print(
+            f"[bold cyan]cockpit governance {subcmd}[/] — 治理子命令\n"
+            f"  [dim]提示: 详细用法查看 omo governance {subcmd} --help (内部委派)[/]"
+        )
+        return 0
     if subcmd in _OMO_GOVERNANCE_SUBCOMMANDS:
         workspace_root = resolve_workspace_root()
         return _run_omo_governance([subcmd, *(args.extra_args or [])], workspace_root)
