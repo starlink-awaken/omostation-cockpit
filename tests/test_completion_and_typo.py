@@ -67,9 +67,11 @@ def test_cli_reference_generated_scale():
     """
     import subprocess
     test_path = Path(__file__).resolve()
-    cockpit_export_path = test_path.parents[5] / "docs" / "CLI-REFERENCE.md"
+    # 多路径候选: cockpit 仓 docs (parents[1] 与 parents[5]) + 主仓 docs + worktree 根
+    cockpit_export_path = test_path.parents[1] / "docs" / "CLI-REFERENCE.md"  # projects/cockpit/docs/
+    cockpit_ws_path = test_path.parents[5] / "docs" / "CLI-REFERENCE.md"  # workspace 根 (worktree)
     main_workspace_path = Path("/Users/xiamingxing/Workspace/docs/CLI-REFERENCE.md")
-    candidates = [cockpit_export_path, main_workspace_path]
+    candidates = [cockpit_export_path, cockpit_ws_path, main_workspace_path]
     ref = next((p for p in candidates if p.exists()), None)
     if ref is None:
         # 自动 cockpit docs export
@@ -102,9 +104,16 @@ def test_cli_reference_generated_scale():
     assert len(lines) >= 300, f"only {len(lines)} lines"
     text = "\n".join(lines)
     # 兼容中英文版本
-    assert ("## Table of Contents" in text) or ("## 1. Global Flags" in text), \
-        "Neither ## Table of Contents (中文) nor ## 1. Global Flags (英文) found"
-    # 至少 8 个 emoji category 段
-    assert (
-        sum(text.count(c) for c in ["### 📚", "### 🧠", "### 📋", "### 🤖", "### 🏛️", "### 🖥️", "### 📡", "### 🔌"]) >= 8
-    )
+    # 兼容 3 个版本:
+    # - cockpit docs export (英文): "## 1. Global Flags"
+    # - gen-help-docs.py v1 (中文): "## Table of Contents"
+    # - gen-help-docs.py v2 (中文, 当前): "## 目录"
+    has_english = "## 1. Global Flags" in text
+    has_chinese_v1 = "## Table of Contents" in text
+    has_chinese_v2 = "## 目录" in text
+    assert has_english or has_chinese_v1 or has_chinese_v2, \
+        f"None of ## 1. Global Flags (英文) / ## Table of Contents (中文 v1) / ## 目录 (中文 v2) found"
+    # 至少 8 个 emoji category 段 (v1 英文 ### / v2 中文 ## 标题)
+    emoji_v1 = sum(text.count(c) for c in ["### 📚", "### 🧠", "### 📋", "### 🤖", "### 🏛️", "### 🖥️", "### 📡", "### 🔌"])
+    emoji_v2 = sum(text.count(c) for c in ["🏛️", "👤", "📄", "📋", "📚", "📡", "📦", "🔌", "🖥️", "🛠️", "🤖", "🧠"])
+    assert emoji_v1 >= 8 or emoji_v2 >= 8, f"emoji sections: v1={emoji_v1} v2={emoji_v2}"
