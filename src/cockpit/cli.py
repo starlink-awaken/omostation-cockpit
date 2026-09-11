@@ -1179,6 +1179,12 @@ def main(argv: list[str] | None = None) -> int:
 
         return cmd_scenario(a)
 
+    def dispatch_scene_v2(a):
+        """Scene v2 — lifecycle, execute, calibrate, graph subcommands."""
+        from cockpit.commands.scene_lifecycle import cmd_scene_lifecycle
+
+        return cmd_scene_lifecycle(a)
+
     def dispatch_iterate(a):
         from cockpit.commands.iterate import cmd_iterate
 
@@ -1460,6 +1466,7 @@ def main(argv: list[str] | None = None) -> int:
         "code": dispatch_code,
         "research": lambda a: dispatch_research(a, unknown),
         "scenario": dispatch_scenario,
+        "scene": dispatch_scene_v2,
         "iterate": dispatch_iterate,
         "compass": dispatch_compass,
         "bdsk": dispatch_bdsk,

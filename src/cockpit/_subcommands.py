@@ -1414,6 +1414,22 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     scene_sub.add_parser("gongwen", help="政企公文流转")
     scene_sub.add_parser("brief", help="每日简报")
     scene_sub.add_parser("family-hub", help="家庭数字中心")
+    # Scene v2 — lifecycle management
+    scene_lc = scene_sub.add_parser("lifecycle", help="[v2] 场景卡生命周期管理 (list/status/promote/demote/validate)")
+    scene_lc.add_argument("lifecycle_action", nargs="?", default="list",
+                          choices=["list", "status", "promote", "demote", "validate"],
+                          help="Lifecycle action")
+    scene_lc.add_argument("--scene-id", help="Scene ID")
+    scene_lc.add_argument("--to", dest="target_level", help="Target lifecycle level")
+    scene_lc.add_argument("--domain", help="Filter by domain")
+    scene_ex = scene_sub.add_parser("execute", help="[v2] 执行场景卡 (BOS/MCP 驱动)")
+    scene_ex.add_argument("scene_id", nargs="?", help="Scene ID to execute")
+    scene_ex.add_argument("--signal", type=str, default="{}", help="Signal JSON")
+    scene_ex.add_argument("--dry-run", action="store_true")
+    scene_cal = scene_sub.add_parser("calibrate", help="[v2] 校准场景卡")
+    scene_cal.add_argument("scene_id", nargs="?", help="Scene ID (omit for all)")
+    scene_cal.add_argument("--window", type=int, default=30)
+    scene_sub.add_parser("graph", help="[v2] 场景图 DAG 可视化")
 
     # 3. user: quickstart, help, demo, init, profile, completion
     user_p = sub.add_parser("user", help="👤 用户体验与向导正交领域 (quickstart/help/demo/init/profile/completion)")
