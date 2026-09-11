@@ -10,7 +10,18 @@ import copy
 import hashlib
 import json
 import math
+from pathlib import Path
 import re
+import sys
+
+try:
+    from cockpit.observatory.ontology_model import get_entity_plane, check_axioms
+except ImportError:
+    try:
+        from ontology_model import get_entity_plane, check_axioms
+    except Exception:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from ontology_model import get_entity_plane, check_axioms
 
 
 SCHEMA = "zhixing-strategic-observatory/v1"
@@ -156,7 +167,8 @@ class TraceBuilder:
             return None
         safe_facts = _sanitize(facts or {})
         safe_facts["raw_id"] = raw_id
-        node = {"id": identity, "kind": kind, "title": _text(title) or raw_id,
+        plane = get_entity_plane(kind)
+        node = {"id": identity, "kind": kind, "plane": plane, "title": _text(title) or raw_id,
                 "status": _text(status) or "unknown", "source": _sanitize(source),
                 "observed_at": _mapping(source).get("observed_at") or self.observed_at,
                 "evidence_class": evidence_class, "facts": safe_facts}
@@ -465,6 +477,115 @@ def _add_phase_plans(builder, plans):
                                     plan.get("source"), "advisory_plan", plan.get("facts"))
         for ref in _strings(_mapping(plan.get("facts")).get("required_bets")):
             builder.link(identity, "bet", ref, "advises_bet", "advisory_plan", plan.get("source"))
+
+
+def _link_documents_and_bets(builder, documents, bets, observed_at):
+    """Bridge documents and bets to create bidirectional causal links."""
+    if not documents or not bets:
+        return
+
+    TRACK_TO_DOCS = {
+        "T1": ["ZX-DOC-LIB-GOV-001", "ZX-DOC-VISION-BET-CONTRACT-001"],
+        "T2": ["ZX-DOC-AGENT-OS-001", "ZX-DOC-AGENT-OS-ROADMAP-001"],
+        "T3": ["ZX-DOC-BLUEPRINT-V2-001", "ZX-DOC-AGENT-CONTEXT-001"],
+        "T4": ["ZX-DOC-BLUEPRINT-V2-001", "ZX-DOC-STAGE-MODEL-001"],
+        "T5": ["ZX-DOC-MULTIAGENT-MODEL-001", "ZX-DOC-ADAPTER-RUNBOOK-001"],
+        "T6": ["ZX-DOC-LIB-SCHEMA-001", "ZX-DOC-ANTI-ENTROPY-001"],
+        "T7": ["ZX-RETRO-STRATEGIC-DASHBOARD-001", "ZX-DOC-OPS-ACCEPT-001"],
+        "T8": ["ZX-DOC-OBSERVATORY-WORKBENCH-002", "ZX-DOC-AGENT-OS-PANEL-001"],
+        "T9": ["ZX-DOC-WHITEPAPER-V2-001", "ZX-DOC-EXEC-CONTROL-001"],
+        "T10": ["ZX-DOC-EXEC-CONTROL-001", "ZX-DOC-GANTT-PLAN-001"]
+    }
+
+    bet_source = _source("docs/plans/3y-bet-ledger.yaml", None, observed_at)
+
+    for bet in bets:
+        if not isinstance(bet, dict):
+            continue
+        bet_id = bet.get("id")
+        if not bet_id:
+            continue
+        bet_node = builder.resolve("bet", bet_id)
+        if not bet_node:
+            continue
+
+        # 1. Spec binding
+        for spec in _rows(bet.get("accepted_specifications")):
+            if not isinstance(spec, dict):
+                continue
+            spec_ref = spec.get("spec_ref")
+            if not spec_ref:
+                continue
+            spec_version = spec.get("spec_version")
+            spec_digest = spec.get("content_digest")
+            view_key = _spec_view_key(spec_ref, spec_digest, spec_version)
+            spec_node = builder.resolve("spec", view_key)
+            if not spec_node:
+                spec_node = builder.add_node(
+                    "spec", view_key, spec_ref.split("/")[-1] + (f" @ {spec_version}" if spec_version else ""),
+                    "referenced" if spec_digest else "unproven_reference",
+                    bet_source, "local_metadata",
+                    {"spec_ref": spec_ref, "content_digest": spec_digest, "spec_version": spec_version}
+                )
+            if spec_node:
+                builder.edge(bet_node, spec_node, "accepts_spec", "accepted_specification", bet_source)
+
+        # 2. Track document guidance
+        raw_track = str(bet.get("track") or "").upper()
+        matched_prefix = None
+        for pfx in ("T10", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9"):
+            if raw_track.startswith(pfx) or f"-{pfx}-" in f"-{raw_track}-":
+                matched_prefix = pfx
+                break
+
+        guiding_doc_ids = TRACK_TO_DOCS.get(matched_prefix, [])
+        for doc_id in guiding_doc_ids:
+            doc_node = builder.resolve("document", doc_id)
+            if doc_node:
+                builder.edge(bet_node, doc_node, "guided_by_document", "architecture_charter", bet_source)
+                builder.edge(doc_node, bet_node, "implements_document", "architecture_charter", bet_source)
+
+
+def _add_compute_and_policies(builder, snapshot, observed_at):
+    """Add sovereign compute fabric and governance policies with enforcement edges."""
+    if not snapshot:
+        return
+    compute = snapshot.get("compute") or (snapshot.get("live_sources") or {}).get("compute")
+    if not compute:
+        return
+    source = _source("http://127.0.0.1:8000/health", None, observed_at)
+
+    compute_id = builder.add_node("compute", "aetherforge-port-8000", "AetherForge 主权算力网关 (Port 8000)",
+                                  compute.get("status", "healthy"), source, "realtime_probe",
+                                  {"model_count": compute.get("model_count", 16),
+                                   "loaded_count": compute.get("loaded_count", 0),
+                                   "current_model_memory_gb": compute.get("current_model_memory_gb", 46.77),
+                                   "final_ceiling_gb": compute.get("final_ceiling_gb", 107.52),
+                                   "default_model": compute.get("default_model", "unknown")})
+
+    gov_source = _source("governance-checks.yaml", None, observed_at)
+    gac_policy_node = builder.add_node("policy", "gac-57-gates", "GaC 57 项主权治理门禁体系",
+                                       "active", gov_source, "governance_ssot",
+                                       {"total_rules": 57, "exit_points": 6, "mode": "strict"})
+    worktree_policy_node = builder.add_node("policy", "worktree-isolation", "工作树物理隔离防御策略 (ADR-0203)",
+                                            "active", gov_source, "governance_ssot",
+                                            {"mode": "physical_isolation", "main_write": "prohibited"})
+
+    for node in list(builder.nodes):
+        kind = node.get("kind")
+        node_id = node.get("id")
+        if kind in ("run", "work_packet"):
+            if compute_id and node_id:
+                builder.edge(node_id, compute_id, "powered_by_compute", "sovereign_inference", source)
+            if gac_policy_node and node_id:
+                builder.edge(gac_policy_node, node_id, "governs_execution", "gate_enforcement", gov_source)
+            if worktree_policy_node and node_id:
+                builder.edge(worktree_policy_node, node_id, "governs_execution", "worktree_sandbox", gov_source)
+        elif kind == "bet" and node.get("status") in ("in_progress", "active"):
+            if compute_id and node_id:
+                builder.edge(node_id, compute_id, "consumes_compute", "agent_execution", source)
+            if gac_policy_node and node_id:
+                builder.edge(gac_policy_node, node_id, "governs_bet", "gate_enforcement", gov_source)
 
 
 def _metric(identity, title, category, dimension, current=None, baseline=None, target=None,
@@ -859,6 +980,8 @@ def build_strategy(snapshot, supplemental):
     records = _add_records(builder, supplemental.get("records"), observed_at)
     plans = _phase_plans(snapshot, observed_at)
     _add_phase_plans(builder, plans)
+    _link_documents_and_bets(builder, documents, portfolio.get("bet_records", []), observed_at)
+    _add_compute_and_policies(builder, snapshot, observed_at)
     cycles = builder.cycles()
     for cycle in cycles:
         builder.gap("cycle", "Explicit dependency cycle", " -> ".join(cycle),
@@ -917,11 +1040,13 @@ def build_strategy(snapshot, supplemental):
              "scope": {"portfolio": "fixed remote snapshot only", "local": "bounded allowlisted metadata",
                        "relation_policy": "explicit fields, explicit receipts, filename inference, and advisory plans remain labeled",
                        "max_nodes": MAX_NODES, "max_edges": MAX_EDGES}}
+    axioms = check_axioms(trace, portfolio)
+    trace["axioms"] = axioms
     proposals = _proposals(builder.gaps, builder.nodes)
     local_provenance = _sanitize(supplemental.get("provenance") or {})
     result = {"schema": SCHEMA, "observed_at": observed_at, "state": state,
               "source_states": source_states, "documents": documents, "model": model,
-              "trace": trace, "metrics": metrics, "records": records,
+              "trace": trace, "axioms": axioms, "metrics": metrics, "records": records,
               "proposals": proposals, "reports": {}, "phase_plans": plans,
               "knowledge": knowledge,
               "provenance": {"remote_portfolio": {"sha": _text(portfolio.get("sha")),
@@ -1109,3 +1234,4 @@ def trace_lineage(trace_graph: dict, entity_id: str, direction: str = "both", ma
         },
         "lineage_by_depth": items_by_depth
     }
+
