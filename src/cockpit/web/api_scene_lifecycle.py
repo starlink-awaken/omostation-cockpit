@@ -175,3 +175,96 @@ async def scene_metrics(scene_id: str, window: int = 30) -> dict[str, Any]:
         return {"ok": False, "error": result.stderr}
     except Exception as e:
         return {"ok": False, "error": str(e)}
+
+
+# ── Human adjudication flow (escalation queue + accept/reject) ────
+
+OBSERVABILITY_EVENTS = WORKSPACE_ROOT / ".omo" / "_delivery" / "observability" / "events.jsonl"
+OUTCOME_RECORDER = WORKSPACE_ROOT / "bin" / "ssot" / "scene-outcome-recorder.py"
+
+
+@router.get("/escalations")
+async def escalation_queue(limit: int = 20) -> dict[str, Any]:
+    """List pending scene escalations from the observability event plane."""
+    if not OBSERVABILITY_EVENTS.is_file():
+        return {"ok": True, "count": 0, "escalations": []}
+
+    escalations: list[dict[str, Any]] = []
+    seen_run_ids: set[str] = set()
+    with open(OBSERVABILITY_EVENTS, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                evt = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if evt.get("type") != "scene.escalated":
+                continue
+            run_id = str(evt.get("trace_id", ""))
+            if run_id in seen_run_ids:
+                continue
+            seen_run_ids.add(run_id)
+            payload = evt.get("payload", {})
+            escalations.append({
+                "run_id": run_id,
+                "scene_id": payload.get("scene_id") or evt.get("source", ""),
+                "journey_id": payload.get("journey_id"),
+                "confidence": payload.get("confidence"),
+                "ts": evt.get("ts"),
+                "trace_steps": payload.get("trace_steps"),
+            })
+
+    escalations.sort(key=lambda e: e.get("ts") or "", reverse=True)
+    return {"ok": True, "count": len(escalations), "escalations": escalations[:limit]}
+
+
+@router.post("/adjudicate")
+async def adjudicate_escalation(request: dict[str, Any]) -> dict[str, Any]:
+    """Record a human adjudication (accept/reject) for an escalated scene run.
+
+    Bridges to scene-outcome-recorder (trust loop + value-evidence bridge).
+    """
+    scene_id = request.get("scene_id")
+    run_id = request.get("run_id")
+    decision = request.get("decision")  # accept | reject
+    notes = request.get("notes", "")
+    review_seconds = request.get("review_seconds")
+    saved_seconds = request.get("saved_seconds")
+
+    if not scene_id or not run_id or decision not in ("accept", "reject"):
+        raise HTTPException(
+            status_code=400,
+            detail="scene_id, run_id, and decision (accept|reject) required",
+        )
+
+    adjudication = "accepted" if decision == "accept" else "rejected"
+    card_path = SCENES_DIR / f"{scene_id}.yaml"
+    if not card_path.is_file():
+        raise HTTPException(status_code=404, detail=f"Scene card not found: {scene_id}")
+
+    cmd = [
+        sys.executable, str(OUTCOME_RECORDER), "record",
+        "--scene-card", str(card_path),
+        "--run-id", str(run_id),
+        "--adjudication", adjudication,
+        "--actor", "cockpit-operator",
+    ]
+    if notes:
+        cmd.extend(["--notes", str(notes)])
+    if review_seconds is not None:
+        cmd.extend(["--review-seconds", str(int(review_seconds))])
+    if saved_seconds is not None:
+        cmd.extend(["--saved-seconds", str(int(saved_seconds))])
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(WORKSPACE_ROOT))
+        return {
+            "ok": result.returncode == 0,
+            "adjudication": adjudication,
+            "output": result.stdout[-500:],
+            "error": result.stderr[-200:] if result.returncode != 0 else None,
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
