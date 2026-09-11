@@ -218,11 +218,21 @@ def test_fidelity_with_43191_snapshot_ops():
 
 
 def test_lineage_depth_keys_match_43191_contract():
-    """43191 兼容: HTTP 序列化后 lineage_by_depth 键为 str (JSON 对象键)。"""
+    """43191 兼容: HTTP 序列化后 lineage_by_depth 键为 str (JSON 对象键)。
+
+    实体不在 trace graph (CI checkout 子模块面差异) 时 found=False 且无
+    lineage_by_depth 键 — 跳过键型断言。
+    """
     service = get_observatory_service()
-    result = service.query('lineage', {'id': 'BET-Y1Q4-T10-125'})
+    entity_id = _pick_real_entity_id(service)
+    if entity_id is None:
+        pytest.skip('trace graph has no bet: entities in this checkout')
+    result = service.query('lineage', {'id': entity_id})
     data = result.get('data', {})
-    lbd = data.get('lineage_by_depth', {})
+    lbd = data.get('lineage_by_depth')
+    if lbd is None:
+        assert data.get('found') is False
+        pytest.skip('entity not in trace graph in this checkout')
     assert all(isinstance(k, int) for k in lbd.keys())
     # HTTP 层 (envelope) 序列化后与 43191 同构: str 键
     serialized = json.loads(json.dumps(result))
