@@ -21,13 +21,13 @@ from cockpit.delivery_journey import (  # type: ignore[import-not-found]
     DeliveryJourneySnapshot,
     build_delivery_journey_projection,
 )
-from cockpit.env_resolver import get_workspace_root as _get_workspace_root
+from cockpit.env_resolver import get_workspace_root as _resolve_workspace_root
 
 router = APIRouter(prefix="/api/delivery-journey", tags=["delivery-journey"]) if APIRouter else None
 
 
 def _get_workspace_root() -> Path:
-    return _get_workspace_root()
+    return _resolve_workspace_root()
 
 
 if router:
