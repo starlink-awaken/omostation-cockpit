@@ -32,6 +32,9 @@ OPERATIONS = {
     'neighbors': {'id', 'direction', 'depth', 'limit'},
     'brief': {'id', 'lens', 'budget_bytes'}, 'controls': set(),
     'changes': {'from_generation'},
+    'ontology': set(),
+    'lineage': {'id', 'direction', 'depth'},
+    'context_pack': {'id'},
 }
 SOURCE_KEYS = {'path', 'sha256', 'hash_scope', 'sha256_scope', 'digest_basis', 'line',
                'observed_at', 'repository_sha', 'repository_ref', 'repository_kind',
@@ -252,6 +255,8 @@ class ObservationIndex:
                             FACT_KEYS | {'entity_id', 'source'})
         self.phase_plans = project(rows(strategy.get('phase_plans')), FACT_KEYS)
         self.scope = copy.deepcopy(mapping(mapping(strategy.get('trace')).get('scope')))
+        self.trace = copy.deepcopy(mapping(strategy.get('trace')))
+        self.axioms = copy.deepcopy(mapping(strategy.get('axioms')))
         self.history_coverage = project(mapping(mapping(strategy.get('reports')).get('history')).get('coverage'),
                                         {'sampled_hours', 'sampled_days', 'retention_days', 'method', 'value_window_proven'})
         for node in rows(strategy['trace'].get('nodes')):
@@ -540,6 +545,23 @@ class ObservationIndex:
             return self._brief(params, stamp)
         elif operation == 'controls':
             data = {'items': self._controls(), 'execution_enabled': False}
+        elif operation == 'ontology':
+            from cockpit.observatory.ontology_model import export_ontology_schema
+            data = export_ontology_schema()
+            data['axioms_live'] = self.axioms or {}
+        elif operation == 'lineage':
+            from cockpit.observatory.strategy_projection import trace_lineage
+            entity_id = params.get('id', '')
+            direction = params.get('direction', 'both')
+            depth = params.get('depth', '3')
+            data = trace_lineage(self.trace, entity_id, direction=direction, max_depth=depth)
+        elif operation == 'context_pack':
+            from cockpit.observatory.rag_engine import HybridRAGEngine
+            rag = getattr(self, '_rag_engine', None)
+            if rag is None:
+                rag = HybridRAGEngine()
+                self._rag_engine = rag
+            data = rag.get_context_pack(params.get('id', ''))
         else:
             previous = self.previous
             if previous is None or previous.generation == self.generation or params.get('from_generation') != previous.generation:

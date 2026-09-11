@@ -933,3 +933,179 @@ def build_strategy(snapshot, supplemental):
     # Size is diagnostic only. Do not serialize arbitrary source bodies to reach it.
     result["projection_bytes"] = len(json.dumps(result, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
     return result
+
+
+def trace_lineage(trace_graph: dict, entity_id: str, direction: str = "both", max_depth: int = 3) -> dict:
+    """Trace multi-hop causal lineage (upstream, downstream, or both) from a focal entity.
+
+    Args:
+        trace_graph: The trace dictionary containing 'nodes' and 'edges'.
+        entity_id: The identifier of the focal entity (e.g. 'bet:BET-1' or raw ID 'BET-1').
+        direction: 'upstream', 'downstream', or 'both'.
+        max_depth: Maximum hops to traverse (bounded 1 to 5, default 3).
+
+    Returns:
+        A dict with focal entity, traversed subgraph nodes, edges, plane metrics, and depth hierarchy.
+    """
+    if not trace_graph or not isinstance(trace_graph, dict):
+        return {"found": False, "error": "Trace graph is empty or malformed"}
+
+    nodes = trace_graph.get("nodes", [])
+    edges = trace_graph.get("edges", [])
+
+    # 1. Locate focal node
+    nodes_by_id = {n["id"]: n for n in nodes if isinstance(n, dict) and "id" in n}
+    focal_node = nodes_by_id.get(entity_id)
+    if not focal_node:
+        # Try raw_id or title match
+        for n in nodes:
+            if isinstance(n, dict):
+                raw = (n.get("facts") or {}).get("raw_id")
+                if raw == entity_id or n.get("title") == entity_id:
+                    focal_node = n
+                    break
+
+    if not focal_node:
+        return {"found": False, "error": f"Entity '{entity_id}' not found in trace graph"}
+
+    focal_id = focal_node["id"]
+    try:
+        max_depth = max(1, min(int(max_depth or 3), 5))
+    except (ValueError, TypeError):
+        max_depth = 3
+    direction = str(direction or "both").lower()
+
+    # 2. Build semantic adjacency lists
+    TARGET_IS_UPSTREAM = {
+        "accepts_spec", "guided_by_document", "parent_bet", "governed_by",
+        "depends_on", "implements", "requires_bet", "derived_from", "powered_by",
+        "kr_to_objective", "objective_to_vision", "milestone_to_campaign"
+    }
+    TARGET_IS_DOWNSTREAM = {
+        "implements_document", "governs_execution", "governs_bet", "governs",
+        "drives", "specifies", "produces", "crystallizes_to", "consumes_compute",
+        "powered_by_compute"
+    }
+
+    adj_upstream: dict[str, list[tuple[str, dict]]] = {}
+    adj_downstream: dict[str, list[tuple[str, dict]]] = {}
+
+    for edge in edges:
+        if not isinstance(edge, dict):
+            continue
+        u = edge.get("from")
+        v = edge.get("to")
+        rel = edge.get("relation")
+        if not u or not v:
+            continue
+
+        if rel in TARGET_IS_UPSTREAM:
+            adj_upstream.setdefault(u, []).append((v, edge))
+            adj_downstream.setdefault(v, []).append((u, edge))
+        elif rel in TARGET_IS_DOWNSTREAM:
+            adj_downstream.setdefault(u, []).append((v, edge))
+            adj_upstream.setdefault(v, []).append((u, edge))
+        else:
+            adj_downstream.setdefault(u, []).append((v, edge))
+            adj_upstream.setdefault(v, []).append((u, edge))
+
+    # 3. BFS Traversal
+    visited_nodes: dict[str, dict] = {
+        focal_id: {
+            "node": focal_node,
+            "depth": 0,
+            "hop_direction": "focal",
+            "via_relation": None
+        }
+    }
+    traversed_edges: list[dict] = []
+    seen_edge_keys: set[tuple[str, str, str]] = set()
+
+    queue: list[tuple[str, int, str]] = []
+    if direction in ("upstream", "both"):
+        queue.append((focal_id, 0, "upstream"))
+    if direction in ("downstream", "both"):
+        queue.append((focal_id, 0, "downstream"))
+
+    while queue:
+        curr_id, depth, mode = queue.pop(0)
+        if depth >= max_depth:
+            continue
+
+        neighbors = adj_upstream.get(curr_id, []) if mode == "upstream" else adj_downstream.get(curr_id, [])
+        for next_id, edge in neighbors:
+            edge_key = (str(edge.get("from")), str(edge.get("to")), str(edge.get("relation")))
+            if edge_key not in seen_edge_keys:
+                seen_edge_keys.add(edge_key)
+                traversed_edges.append(edge)
+
+            if next_id not in visited_nodes:
+                target_node = nodes_by_id.get(next_id)
+                if target_node:
+                    visited_nodes[next_id] = {
+                        "node": target_node,
+                        "depth": depth + 1,
+                        "hop_direction": mode,
+                        "via_relation": edge.get("relation")
+                    }
+                    queue.append((next_id, depth + 1, mode))
+
+    # 4. Aggregate plane and kind statistics
+    plane_counts: dict[str, int] = {}
+    kind_counts: dict[str, int] = {}
+    items_by_depth: dict[int, list[dict]] = {}
+
+    for nid, entry in visited_nodes.items():
+        n = entry["node"]
+        p = n.get("plane", "unknown")
+        k = n.get("kind", "unknown")
+        plane_counts[p] = plane_counts.get(p, 0) + 1
+        kind_counts[k] = kind_counts.get(k, 0) + 1
+        items_by_depth.setdefault(entry["depth"], []).append({
+            "id": nid,
+            "title": n.get("title"),
+            "kind": k,
+            "plane": p,
+            "status": n.get("status"),
+            "hop_direction": entry["hop_direction"],
+            "via_relation": entry["via_relation"]
+        })
+
+    return {
+        "found": True,
+        "focal_entity": {
+            "id": focal_id,
+            "title": focal_node.get("title"),
+            "kind": focal_node.get("kind"),
+            "plane": focal_node.get("plane"),
+            "status": focal_node.get("status")
+        },
+        "query": {
+            "entity_id": entity_id,
+            "direction": direction,
+            "max_depth": max_depth
+        },
+        "metrics": {
+            "total_nodes": len(visited_nodes),
+            "total_edges": len(traversed_edges),
+            "plane_distribution": plane_counts,
+            "kind_distribution": kind_counts
+        },
+        "subgraph": {
+            "nodes": [
+                {
+                    "id": entry["node"].get("id"),
+                    "title": entry["node"].get("title"),
+                    "kind": entry["node"].get("kind"),
+                    "plane": entry["node"].get("plane"),
+                    "status": entry["node"].get("status"),
+                    "evidence_class": entry["node"].get("evidence_class"),
+                    "depth": entry["depth"],
+                    "hop_direction": entry["hop_direction"]
+                }
+                for entry in visited_nodes.values()
+            ][:150],
+            "edges": traversed_edges[:200]
+        },
+        "lineage_by_depth": items_by_depth
+    }
