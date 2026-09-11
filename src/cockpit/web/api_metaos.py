@@ -11,6 +11,8 @@ from pathlib import Path
 from fastapi import APIRouter, BackgroundTasks, Request
 from fastapi.responses import JSONResponse
 
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
+
 router = APIRouter(prefix="/api/metaos", tags=["metaos"])
 
 
@@ -35,7 +37,7 @@ def _ttl_cache(seconds: float):
     return decorator
 
 
-_REPO_ROOT = Path(__file__).resolve().parents[5]
+_REPO_ROOT = _get_workspace_root()
 
 try:
     from cockpit.adapters.metaos import (

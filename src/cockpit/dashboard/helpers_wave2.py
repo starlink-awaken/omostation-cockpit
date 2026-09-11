@@ -10,6 +10,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
+
 
 def _workspace_root() -> Path:
     env = os.environ.get("WORKSPACE_ROOT")
@@ -20,7 +22,7 @@ def _workspace_root() -> Path:
     for parent in here.parents:
         if (parent / ".omo").exists() or (parent / "projects" / "omo").exists():
             return parent
-    return here.parents[5]
+    return _get_workspace_root()
 
 
 def _default_data_dir(root: Path) -> Path:

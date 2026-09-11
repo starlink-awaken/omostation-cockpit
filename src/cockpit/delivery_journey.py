@@ -14,6 +14,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
+
 try:
     import yaml
 except ImportError:
@@ -413,7 +415,7 @@ def build_delivery_journey_projection(
     now_iso = _get_iso_now()
     if root_dir is None:
         # Default fallback to repo root relative to this file
-        root_dir = Path(__file__).resolve().parents[4]
+        root_dir = _get_workspace_root()
 
     # Attempt to read OMO / agent-workflow runs
     runs_dir = root_dir / ".omo" / "_delivery" / "agent-workflows" / "runs"

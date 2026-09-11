@@ -20,6 +20,8 @@ from pathlib import Path
 
 import yaml
 
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
+
 try:
     from fastapi import APIRouter
 
@@ -28,7 +30,7 @@ except ImportError:
     router = None
 
 
-_REPO_ROOT = Path(__file__).resolve().parents[5]
+_REPO_ROOT = _get_workspace_root()
 
 
 def _ttl_cache(seconds: float):

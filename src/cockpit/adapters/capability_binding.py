@@ -8,7 +8,9 @@ import sys
 from collections.abc import Mapping
 from pathlib import Path
 
-_WORKSPACE_ROOT = Path(__file__).resolve().parents[5]
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
+
+_WORKSPACE_ROOT = _get_workspace_root()
 _VERIFY_TIMEOUT_SECONDS = 5.0
 _MAX_ENVELOPE_BYTES = 1_048_576
 _VERIFICATION_RECEIPT_SCHEMA = "capability-admission-verification-receipt/v1"

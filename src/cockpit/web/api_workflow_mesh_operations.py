@@ -16,6 +16,7 @@ from typing import Any
 
 import httpx
 
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 from cockpit.web.auth import (
     ApiAuthenticationError,
     ApiAuthorizationError,
@@ -36,7 +37,7 @@ except ImportError:
     JSONResponse = None  # type: ignore[assignment,misc]
 
 
-_REPO_ROOT = Path(__file__).resolve().parents[5]
+_REPO_ROOT = _get_workspace_root()
 _OMO_SRC = _REPO_ROOT / "projects" / "omo" / "src"
 if str(_OMO_SRC) not in sys.path:
     sys.path.insert(0, str(_OMO_SRC))
@@ -162,14 +163,15 @@ else:
     _PERSONAL_EPISODE_CREDENTIAL_REF = None
 
 
-router = APIRouter(prefix="/api/workflow-mesh", tags=["workflow-mesh"]) if APIRouter else None
-from cockpit.web._agora_ports import agora_http_endpoint
+if APIRouter is not None:
+    router = APIRouter(prefix="/api/workflow-mesh", tags=["workflow-mesh"]) if APIRouter else None
+    from cockpit.web._agora_ports import agora_http_endpoint
 
-_AGORA_HTTP_ENDPOINT = agora_http_endpoint()
-from cockpit.web import workflow_mesh_helpers
-from cockpit.web.workflow_mesh_helpers import (
-    _unavailable_projection,
-)
+    _AGORA_HTTP_ENDPOINT = agora_http_endpoint()
+    from cockpit.web import workflow_mesh_helpers
+    from cockpit.web.workflow_mesh_helpers import (
+        _unavailable_projection,
+    )
 
 _logger = logging.getLogger(__name__)
 

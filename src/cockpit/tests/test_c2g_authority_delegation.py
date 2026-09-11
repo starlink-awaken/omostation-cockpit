@@ -6,8 +6,9 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from cockpit.commands import compass
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
-_CANONICAL_WORKSPACE_ROOT = Path(__file__).resolve().parents[5]
+_CANONICAL_WORKSPACE_ROOT = _get_workspace_root()
 _CANONICAL_OMO_PROJECT = _CANONICAL_WORKSPACE_ROOT / "projects" / "omo"
 
 

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
+
 try:
     from fastapi import APIRouter
     from fastapi.responses import HTMLResponse
@@ -12,7 +14,7 @@ try:
 except ImportError:
     router = None
 
-_REPO_ROOT = Path(__file__).resolve().parents[6]
+_REPO_ROOT = _get_workspace_root()
 
 
 if router:
