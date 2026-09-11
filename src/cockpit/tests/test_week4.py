@@ -8,8 +8,9 @@ import sys
 from pathlib import Path
 
 import pytest
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
-_WORKSPACE_ROOT = Path(__file__).resolve().parents[5]
+_WORKSPACE_ROOT = _get_workspace_root()
 
 
 def _load(name: str, rel_path: str):

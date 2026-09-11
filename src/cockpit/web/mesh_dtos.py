@@ -19,6 +19,8 @@ try:
 except Exception:  # pragma: no cover - defensive fallback
     JSONResponse = None  # type: ignore[assignment,misc]
 
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
+
 from .mesh_helpers import _projection_fields, _projection_value_is_private
 
 
@@ -302,7 +304,7 @@ def _personal_draft_dir() -> Path:
     configured = os.environ.get("PERSONAL_DRAFT_DIR")
     if configured:
         return Path(configured).resolve()
-    repo_root = Path(__file__).resolve().parents[5]
+    repo_root = _get_workspace_root()
     return (repo_root / "runtime" / "omo" / "personal-drafts").resolve()
 
 

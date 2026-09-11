@@ -11,6 +11,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
+
 try:
     from omo.omo_external_evaluation import record_external_resource_evaluation
     from omo.omo_external_pack import (
@@ -50,7 +52,7 @@ else:
     _OMO_IMPORT_ERROR = None
 
 
-_REPO_ROOT = Path(__file__).resolve().parents[5]
+_REPO_ROOT = _get_workspace_root()
 _OMO_SRC = _REPO_ROOT / "projects" / "omo" / "src"
 if str(_OMO_SRC) not in sys.path:
     sys.path.insert(0, str(_OMO_SRC))

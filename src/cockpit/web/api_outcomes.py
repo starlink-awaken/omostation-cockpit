@@ -10,6 +10,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
+
 try:
     from fastapi import APIRouter, Query
 except ImportError:
@@ -25,7 +27,7 @@ router = APIRouter(prefix="/api/outcomes", tags=["outcomes"]) if APIRouter else 
 
 
 def _workspace_root() -> Path:
-    return Path(__file__).resolve().parents[5]
+    return _get_workspace_root()
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:

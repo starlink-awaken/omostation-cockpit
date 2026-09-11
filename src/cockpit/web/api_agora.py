@@ -16,6 +16,8 @@ from urllib.parse import urlparse
 from fastapi import APIRouter, Form, Query, Request
 from fastapi.responses import JSONResponse
 
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
+
 router = APIRouter()
 
 _SYSTEM_METRIC_HISTORY: deque[dict] = deque(maxlen=2016)
@@ -70,7 +72,7 @@ def _runtime_status(service: dict) -> str:
     )
 
 
-_REPO_ROOT = Path(__file__).resolve().parents[5]
+_REPO_ROOT = _get_workspace_root()
 
 # Read builtin pipelines
 _BUILTIN_PIPELINES_PATH = _REPO_ROOT / "projects" / "agora" / "src" / "agora" / "pipelines" / "builtin.json"

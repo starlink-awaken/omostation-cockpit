@@ -7,9 +7,10 @@ import sys
 from pathlib import Path
 
 import pytest
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
 # The scripts are in the root workspace's bin/ssot/ directory
-_WORKSPACE_ROOT = Path(__file__).resolve().parents[5]  # goes up to ws-scenario-phase1
+_WORKSPACE_ROOT = _get_workspace_root()  # cockpit env_resolver (worktree-agnostic)
 
 
 def _load_module(name: str, rel_path: str):
