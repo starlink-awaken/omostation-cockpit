@@ -1,0 +1,29 @@
+schema: local-observer-interface-navigation/v1
+service: zhixing-project-observatory
+authority: implementation-owned-observer-transport
+canonical_query_module: observatory_query.py
+discovery: http://127.0.0.1:43191/api/v1/manifest
+human_entry: http://127.0.0.1:43191/#personal
+object_reader_entry: http://127.0.0.1:43191/#workbench
+api_documentation: API.md
+agent_reading: AGENT-READING.md
+read_only: true
+authorization_mode: single-user-loopback
+role_is_authority: false
+execution_enabled: false
+formal_context_owner: ecos-L4ContextPack
+formal_control_owner: OMO
+interfaces:
+  http:
+    methods: [GET]
+    discovery_owns_current_operations: true
+  cli:
+    module: observatory_query.py
+    runtime: existing-managed-python
+    default_snapshot: sibling-current.json
+    arbitrary_source_path_option: false
+effects:
+  query: none
+  user_view_preferences: session-storage-only
+  exports: user-requested-local-files
+  collector: existing-owned-publication-workflow-only

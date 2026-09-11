@@ -136,3 +136,80 @@ def test_observatory_stream_sse():
         assert "event: connected" in content
         assert "generation_id" in content
 
+
+
+def test_new_operations_registered():
+    """T8-24A: ontology/lineage/context_pack 在 OPERATIONS 白名单中。"""
+    from cockpit.observatory.query_engine import OPERATIONS
+
+    assert {'ontology', 'lineage', 'context_pack'} <= set(OPERATIONS)
+
+
+def test_lineage_operation_traces_subgraph():
+    """lineage 对真实 BET 实体返回 subgraph 与 depth 层级。"""
+    service = get_observatory_service()
+    result = service.query('lineage', {'id': 'BET-Y1Q4-T10-125'})
+    data = result.get('data', {})
+    assert data.get('found') is True
+    sub = data.get('subgraph', {})
+    assert isinstance(sub.get('nodes'), list) and len(sub['nodes']) > 0
+    assert isinstance(data.get('lineage_by_depth'), dict)
+
+
+def test_lineage_missing_entity_is_truthful():
+    """不存在的实体返回 found=False 而非异常。"""
+    service = get_observatory_service()
+    result = service.query('lineage', {'id': 'no-such-entity-xyz'})
+    assert result.get('data', {}).get('found') is False
+
+
+def test_ontology_operation_exports_schema():
+    """ontology 返回 schema 导出 + axioms_live 注入。"""
+    service = get_observatory_service()
+    result = service.query('ontology', {})
+    data = result.get('data', {})
+    assert isinstance(data, dict)
+    assert 'axioms_live' in data
+
+
+def test_context_pack_operation_synthesizes():
+    """context_pack 对真实实体产出 markdown pack 与 related_knowledge。"""
+    service = get_observatory_service()
+    result = service.query('context_pack', {'id': 'BET-Y1Q4-T10-125'})
+    data = result.get('data', {})
+    assert data.get('found') is True
+    assert len(data.get('markdown_pack') or '') > 0
+
+
+def test_fidelity_with_43191_snapshot_ops():
+    """与 43191 live snapshot 的语义对账 (跳过时间戳字段)。
+
+    43191 不在线时跳过 — 保真度对账只在 live 服务可用时有意义。
+    """
+    import urllib.request
+    try:
+        with urllib.request.urlopen('http://127.0.0.1:43191/api/v1/summary', timeout=5) as resp:
+            zx = json.loads(resp.read())
+    except Exception:
+        pytest.skip('43191 observatory not running')
+    service = get_observatory_service()
+    mine = service.query('summary', {})
+    norm = lambda o: (  # noqa: E731
+        {k: norm(v) for k, v in o.items() if k not in ('generated_at', 'last_attempt_at', 'freshness', 'observed_at', 'age_seconds')}
+        if isinstance(o, dict) else
+        [norm(x) for x in o] if isinstance(o, list) else o
+    )
+    assert json.dumps(norm(mine.get('data')), sort_keys=True) == json.dumps(norm(zx.get('data')), sort_keys=True)
+
+
+def test_lineage_depth_keys_match_43191_contract():
+    """43191 兼容: HTTP 序列化后 lineage_by_depth 键为 str (JSON 对象键)。"""
+    service = get_observatory_service()
+    result = service.query('lineage', {'id': 'BET-Y1Q4-T10-125'})
+    data = result.get('data', {})
+    lbd = data.get('lineage_by_depth', {})
+    assert all(isinstance(k, int) for k in lbd.keys())
+    # HTTP 层 (envelope) 序列化后与 43191 同构: str 键
+    serialized = json.loads(json.dumps(result))
+    s_lbd = serialized['data']['lineage_by_depth']
+    assert all(isinstance(k, str) for k in s_lbd.keys())
