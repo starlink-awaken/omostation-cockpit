@@ -32,6 +32,7 @@ ROUTER_MODULES = (
     "cockpit.web.api_knowledge_actions",
     "cockpit.web.api_external_resources",
     "cockpit.web.api_scene_cards",
+    "cockpit.web.api_scene_lifecycle",
     "cockpit.web.api_decision_inbox",
     "cockpit.web.api_intake_pipeline",
     "cockpit.web.api_approval_flow",
