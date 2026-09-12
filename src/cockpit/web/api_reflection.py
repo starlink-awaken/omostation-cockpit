@@ -1,9 +1,10 @@
 """Reflection API — 聚合运行时反射数据给 cockpit-ui.
 
 提供:
-  GET /api/resident   — 常驻 Agent 状态
-  GET /api/bcos       — BCOS 北极星/信号/进化
-  GET /api/p74        — P74 工作流沉默治理
+  GET /api/resident     — 常驻 Agent 状态
+  GET /api/bcos         — BCOS 北极星/信号/进化
+  GET /api/p74          — P74 工作流沉默治理
+  GET /api/decisions    — 决策提案待办卡片 (BET-Y1Q4-T8-21)
 """
 
 from __future__ import annotations
@@ -66,3 +67,19 @@ async def p74_status() -> JSONResponse:
     """P74 工作流沉默治理."""
     data = _run_json(["uv", "run", "python", "bin/agent-workflow.py", "compliance", "--json"])
     return JSONResponse(data)
+
+
+@router.get("/decisions")
+async def decision_proposals() -> JSONResponse:
+    """决策提案待办卡片 — 返回未处理提案摘要 (BET-Y1Q4-T8-21)."""
+    from cockpit.commands.resident_decision import _scan_proposals
+
+    proposals = _scan_proposals()
+    unreviewed = [p for p in proposals if p["status"] not in ("reviewed", "promoted", "dismissed")]
+    summary = {
+        "total": len(proposals),
+        "unreviewed": len(unreviewed),
+        "reviewed": len(proposals) - len(unreviewed),
+        "top_unreviewed": unreviewed[:5],
+    }
+    return JSONResponse(summary)
