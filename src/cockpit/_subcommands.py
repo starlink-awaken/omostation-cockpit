@@ -751,6 +751,21 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     spine_lora_p = spine_sub.add_parser("lora", help="域 LoRA 适配层注册表 (T10-118 热插拔)")
     spine_lora_p.add_argument("--list-adapters", action="store_true", help="列出三域适配层")
     spine_lora_p.add_argument("--eval", action="store_true", help="附带 ROUGE-L 评估")
+    # ── BET-Y2Q2-T3-01: persona radar ──
+    spine_persona_p = spine_sub.add_parser("persona-radar", help="个人文风一致性多维雷达评估 (T3-01)")
+    spine_persona_p.add_argument("--file", "-f", default=None, help="待评估文本文件")
+    spine_persona_p.add_argument("--author", "-a", default="anonymous", help="作者名")
+    spine_persona_p.add_argument("--threshold", "-t", type=float, default=85.0, help="对齐阈值 (默认 85)")
+    spine_persona_p.add_argument("--tone", help="语气调节方向: solemn | sharp | gentle")
+    spine_persona_p.add_argument("--strength", type=float, default=1.0, help="调节强度 0-1")
+    spine_persona_p.add_argument("--formality", type=float, default=0.5)
+    spine_persona_p.add_argument("--warmth", type=float, default=0.4)
+    spine_persona_p.add_argument("--authority", type=float, default=0.6)
+    spine_persona_p.add_argument("--brevity", type=float, default=0.5)
+    spine_persona_p.add_argument("--concreteness", type=float, default=0.6)
+    spine_persona_p.add_argument("--rhythm", type=float, default=0.5)
+    spine_persona_p.add_argument("--originality", type=float, default=0.5)
+    spine_persona_p.add_argument("--json", action="store_true", help="JSON 输出")
     # ── dlp-guard ─────────────────────────────────────────────
     # BET-Y1Q4-T10-01: 外发前 DLP 扫描
     dlp_p = sub.add_parser("dlp-guard", help="外发前防泄密扫描 (敏感识别+挂起+脱敏)")
