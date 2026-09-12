@@ -485,6 +485,7 @@ def cmd_spine(args: argparse.Namespace) -> int:
         "send": cmd_spine_send,
         "mail-draft": lambda a: __import__("cockpit.commands.inbox", fromlist=["cmd_inbox_draft"]).cmd_inbox_draft(a),
         "lora": cmd_spine_lora,
+    "persona-radar": cmd_spine_persona_radar,
     }
     if subcmd in dispatch:
         return dispatch[subcmd](args)
@@ -883,4 +884,194 @@ def cmd_spine_lora(args: argparse.Namespace) -> int:
             row.append(f"{imp:+.1%}" if imp is not None else "—")
         t.add_row(*row)
     console.print(t)
+    return 0
+
+
+
+
+# ── BET-Y2Q2-T3-01: persona radar ────────────────────────────────────────
+# ── BET-Y2Q2-T3-01: persona radar ────────────────────────────────────────
+
+
+def cmd_spine_persona_radar(args: argparse.Namespace) -> int:
+def cmd_spine_persona_radar(args: argparse.Namespace) -> int:
+    """Multi-dimensional writing-style radar evaluation + tone adaptive adjustment (T3-01)."""
+    """Multi-dimensional writing-style radar evaluation + tone adaptive adjustment (T3-01)."""
+    omlxc_root = _ws() / "projects" / "omlxc"
+    omlxc_root = _ws() / "projects" / "omlxc"
+    if not (omlxc_root / "pyproject.toml").is_file():
+    if not (omlxc_root / "pyproject.toml").is_file():
+        console.print("[red]omlxc checkout not found[/red]")
+        console.print("[red]omlxc checkout not found[/red]")
+        return 1
+        return 1
+
+
+    # Build the snippet that imports and runs persona_radar_eval
+    # Build the snippet that imports and runs persona_radar_eval
+    snippet_lines = [
+    snippet_lines = [
+        "import json, sys",
+        "import json, sys",
+        "from omlxc.dataplane.persona_radar import (",
+        "from omlxc.dataplane.persona_radar import (",
+        "    ToneProfile, ToneDirection, tone_shift,",
+        "    ToneProfile, ToneDirection, tone_shift,",
+        "    compute_radar, raw_metrics, auto_rewrite_suggestion,",
+        "    compute_radar, raw_metrics, auto_rewrite_suggestion,",
+        ")",
+        ")",
+        "from omlxc.dataplane.persona_radar_eval import _DEFAULT_SAMPLE, _load_text, _build_profile",
+        "from omlxc.dataplane.persona_radar_eval import _DEFAULT_SAMPLE, _load_text, _build_profile",
+        "import argparse as _ap",
+        "import argparse as _ap",
+    ]
+    ]
+
+
+    # Build a mock args namespace
+    # Build a mock args namespace
+    args_dict = {}
+    args_dict = {}
+    for attr in ("file", "author", "threshold", "tone", "strength",
+    for attr in ("file", "author", "threshold", "tone", "strength",
+                 "formality", "warmth", "authority", "brevity",
+                 "formality", "warmth", "authority", "brevity",
+                 "concreteness", "rhythm", "originality"):
+                 "concreteness", "rhythm", "originality"):
+        if hasattr(args, attr):
+        if hasattr(args, attr):
+            args_dict[attr] = getattr(args, attr)
+
+    snippet_lines.append(f"args_ns = _ap.Namespace({', '.join(f'{k}={v!r}' for k, v in args_dict.items())})")
+            args_dict[attr] = getattr(args, attr)
+    snippet_lines.append("text = _load_text(args_ns)")
+
+    snippet_lines.append("target = _build_profile(args_ns)")
+    snippet_lines.append(f"args_ns = _ap.Namespace({', '.join(f'{k}={v!r}' for k, v in args_dict.items())})")
+    snippet_lines.append("metrics = raw_metrics(text)")
+    snippet_lines.append("text = _load_text(args_ns)")
+    snippet_lines.append("profile = compute_radar(text, args_ns.author, target, threshold=args_ns.threshold)")
+    snippet_lines.append("target = _build_profile(args_ns)")
+    snippet_lines.append("from omlxc.dataplane.persona_radar import RadarEvalResult")
+    snippet_lines.append("metrics = raw_metrics(text)")
+    snippet_lines.append("result = RadarEvalResult(profile=profile, raw_metrics=metrics)")
+    snippet_lines.append("profile = compute_radar(text, args_ns.author, target, threshold=args_ns.threshold)")
+    snippet_lines.append("out = result.to_dict()")
+    snippet_lines.append("from omlxc.dataplane.persona_radar import RadarEvalResult")
+    snippet_lines.append("rewrite = auto_rewrite_suggestion(text, profile)")
+    snippet_lines.append("result = RadarEvalResult(profile=profile, raw_metrics=metrics)")
+    snippet_lines.append("if rewrite:")
+    snippet_lines.append("out = result.to_dict()")
+    snippet_lines.append("    out['rewrite_suggestion'] = rewrite")
+    snippet_lines.append("rewrite = auto_rewrite_suggestion(text, profile)")
+    snippet_lines.append("print(json.dumps(out, ensure_ascii=False))")
+    snippet_lines.append("if rewrite:")
+    snippet = "\n".join(snippet_lines)
+    snippet_lines.append("    out['rewrite_suggestion'] = rewrite")
+
+    snippet_lines.append("print(json.dumps(out, ensure_ascii=False))")
+    rc, out = _omlxc_python(snippet, timeout=60.0)
+    snippet = "\n".join(snippet_lines)
+    if rc not in (0, 2):
+
+        console.print(f"[red]persona_radar 执行失败: {out[:300]}[/red]")
+    rc, out = _omlxc_python(snippet, timeout=60.0)
+        return 1
+    if rc not in (0, 2):
+
+        console.print(f"[red]persona_radar 执行失败: {out[:300]}[/red]")
+    try:
+        return 1
+        data = json.loads(out.splitlines()[-1])
+
+    except Exception:
+    try:
+        console.print(f"[red]输出解析失败: {out[:300]}[/red]")
+        data = json.loads(out.splitlines()[-1])
+        return 1
+    except Exception:
+
+        console.print(f"[red]输出解析失败: {out[:300]}[/red]")
+    if getattr(args, "json", False):
+        return 1
+        print(json.dumps(data, ensure_ascii=False, indent=2))
+
+        return 0
+    if getattr(args, "json", False):
+
+        print(json.dumps(data, ensure_ascii=False, indent=2))
+    p = data["profile"]
+        return 0
+    status_color = "green" if not p["below_threshold"] else "red"
+
+    status_text = "PASSED" if not p["below_threshold"] else "BELOW THRESHOLD"
+    p = data["profile"]
+
+    status_color = "green" if not p["below_threshold"] else "red"
+    console.print(
+    status_text = "PASSED" if not p["below_threshold"] else "BELOW THRESHOLD"
+        Panel(
+
+            f"Author:      {p['author']}\n"
+    console.print(
+            f"Alignment:   {p['alignment_score']:.1f} / 100  (threshold {p['threshold']:.1f})\n"
+        Panel(
+            f"Status:      [{status_color}]{status_text}[/{status_color}]",
+            f"Author:      {p['author']}\n"
+            title="📊 个人文风一致性多维雷达 (BET-Y2Q2-T3-01)",
+            f"Alignment:   {p['alignment_score']:.1f} / 100  (threshold {p['threshold']:.1f})\n"
+        )
+            f"Status:      [{status_color}]{status_text}[/{status_color}]",
+    )
+            title="📊 个人文风一致性多维雷达 (BET-Y2Q2-T3-01)",
+
+        )
+    # Dimension table
+    )
+    t = Table(title="雷达维度明细", header_style="bold cyan")
+
+    t.add_column("维度", style="bold")
+    # Dimension table
+    t.add_column("当前", justify="right")
+    t = Table(title="雷达维度明细", header_style="bold cyan")
+    t.add_column("目标", justify="right")
+    t.add_column("维度", style="bold")
+    t.add_column("差距", justify="right")
+    t.add_column("当前", justify="right")
+    t.add_column("目标", justify="right")
+    for d in p["dimensions"]:
+    t.add_column("差距", justify="right")
+        gap_style = "red" if d["gap"] > 10 else ("yellow" if d["gap"] > 5 else "")
+    for d in p["dimensions"]:
+        gap_str = f"{d['gap']:+.1f}"
+        gap_style = "red" if d["gap"] > 10 else ("yellow" if d["gap"] > 5 else "")
+        if gap_style:
+        gap_str = f"{d['gap']:+.1f}"
+            gap_str = f"[{gap_style}]{gap_str}[/{gap_style}]"
+        if gap_style:
+        t.add_row(d["label"], f"{d['current']:.1f}", f"{d['target']:.1f}", gap_str)
+            gap_str = f"[{gap_style}]{gap_str}[/{gap_style}]"
+    console.print(t)
+        t.add_row(d["label"], f"{d['current']:.1f}", f"{d['target']:.1f}", gap_str)
+
+    console.print(t)
+    if p["suggestions"]:
+
+        console.print("[yellow]建议:[/yellow]")
+    if p["suggestions"]:
+        for s in p["suggestions"]:
+        console.print("[yellow]建议:[/yellow]")
+            console.print(f"  • {s}")
+        for s in p["suggestions"]:
+
+            console.print(f"  • {s}")
+    if "rewrite_suggestion" in data:
+
+        console.print(f"[bold red]{data['rewrite_suggestion']}[/bold red]")
+    if "rewrite_suggestion" in data:
+
+        console.print(f"[bold red]{data['rewrite_suggestion']}[/bold red]")
+    return 0
+
     return 0
