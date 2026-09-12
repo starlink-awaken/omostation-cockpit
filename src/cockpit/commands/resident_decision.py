@@ -181,14 +181,19 @@ def cmd_approve(args: argparse.Namespace) -> int:
         template = _generate_bet_yaml(title, proposal_file, meta, now)
         output_name = f"bet-{proposal_file.stem}.yaml"
 
-    output_path = WORKSPACE_ROOT / ".omo" / "_delivery" / "templates" / output_name
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(template, encoding="utf-8")
+    output_path = _write_template_via_broker(WORKSPACE_ROOT, output_name, template)
 
     print(f"✅ 模板已生成: {output_path.relative_to(WORKSPACE_ROOT)}")
     print(f"   来源: {proposal_file.relative_to(WORKSPACE_ROOT)}")
     print(f"   类型: {target.upper()}")
     return 0
+
+
+def _write_template_via_broker(workspace_root: Path, output_name: str, template: str) -> Path:
+    """经 omo broker 落盘模板 — contract_gatekeeper 禁止非 broker 直写 .omo/."""
+    from omo.omo_delivery import write_delivery_template
+
+    return write_delivery_template(workspace_root, output_name, template)
 
 
 def _extract_title(content: str) -> str:
