@@ -8,10 +8,10 @@
 
 | 通道 | 数量 |
 |------|------|
-| CLI 命令 (含子命令) | 214 |
-| MCP 工具 | 640 |
+| CLI 命令 (含子命令) | 217 |
+| MCP 工具 | 642 |
 | MCP 服务器 | 27 |
-| BOS 服务 | 302 |
+| BOS 服务 | 306 |
 | BOS 域 | 23 |
 
 ## MCP 服务器清单
@@ -28,8 +28,8 @@
 | `model-driven` | M0 | 28 | stdio | `projects/model-driven/src/model_driven/mcp_server.py` |
 | `ecos-integration` | L0 | 26 | stdio | `projects/ecos/src/ecos/services/integration/mcp_server.py` |
 | `codeanalyze` | L2 | 25 | stdio | `projects/knowledge/kairon/packages/codeanalyze/src/codeanalyze/mcp.py` |
+| `omo` | L2 | 24 | stdio | `projects/omo/src/omo/mcp_server.py` |
 | `metaos` | L2 | 24 | stdio | `projects/metaos/src/metaos/mcp_server.py` |
-| `omo` | L2 | 22 | stdio | `projects/omo/src/omo/mcp_server.py` |
 | `kronos` | L2 | 16 | stdio | `projects/knowledge/kairon/packages/kronos/src/kronos/mcp_server.py` |
 | `aetherforge` | X | 15 | stdio | `projects/aetherforge/src/aetherforge/mcp_server.py` |
 | `agent-runtime` | L3 | 14 | stdio | `projects/cockpit/src/cockpit/agent_runtime_mcp_server.py` |
@@ -69,7 +69,7 @@
 | `omo` | 4 |
 | `perception` | 2 |
 | `persona` | 10 |
-| `resident` | 4 |
+| `resident` | 8 |
 | `runtime` | 1 |
 | `swarm` | 1 |
 | `system` | 11 |
@@ -109,6 +109,7 @@
 | `cockpit c2g` | 🎯 C2G 战略罗盘 (status/pipeline) |
 | `cockpit cache` | 检查三级分层缓存与 Radix 前缀树状态 (含基准压测) |
 | `cockpit calendar` | 多维日历感知与督办闭环 (T7-02) |
+| `cockpit calibrate` | [v2] 校准场景卡 |
 | `cockpit capabilities` | 统一能力发现入口 — 搜索/推荐/全量列出 (CLI+BOS+Scene+Journey+Governance) |
 | `cockpit capability` | BOS capability 域 / toolbox 外部能力 |
 | `cockpit cards` | 显示 CARDS 卡片状态 |
@@ -153,6 +154,7 @@
 | `cockpit event` | 导出事件封套 (EventEnvelope) |
 | `cockpit events` | 实时查看 Agora SSE 事件流 (Phase 34 L3 Dashboard) |
 | `cockpit events-watch` | 实时监听 SSE 事件流简便入口 |
+| `cockpit execute` | [v2] 执行场景卡 (BOS/MCP 驱动) |
 | `cockpit export` | 导出研究 (markdown/text/json) |
 | `cockpit export-research` | 将研究对象导出为 WorkspaceObject JSON |
 | `cockpit fabric` | 检查 omlxc 智能算力织网 (温控/分诊/显存/缓存) |
@@ -192,6 +194,7 @@
 | `cockpit kems` | 🧬 KEMS 域治理 (domains/status/scan) |
 | `cockpit knowledge` | 📚 KOS 知识检索 (search/status/stats) |
 | `cockpit knowledge-ref` | ADR-0315 引用元数据 (无正文) |
+| `cockpit lifecycle` | [v2] 场景卡生命周期管理 (list/status/promote/demote/validate) |
 | `cockpit list` | 查看研究历史 |
 | `cockpit logs` | 查看日志 |
 | `cockpit lora` | 查看与测试端侧在线 LoRA 适配层热插拔 |
@@ -206,7 +209,7 @@
 | `cockpit model-driven` |  |
 | `cockpit model-freshness` | 读取 Runtime 模型新鲜度回执 |
 | `cockpit mof` | MOF 元模型操作 (委派 mof CLI) |
-| `cockpit monitor` | 📊 实时终端大盘 (C2G Pipeline 监控仪, 实时刷新 Ctrl+C 退出) |
+| `cockpit monitor` | 📊 实时终端大盘 (C2G Pipeline 监控仪, 默认实时; --status 一次性快照) |
 | `cockpit mutate` | 通过 agora 统一 BOS URI 写协议修改资源 |
 | `cockpit nack` | 否定确认任务 |
 | `cockpit nodes` | 列出 KOS 中注册的算力节点 |
