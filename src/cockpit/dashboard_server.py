@@ -175,6 +175,16 @@ try:
 except Exception as e:
     print(f"Warning: Capability API not available: {e}", file=sys.stderr)
 
+# ─── Resident Flight Deck (BET-Y1Q4-T8-23) ────────────────────
+
+try:
+    from cockpit.web.api_flight_deck import router as _flight_deck_router
+
+    app.include_router(_flight_deck_router)
+    print("Successfully loaded Resident Flight Deck API routes")
+except Exception as e:
+    print(f"Warning: Resident Flight Deck API not available: {e}", file=sys.stderr)
+
 # ─── GBrain Proxy ─────────────────────────────────────────────
 
 
