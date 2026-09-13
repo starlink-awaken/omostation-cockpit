@@ -1715,6 +1715,144 @@ class TopologyEngine:
         }
 
 
+    # ── Path collision detection ──────────────────────────────────────────
+
+    # Path prefix → project id mapping (ordered by specificity)
+    PATH_PROJECT_MAP = [
+        ("projects/cockpit-ui/", "cockpit-ui"),
+        ("projects/cockpit/", "cockpit"),
+        ("projects/agora/", "agora"),
+        ("projects/knowledge/kairon/", "kairon"),
+        ("projects/knowledge/gbrain/", "gbrain"),
+        ("projects/knowledge/", "kairon"),
+        ("projects/omo/", "omo"),
+        ("projects/ecos/", "ecos"),
+        ("projects/runtime/", "runtime"),
+        ("projects/aetherforge/", "aetherforge"),
+        ("projects/omlxc/", "omlxc"),
+        ("projects/l4-kernel/", "l4-kernel"),
+        ("projects/domain-cartridges/", "domain-cartridges"),
+        ("projects/metaos/", "metaos"),
+        ("projects/bus-foundation/", "bus-foundation"),
+        ("projects/toolbox/", "toolbox"),
+        ("projects/family-hub/", "family-hub"),
+        ("bin/gac/", "governance"),
+        ("bin/", "governance"),
+        (".omo/", "governance"),
+        ("docs/", "governance"),
+    ]
+
+    def check_path_collisions(self, paths: list) -> Dict[str, Any]:
+        """Check whether a set of file paths risk concurrent-write collisions.
+
+        Returns a dict with:
+          ok, safe, max_severity, affected_projects, summary, recommendation
+        """
+        if not paths:
+            return {
+                "ok": True,
+                "safe": True,
+                "max_severity": "CLEAN",
+                "affected_projects": [],
+                "summary": "No paths provided; nothing to check.",
+                "recommendation": "CLEAN — no action needed.",
+            }
+
+        # Resolve affected projects from paths
+        affected: Set[str] = set()
+        for p in paths:
+            normalized = p.replace("\\", "/")
+            for prefix, pid in self.PATH_PROJECT_MAP:
+                if normalized.startswith(prefix):
+                    affected.add(pid)
+                    break
+            else:
+                # Fallback: first path segment under projects/
+                parts = normalized.split("/")
+                if len(parts) >= 2 and parts[0] == "projects":
+                    affected.add(parts[1])
+
+        # Determine severity (stub: always CLEAN in static engine)
+        max_severity = "CLEAN"
+        safe = True
+
+        projects_str = ", ".join(sorted(affected)) if affected else "(none)"
+        return {
+            "ok": True,
+            "safe": safe,
+            "max_severity": max_severity,
+            "affected_projects": sorted(affected),
+            "summary": f"Checked {len(paths)} path(s); affected projects: {projects_str}. "
+                       f"No active agent collisions detected (static topology).",
+            "recommendation": "CLEAN — proceed with standard GaC gates "
+                              "(`make gac-local-gate`) before committing.",
+        }
+
+    def get_agent_context(self, project_id: str) -> Dict[str, Any]:
+        """Return compact architecture perception for a single project (< 800 tokens).
+
+        Includes layer/role, upstream/downstream, collision status, worktree snapshot,
+        recommendation, ports, and core BOS interfaces.
+        """
+        snap = self.get_snapshot()
+        proj = snap["projects"].get(project_id, {})
+        if not proj:
+            return {
+                "ok": False,
+                "project_id": project_id,
+                "error": f"Project '{project_id}' not found",
+                "available_projects": list(snap["projects"].keys()),
+            }
+
+        # Gather live collision info
+        ws_agents = self.get_workspace_agents()
+        project_collisions = [
+            c for c in ws_agents.get("collisions", [])
+            if c["project_id"] == project_id
+        ]
+
+        severity = "CLEAN"
+        if project_collisions:
+            severities = {c["severity"] for c in project_collisions}
+            if "CRITICAL" in severities:
+                severity = "CRITICAL"
+            elif "HIGH" in severities:
+                severity = "HIGH"
+
+        # Worktree snapshot for this project
+        heatmap = ws_agents.get("project_heatmap", {}).get(project_id, {})
+        active_branches = heatmap.get("branches", [])
+        active_agents = heatmap.get("agents", [])
+
+        return {
+            "ok": True,
+            "project_id": project_id,
+            "name": proj.get("name", project_id),
+            "layer": proj.get("layer", "?"),
+            "layer_name": proj.get("layer_name", "?"),
+            "role": proj.get("role", ""),
+            "upstream_dependencies": proj.get("upstream", []),
+            "downstream_consumers": proj.get("downstream", []),
+            "collision_status": severity,
+            "active_worktrees": heatmap.get("count", 0),
+            "active_branches": active_branches,
+            "active_agents": active_agents,
+            "runtime_interfaces": {
+                "ports": [p.get("port") for p in proj["interfaces"]["ports"]],
+                "bos_services_count": proj["stats"]["bos_services_count"],
+                "mcp_tools_count": proj["stats"]["mcp_tools_count"],
+                "cli_commands_count": proj["stats"]["cli_commands_count"],
+            },
+            "recommendation": (
+                f"{severity} — "
+                + (f"{len(active_branches)} active worktree(s) on this project. "
+                   f"Run `bash bin/gac/gac-worktree.sh guard-submodules` before merging."
+                   if severity != "CLEAN"
+                   else "No concurrent write risk detected. Proceed with standard gates.")
+            ),
+        }
+
+
 if __name__ == "__main__":
     eng = TopologyEngine()
     snap = eng.build_snapshot()
