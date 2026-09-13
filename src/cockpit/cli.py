@@ -27,9 +27,15 @@ time = _time_mod
 # Tests monkeypatch via cli.cmd_xxx — `from ._compat import *` re-exports them unchanged.
 from ._compat import *  # noqa: F401,F403
 # `import *` skips underscore-prefixed names — explicit re-export for internal callers
-from ._compat import _script_dir, _c_context, _c_version, _c_vault, _c_domains  # noqa: F401
-# Additional underscore-prefixed functions from _compat (import * skips them)
-from ._compat import _cmd_health, _cmd_brief, _cmd_brief_morning, _cmd_discover, _cmd_search, _cmd_research_batch  # noqa: F401
+# `from ._compat import *` skips underscore-prefixed names — explicit import all
+from ._compat import (  # noqa: F401
+    _script_dir,
+    _c_context, _c_controller_shadow, _c_domain_status, _c_domains,
+    _c_events, _c_facts_audit, _c_facts_validation, _c_model_freshness,
+    _c_sanyi_status, _c_skill, _c_vault, _c_version,
+    _cmd_brief, _cmd_brief_morning, _cmd_discover, _cmd_health,
+    _cmd_research_batch, _cmd_search,
+)
 
 
 def _cmd_adr_stub(a, name: str, plan: str) -> int:
