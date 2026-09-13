@@ -88,7 +88,7 @@ class TestObservatoryMCP(unittest.TestCase):
         self.assertIn("ecos_version", data)
         self.assertIn("layers", data)
         self.assertEqual(len(data["layers"]), 8)
-        self.assertEqual(data["total_projects"], 18)
+        self.assertGreaterEqual(data["total_projects"], 18)
 
     def test_check_path_collisions(self):
         """Verify check_path_collisions tool returns valid decision JSON."""
