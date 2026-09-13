@@ -14,6 +14,7 @@ from cockpit.adapters import governance_context
 from cockpit.dashboard.constants import (
     ARCH_HTML,
     BOS_DASHBOARD_HTML,
+    DECISION_GRAPH_PATH,
     LAYER_SOURCES,
     M0_SNAPSHOT_PATH,
     MEMORY_DASHBOARD_HTML,
@@ -299,6 +300,34 @@ async def api_bos_trends():
 async def api_convergence_status():
     """Entry convergence status — which CLIs are still active vs. cockpit."""
     return JSONResponse(content=load_convergence_status())
+
+
+
+# ─── Decision Graph (T5-05) ──────────────────────────────────
+
+
+@router.get("/api/v1/decision-graph/summary", dependencies=_AUTH_DEPS)
+async def api_decision_graph_summary():
+    """Decision graph summary: nodes, edges, by_kind, actors, actions."""
+    from cockpit.handlers.decision_graph import decision_graph_summary
+
+    return JSONResponse(content=decision_graph_summary(DECISION_GRAPH_PATH))
+
+
+@router.get("/api/v1/decision-graph/nodes", dependencies=_AUTH_DEPS)
+async def api_decision_graph_nodes():
+    """Full node and edge list from decision graph."""
+    from cockpit.handlers.decision_graph import decision_graph_nodes
+
+    return JSONResponse(content=decision_graph_nodes(DECISION_GRAPH_PATH))
+
+
+@router.get("/api/v1/decision-graph/node/{node_id}", dependencies=_AUTH_DEPS)
+async def api_decision_graph_node(node_id: str):
+    """Subgraph (ancestors + downstream) for a specific node."""
+    from cockpit.handlers.decision_graph import node_subgraph
+
+    return JSONResponse(content=node_subgraph(DECISION_GRAPH_PATH, node_id))
 
 
 # ─── Pages ─────────────────────────────────────────────────
