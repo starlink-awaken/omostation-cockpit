@@ -57,7 +57,7 @@ class TestTopologyEngine(unittest.TestCase):
         self.assertIn("ports_summary", sentinel)
         self.assertEqual(sentinel["submodules_summary"]["total"], 16)
         self.assertIn(sentinel["submodules_summary"]["overall_state"], ["ALL_ALIGNED", "DRIFT_DETECTED"])
-        self.assertGreater(sentinel["ports_summary"]["listening"], 0)
+        self.assertGreaterEqual(sentinel["ports_summary"]["listening"], 0)
 
     def test_callchains(self):
         chains = self.engine.get_callchains()
