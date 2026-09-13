@@ -26,6 +26,8 @@ time = _time_mod
 # All cmd_* wrapper functions live in _compat.py to keep cli.py under god-module threshold.
 # Tests monkeypatch via cli.cmd_xxx — `from ._compat import *` re-exports them unchanged.
 from ._compat import *  # noqa: F401,F403
+# `import *` skips underscore-prefixed names — explicit re-export for internal callers
+from ._compat import _script_dir, _c_context, _c_version, _c_vault, _c_domains  # noqa: F401
 
 
 def _cmd_adr_stub(a, name: str, plan: str) -> int:
