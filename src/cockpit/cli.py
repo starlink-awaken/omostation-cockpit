@@ -28,6 +28,8 @@ time = _time_mod
 from ._compat import *  # noqa: F401,F403
 # `import *` skips underscore-prefixed names — explicit re-export for internal callers
 from ._compat import _script_dir, _c_context, _c_version, _c_vault, _c_domains  # noqa: F401
+# Additional underscore-prefixed functions from _compat (import * skips them)
+from ._compat import _cmd_health, _cmd_brief, _cmd_brief_morning, _cmd_discover, _cmd_search, _cmd_research_batch  # noqa: F401
 
 
 def _cmd_adr_stub(a, name: str, plan: str) -> int:
