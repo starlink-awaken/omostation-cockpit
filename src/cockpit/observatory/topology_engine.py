@@ -15,7 +15,27 @@ import time
 from typing import Any, Dict, List, Optional, Set
 import yaml
 
-WORKSPACE_ROOT = Path("/Users/xiamingxing/Workspace")
+def _resolve_workspace_root() -> Path:
+    """Resolve workspace root via env var, git discovery, or fallback default."""
+    env_root = os.environ.get("WORKSPACE_ROOT")
+    if env_root:
+        return Path(env_root)
+    # Walk up from this file to find workspace root.
+    # .gitmodules only exists at workspace root (not in submodules).
+    # For submodules, .git is a file; for the root, .git is a directory.
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        if (parent / ".gitmodules").is_file():
+            return parent
+    # Fallback: walk up to find .git directory (not file)
+    for parent in here.parents:
+        git_path = parent / ".git"
+        if git_path.is_dir():
+            return parent
+    return Path("/Users/xiamingxing/Workspace")
+
+
+WORKSPACE_ROOT = _resolve_workspace_root()
 
 LAYER_CONFIG = {
     "L4": {"name": "L4 自我层", "role": "主权自我面 · 28 域统一注册 · KEMS 状态机", "color": "#8b5cf6", "order": 1},
