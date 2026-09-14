@@ -15,9 +15,40 @@ def cmd_resident(args: argparse.Namespace) -> int:
     子命令: status / roles / daemon / signals / alert / decision / execute /
             sediment / memory / promote / resources / ingest
 
+    cockpit-native decision 子命令 (BET-Y1Q4-T8-21):
+      decision triage  — 按状态/类型过滤决策提案
+      decision approve — 一键生成 BET/ADR 模板
+      decision status  — 查看归档进度
+
     跨 worktree/主仓兼容: 直接调用 omo 项目的 .venv/bin/python, 避免 uv 的 VIRTUAL_ENV 警告
     (uv parent env 读取的 VIRTUAL_ENV 与 subprocess env=env 无关)。
     """
+    resident_args = list(getattr(args, "resident_args", []))
+
+    # ── 拦截 cockpit-native decision triage/approve/status (BET-Y1Q4-T8-21) ──
+    if len(resident_args) >= 2 and resident_args[0] == "decision":
+        sub_cmd = resident_args[1]
+        if sub_cmd in ("triage", "approve", "status"):
+            from cockpit.commands.resident_decision import (
+                cmd_approve,
+                cmd_status,
+                cmd_triage,
+                register_resident_subparser,
+            )
+
+            # 构建子解析器
+            parser = argparse.ArgumentParser(prog=f"cockpit resident {resident_args[0]} {sub_cmd}")
+            subparsers = parser.add_subparsers(dest="resident_sub")
+            register_resident_subparser(subparsers)
+            try:
+                parsed = parser.parse_args(resident_args[1:])
+                if hasattr(parsed, "func"):
+                    return parsed.func(parsed)
+                return 1
+            except SystemExit as exc:
+                return int(exc.code or 0)
+
+    # ── 委派 omo (原有逻辑) ──
     omo_project = _SCRIPT_DIR.parent.parent.parent.parent / "omo"
     omo_venv_python = omo_project / ".venv" / "bin" / "python"
 

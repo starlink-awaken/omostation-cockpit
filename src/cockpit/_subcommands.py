@@ -189,13 +189,13 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     # 委派 omo.cli resident (SSOT: docs/architecture/resident-agent-system-v1.md)
     resident_p = sub.add_parser(
         "resident",
-        help="Resident 常驻 Agent 体系 (status/roles/daemon/decision/execute/...)",
+        help="Resident 常驻 Agent (status/roles/daemon/decision triage/approve/status/execute/...)",
         add_help=False,  # --help 透传下游 CLI (Phase A1)
     )
     resident_p.add_argument(
         "resident_args",
         nargs=argparse.REMAINDER,
-        help="传给 omo resident 的参数 (如 'status', 'roles', 'daemon --once')",
+        help="传给 omo resident 的参数 (如 'status', 'decision triage', 'decision approve --proposal-id X')",
     )
 
     # bcos — BCOS 业务域系统 (W1~W4, 2026-08-23)
