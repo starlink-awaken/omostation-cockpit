@@ -1112,6 +1112,16 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     vm_p.add_argument("--to-spine", action="store_true", help="润色稿追加进 Spine 备选池")
     vm_p.add_argument("--json", action="store_true", help="机器可读输出")
 
+    # ── T5-01: strategy sandbox ──
+    st_p = sub.add_parser("strategy", help="🎲 战略决策沙盘 → 蒙特卡洛多智能体推演 (T5-01)")
+    st_p.add_argument("strategy_subcmd", nargs="?", default="simulate", help="simulate (default: simulate)")
+    st_p.add_argument("--proposal", default=None, help="simulate: 提案文件路径")
+    st_p.add_argument("--rounds", type=int, default=100, help="simulate: 推演轮数 (default: 100)")
+    st_p.add_argument("--seed", type=int, default=42, help="simulate: 随机种子 (default: 42)")
+    st_p.add_argument("--demo", action="store_true", help="simulate: 内置样例提案")
+    st_p.add_argument("--out", default=None, help="simulate: 报告 Markdown 输出路径")
+    st_p.add_argument("--json", action="store_true", help="simulate: 机器可读输出")
+
     # ── journey / panorama / project / monitor ────────────────
     journey_p = sub.add_parser("journey", help="🗺️ Journey State Graph 业务场景旅程与状态图校验器")
     journey_p.add_argument("--dry-run", action="store_true", help="预检模式，检测旅程规范文件与 runner 就绪状态")

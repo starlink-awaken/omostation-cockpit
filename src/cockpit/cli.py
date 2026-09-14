@@ -911,6 +911,7 @@ def main(argv: list[str] | None = None) -> int:
         "voice-memo": lambda a: __import__("cockpit.commands.voice_memo", fromlist=["cmd_voice_memo"]).cmd_voice_memo(
             a
         ),
+        "strategy": lambda a: __import__("cockpit.commands.strategy", fromlist=["cmd_strategy"]).cmd_strategy(a),
         "journey": dispatch_journey,
         "panorama": dispatch_panorama,
         "project": dispatch_project,
