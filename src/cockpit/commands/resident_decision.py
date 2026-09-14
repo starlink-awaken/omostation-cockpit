@@ -58,7 +58,10 @@ def _scan_proposals(status_filter: str | None = None, type_filter: str | None = 
         if not meta.get("schema") and not meta.get("trigger_event_type"):
             continue
 
-        current_status = meta.get("status") or meta.get("triage_status")
+        # triage_status 优先 (实际分诊结果); 其次检查 status 是否为有效 triage 状态
+        current_status = meta.get("triage_status") or (
+            meta.get("status") if meta.get("status") in VALID_STATUSES else None
+        )
         if status_filter and current_status != status_filter:
             continue
 
