@@ -263,11 +263,127 @@ class CircuitBreaker:
         return authorize(action, confidence)
 
 
+# ── 真实心跳监视器 ──
+# T8-23 收尾: snapshot 不再使用硬编码示例心跳,存活状态由上报时间戳实时计算.
+# 连续 HEARTBEAT_MAX_MISSES 次上报超时 → degraded=True (只读观测降级信号),
+# 对应 BET circuit_breaker 条款: 连续 3 次心跳上报超时自动降级为只读观测模式.
+
+HEARTBEAT_STALE_AFTER_S = 30.0
+HEARTBEAT_MAX_MISSES = 3
+
+
+@dataclasses.dataclass
+class _AgentHeartbeat:
+    """单个 agent 的心跳账本条目 (内部状态,存活由读取时计算)."""
+    agent_id: str
+    last_heartbeat: float
+    latency_ms: float = 0.0
+    consecutive_misses: int = 0
+
+
+class HeartbeatMonitor:
+    """真实心跳监视器 — 基于上报时间戳的存活判定 + 连续超时降级."""
+
+    def __init__(
+        self,
+        *,
+        stale_after_s: float = HEARTBEAT_STALE_AFTER_S,
+        max_misses: int = HEARTBEAT_MAX_MISSES,
+    ) -> None:
+        self._stale_after_s = stale_after_s
+        self._max_misses = max_misses
+        self._agents: dict[str, _AgentHeartbeat] = {}
+
+    def beat(
+        self, agent_id: str, latency_ms: float = 0.0, *, now: float | None = None
+    ) -> HeartbeatStatus:
+        """记录一次心跳上报,清零连续超时计数."""
+        ts = time.time() if now is None else now
+        entry = self._agents.get(agent_id)
+        if entry is None:
+            entry = _AgentHeartbeat(agent_id=agent_id, last_heartbeat=ts)
+            self._agents[agent_id] = entry
+        entry.last_heartbeat = ts
+        entry.latency_ms = latency_ms
+        entry.consecutive_misses = 0
+        return HeartbeatStatus(
+            agent_id=agent_id,
+            last_heartbeat=ts,
+            alive=True,
+            latency_ms=latency_ms,
+        )
+
+    def miss(self, agent_id: str, *, now: float | None = None) -> HeartbeatStatus:
+        """记录一次上报超时 (调度器在期望上报点未收到 beat 时调用)."""
+        ts = time.time() if now is None else now
+        entry = self._agents.get(agent_id)
+        if entry is None:
+            entry = _AgentHeartbeat(
+                agent_id=agent_id, last_heartbeat=0.0, consecutive_misses=1
+            )
+            self._agents[agent_id] = entry
+        else:
+            entry.consecutive_misses += 1
+        return HeartbeatStatus(
+            agent_id=agent_id,
+            last_heartbeat=entry.last_heartbeat,
+            alive=self.is_alive(agent_id, now=ts),
+            latency_ms=entry.latency_ms,
+        )
+
+    def is_alive(self, agent_id: str, *, now: float | None = None) -> bool:
+        """存活判定: 未注册 → False; 否则 (now - last) <= stale_after_s."""
+        entry = self._agents.get(agent_id)
+        if entry is None:
+            return False
+        ts = time.time() if now is None else now
+        return (ts - entry.last_heartbeat) <= self._stale_after_s
+
+    def consecutive_misses(self, agent_id: str) -> int:
+        """查询连续超时计数 (未注册 → 0)."""
+        entry = self._agents.get(agent_id)
+        return entry.consecutive_misses if entry is not None else 0
+
+    @property
+    def degraded(self) -> bool:
+        """只读降级信号: 任一 agent 连续超时达到阈值."""
+        return any(
+            entry.consecutive_misses >= self._max_misses
+            for entry in self._agents.values()
+        )
+
+    def statuses(self, *, now: float | None = None) -> list[HeartbeatStatus]:
+        """全量心跳状态 — alive 实时计算,不读存储旗标."""
+        ts = time.time() if now is None else now
+        return [
+            HeartbeatStatus(
+                agent_id=entry.agent_id,
+                last_heartbeat=entry.last_heartbeat,
+                alive=(ts - entry.last_heartbeat) <= self._stale_after_s,
+                latency_ms=entry.latency_ms,
+            )
+            for entry in self._agents.values()
+        ]
+
+
 # ── 全局单例 ──
 
 _flight_deck_breaker = CircuitBreaker()
+_heartbeat_monitor = HeartbeatMonitor()
 
 
 def get_circuit_breaker() -> CircuitBreaker:
     """获取全局熔断器单例."""
     return _flight_deck_breaker
+
+
+def get_heartbeat_monitor() -> HeartbeatMonitor:
+    """获取全局心跳监视器单例."""
+    return _heartbeat_monitor
+
+
+def reset_heartbeat_monitor() -> HeartbeatMonitor:
+    """重置全局心跳监视器 (测试隔离用)."""
+    global _heartbeat_monitor
+    _heartbeat_monitor = HeartbeatMonitor()
+    return _heartbeat_monitor

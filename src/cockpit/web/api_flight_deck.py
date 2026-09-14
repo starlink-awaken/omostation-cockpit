@@ -10,22 +10,18 @@ BET-Y1Q4-T8-23:
 
 from __future__ import annotations
 
-import time
 from typing import Any
 
 from fastapi import APIRouter
 
-from cockpit.compat import WORKSPACE_ROOT
 from cockpit.resident_flight_deck import (
     AuthorizationDecision,
-    CircuitBreaker,
     ComputeTelemetry,
-    HeartbeatStatus,
-    RiskTier,
-    TaskDAGNode,
     FlightDeckSnapshot,
+    TaskDAGNode,
     authorize,
     get_circuit_breaker,
+    get_heartbeat_monitor,
 )
 
 router = APIRouter(prefix="/api/flight-deck", tags=["flight-deck"])
@@ -97,22 +93,37 @@ async def circuit_status() -> dict[str, Any]:
     }
 
 
+# ── 心跳上报 ──
+
+@router.post("/heartbeat")
+async def flight_deck_heartbeat(payload: dict[str, Any]) -> dict[str, Any]:
+    """Agent 心跳上报 — 驱动真实存活判定.
+
+    Request body:
+      { "agent_id": "governance-agent", "latency_ms": 12.5 }
+    """
+    agent_id = payload.get("agent_id", "")
+    if not agent_id:
+        return {"ok": False, "error": "agent_id is required"}
+    try:
+        latency_ms = float(payload.get("latency_ms", 0.0))
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "latency_ms must be a number"}
+    monitor = get_heartbeat_monitor()
+    status = monitor.beat(agent_id, latency_ms)
+    return {"ok": True, "status": status.to_dict(), "degraded": monitor.degraded}
+
+
 # ── 全景快照 ──
 
 @router.get("/snapshot")
 async def flight_deck_snapshot() -> dict[str, Any]:
-    """Flight Deck 全景快照 — 四维透明数据聚合."""
+    """Flight Deck 全景快照 — 四维透明数据聚合 (心跳来自真实监视器)."""
     breaker = get_circuit_breaker()
+    monitor = get_heartbeat_monitor()
 
-    # 心跳 (示例 — 后续接真实 agent 注册)
-    heartbeats = [
-        HeartbeatStatus(
-            agent_id="governance-agent",
-            last_heartbeat=time.time(),
-            alive=True,
-            latency_ms=42.0,
-        ),
-    ]
+    # 心跳 — 真实监视器状态 (无上报时为空,不再填充示例数据)
+    heartbeats = monitor.statuses()
 
     # 任务 DAG (示例 — 后续接真实任务队列)
     task_dag = [
@@ -143,5 +154,6 @@ async def flight_deck_snapshot() -> dict[str, Any]:
     return {
         "ok": True,
         "circuit_tripped": breaker.is_tripped,
+        "degraded": monitor.degraded,
         "snapshot": snapshot.to_dict(),
     }
