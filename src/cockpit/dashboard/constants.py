@@ -20,6 +20,7 @@ PROVIDER_PLANE_PATH = WORKSPACE_ROOT / ".omo" / "state" / "provider-plane.yaml"
 LLM_QUOTA_SUMMARY_PATH = RUNTIME_HOME / "data" / "llm_quota_summary.json"
 LLM_COST_LOG_PATH = RUNTIME_HOME / "data" / "llm_cost.jsonl"
 BOS_METRICS_PATH = WORKSPACE_ROOT / ".omo" / "_knowledge" / "bos-metrics.jsonl"
+DECISION_GRAPH_PATH = WORKSPACE_ROOT / ".omo" / "state" / "decision-graph" / "graph.jsonl"
 
 # ─── Layer sources (I0, L2, L1, L0) ────────────────────────
 LAYER_SOURCES: list[dict] = [
