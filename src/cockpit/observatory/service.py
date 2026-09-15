@@ -62,11 +62,16 @@ class ObservatoryService:
             supplemental=strategy_raw,
         )
 
+        # Scene system extensions from panorama collector (Serena Phase D)
+        scene_extensions = self._collect_scene_system()
+
         # Deterministic generation computation based on source contents
         raw_seed = (
             content_digest(catalog_data)
             + ":"
             + content_digest(strategy_data)
+            + ":"
+            + content_digest(scene_extensions)
         ).encode("utf-8")
         gen_id = hashlib.sha256(raw_seed).hexdigest()[:20]
 
@@ -84,7 +89,34 @@ class ObservatoryService:
                 "strategic": {"status": strategy_data.get("state", "OBSERVED")},
             },
         }
+        snapshot.update(scene_extensions)
         return snapshot
+
+    def _collect_scene_system(self) -> dict[str, Any]:
+        """Best-effort read of panorama collector output (runtime/dashboard/data.json).
+
+        Panorama writes gitignored runtime data; when absent (fresh checkout,
+        collector not yet run, or test harness) returns an empty dict so the
+        observatory still boots. The dashboard at :43191 consumes the same file.
+        """
+        import json as _json
+        data_path = self.workspace / "runtime" / "dashboard" / "data.json"
+        if not data_path.is_file():
+            return {}
+        try:
+            with data_path.open("r", encoding="utf-8") as fh:
+                data = _json.load(fh)
+        except (OSError, ValueError):
+            return {}
+        if not isinstance(data, dict):
+            return {}
+        extensions: dict[str, Any] = {}
+        for key in ("scene_cards", "signal_poller", "journey_executions",
+                    "remote_hygiene", "service_keeper", "connectors", "bos_verifier"):
+            value = data.get(key)
+            if isinstance(value, dict):
+                extensions[key] = value
+        return extensions
 
     def get_snapshot(self, force_refresh: bool = False) -> dict[str, Any]:
         """Return the current snapshot, preferring snapshot_path if fresh, or dynamic fallback."""

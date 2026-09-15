@@ -34,7 +34,7 @@ OPERATIONS = {
     'changes': {'from_generation'},
     'ontology': set(),
     'lineage': {'id', 'direction', 'depth'},
-    'context_pack': {'id'},
+    'context_pack': {'id'}, 'scene_status': {'kind'}, 'scene_graph': {'root', 'depth'},
 }
 SOURCE_KEYS = {'path', 'sha256', 'hash_scope', 'sha256_scope', 'digest_basis', 'line',
                'observed_at', 'repository_sha', 'repository_ref', 'repository_kind',
@@ -76,13 +76,25 @@ FACT_KEYS = {
     'default_gate', 'clone', 'checks', 'returncode', 'assertion', 'stdout_sha256',
     'stderr_sha256', 'stdout_bytes', 'stderr_bytes', 'root_sha', 'manifest_digest',
     'branch', 'actor_id', 'delivery_attempt_id', 'root_clean', 'top_level_submodules_verified',
+    # Scene system (panorama extensions, Serena Phase D)
+    'watermark_entries', 'scenes_with_triggers', 'last_poll', 'state_keys', 'available_connectors',
+    'total', 'with_trigger', 'note', 'lifecycle', 'stage', 'count',
+    'escalated', 'succeeded', 'failed', 'auto_complete_rate', 'top_escalated',
+    'origin_canonical', 'origin_push_canonical', 'last_fix_remotes_run', 'submodules_checked',
+    'services', 'available', 'wired_to_scenes', 'unwired_available',
+    'last_run_ok', 'last_run_errors', 'output_tail',
 }
 TIME_KEYS = {'observed_at', 'generated_at', 'created_at', 'updated_at', 'closed_at', 'completed_at',
              'expires_at', 'lease_expires_at', 'last_success_at', 'last_attempt_at'}
 SCALAR_TEXT_KEYS = {'id', 'raw_id', 'title', 'name', 'description', 'objective', 'owner', 'owner_role',
-                    'kind', 'type', 'status', 'state', 'path', 'uri', 'reason', 'missing_reason', 'verdict',
-                    'declared_status', 'lifecycle_state', 'evidence_class', 'role', 'provider', 'profile',
-                    'approval_state', 'authority_class', 'authority_scope', 'summary'}
+                     'kind', 'type', 'status', 'state', 'path', 'uri', 'reason', 'missing_reason', 'verdict',
+                     'declared_status', 'lifecycle_state', 'evidence_class', 'role', 'provider', 'profile',
+                     'approval_state', 'authority_class', 'authority_scope', 'summary',
+                     'watermark_entries', 'scenes_with_triggers', 'last_poll', 'escalated',
+                     'succeeded', 'failed', 'auto_complete_rate', 'origin_canonical',
+                     'origin_push_canonical', 'last_fix_remotes_run', 'submodules_checked',
+                     'total', 'available', 'wired_to_scenes', 'unwired_available',
+                     'last_run_ok', 'last_run_errors', 'output_tail'}
 SECRET = re.compile(r'\b(?:gh[pousr]_[A-Za-z0-9_]{12,}|sk-[A-Za-z0-9_-]{16,})\b')
 ASSIGNMENT_SECRET = re.compile(r'(?i)(bearer\s+|(?:password|secret|token|api[-_]?key)\s*[:=]\s*)[^\s,;]+')
 
@@ -373,6 +385,8 @@ class ObservationIndex:
             if isinstance(source, dict) and source.get('id'):
                 self._add(stable_id('source_observation', source['id']), 'source_observation', source.get('path'),
                           source.get('status'), source, source, 'source_observation', source.get('observed_at'))
+        # Scene system (from panorama snapshot extensions)
+        self._register_scene_system(snapshot)
         self.documents = [project(doc, {'id', 'title', 'path', 'sha256', 'observed_at', 'authority_class',
                                         'approval_state', 'authority_scope', 'document_type', 'observation_scope'})
                           for doc in rows(strategy.get('documents')) if isinstance(doc, dict)]
@@ -400,6 +414,105 @@ class ObservationIndex:
                 targets_seen.add(target)
                 self._edge({'from': identity, 'to': target, 'relation': 'reviews',
                             'relation_basis': 'explicit_advisory_reference', 'source': entity['source']})
+
+    def _register_scene_system(self, snapshot: dict) -> None:
+        """Register panorama scene-system extensions as observable entities."""
+        # Scene cards lifecycle
+        sc = mapping(snapshot.get('scene_cards'))
+        if sc.get('total'):
+            facts = {'total': sc.get('total'), 'with_trigger': sc.get('with_trigger'),
+                     'note': sc.get('note', ''), 'available_connectors':
+                     sc.get('available_connectors', [])}
+            self._add('scene_system:cards', 'scene_cards', 'Scene Card Lifecycle',
+                      'observed', {'path': 'panorama:scene_cards', 'observed_at': snapshot.get('generated_at')},
+                      facts, 'panorama_observation', snapshot.get('generated_at'))
+            lifecycle = mapping(sc.get('lifecycle'))
+            if isinstance(lifecycle, dict):
+                items = list(lifecycle.items())
+            else:
+                items = [(str(row.get('stage', row.get('name', ''))),
+                          row.get('count', 0))
+                         for row in rows(lifecycle) if isinstance(row, dict)]
+            for stage, count in items:
+                if not stage:
+                    continue
+                self._add('scene_system:cards:' + str(stage), 'scene_card_stage', 'Stage ' + str(stage),
+                          'observed', {'path': 'panorama:scene_cards', 'observed_at': snapshot.get('generated_at')},
+                          {'stage': stage, 'count': count}, 'panorama_observation', snapshot.get('generated_at'))
+        # Signal poller
+        sp = mapping(snapshot.get('signal_poller'))
+        if sp.get('watermark_entries') is not None:
+            facts = {'watermark_entries': sp.get('watermark_entries'),
+                     'scenes_with_triggers': sp.get('scenes_with_triggers'),
+                     'last_poll': sp.get('last_poll'),
+                     'state_keys': sp.get('state_keys', []),
+                     'available_connectors': sp.get('available_connectors', [])}
+            self._add('scene_system:signal_poller', 'signal_poller', 'Signal Poller',
+                      'observed', {'path': 'panorama:signal_poller', 'observed_at': snapshot.get('generated_at')},
+                      facts, 'panorama_observation', snapshot.get('generated_at'))
+        # Journey executions
+        je = mapping(snapshot.get('journey_executions'))
+        if je.get('total'):
+            facts = {'total': je.get('total'), 'escalated': je.get('escalated', 0),
+                     'succeeded': je.get('succeeded', 0), 'failed': je.get('failed', 0),
+                     'auto_complete_rate': je.get('auto_complete_rate', 0),
+                     'top_escalated': je.get('top_escalated', [])}
+            self._add('scene_system:journey_executions', 'journey_executions', 'Journey Executions',
+                      'observed', {'path': 'panorama:journey_executions', 'observed_at': snapshot.get('generated_at')},
+                      facts, 'panorama_observation', snapshot.get('generated_at'))
+        # Remote hygiene
+        rh = mapping(snapshot.get('remote_hygiene'))
+        if rh.get('submodules_checked') is not None:
+            facts = {'origin_canonical': rh.get('origin_canonical'),
+                     'origin_push_canonical': rh.get('origin_push_canonical'),
+                     'last_fix_remotes_run': rh.get('last_fix_remotes_run'),
+                     'submodules_checked': rh.get('submodules_checked')}
+            self._add('scene_system:remote_hygiene', 'remote_hygiene', 'Remote Hygiene',
+                      'observed', {'path': 'panorama:remote_hygiene', 'observed_at': snapshot.get('generated_at')},
+                      facts, 'panorama_observation', snapshot.get('generated_at'))
+        # Service keeper
+        sk = mapping(snapshot.get('service_keeper'))
+        if sk.get('services'):
+            facts = {'services': sk.get('services')}
+            self._add('scene_system:service_keeper', 'service_keeper', 'Service Keeper',
+                      'observed', {'path': 'panorama:service_keeper', 'observed_at': snapshot.get('generated_at')},
+                      facts, 'panorama_observation', snapshot.get('generated_at'))
+        # Connectors
+        co = mapping(snapshot.get('connectors'))
+        if co.get('total'):
+            facts = {'total': co.get('total'), 'available': co.get('available', []),
+                     'wired_to_scenes': co.get('wired_to_scenes', []),
+                     'unwired_available': co.get('unwired_available', [])}
+            self._add('scene_system:connectors', 'connectors', 'Connectors',
+                      'observed', {'path': 'panorama:connectors', 'observed_at': snapshot.get('generated_at')},
+                      facts, 'panorama_observation', snapshot.get('generated_at'))
+        # BOS verifier
+        bv = mapping(snapshot.get('bos_verifier'))
+        if bv.get('last_run_ok') is not None:
+            facts = {'last_run_ok': bv.get('last_run_ok'), 'last_run_errors': bv.get('last_run_errors'),
+                     'output_tail': bv.get('output_tail', [])}
+            self._add('scene_system:bos_verifier', 'bos_verifier', 'BOS URI Verifier',
+                      'observed', {'path': 'panorama:bos_verifier', 'observed_at': snapshot.get('generated_at')},
+                      facts, 'panorama_observation', snapshot.get('generated_at'))
+        # Wire scene_system entities into a single chain
+        self._edge({'from': 'scene_system:cards', 'to': 'scene_system:signal_poller',
+                    'relation': 'monitors', 'relation_basis': 'panorama_rollup',
+                    'source': {'path': 'panorama:scene_cards'}})
+        self._edge({'from': 'scene_system:signal_poller', 'to': 'scene_system:journey_executions',
+                    'relation': 'drives', 'relation_basis': 'panorama_rollup',
+                    'source': {'path': 'panorama:signal_poller'}})
+        self._edge({'from': 'scene_system:journey_executions', 'to': 'scene_system:remote_hygiene',
+                    'relation': 'tracked_by', 'relation_basis': 'panorama_rollup',
+                    'source': {'path': 'panorama:journey_executions'}})
+        self._edge({'from': 'scene_system:remote_hygiene', 'to': 'scene_system:service_keeper',
+                    'relation': 'probes', 'relation_basis': 'panorama_rollup',
+                    'source': {'path': 'panorama:remote_hygiene'}})
+        self._edge({'from': 'scene_system:service_keeper', 'to': 'scene_system:connectors',
+                    'relation': 'discovers', 'relation_basis': 'panorama_rollup',
+                    'source': {'path': 'panorama:service_keeper'}})
+        self._edge({'from': 'scene_system:connectors', 'to': 'scene_system:bos_verifier',
+                    'relation': 'validates', 'relation_basis': 'panorama_rollup',
+                    'source': {'path': 'panorama:connectors'}})
 
     def _add(self, identity, kind, title, status, source, facts, evidence, observed):
         if identity in self.entities:
@@ -497,7 +610,8 @@ class ObservationIndex:
                     'documentation': {'api': str(Path(__file__).with_name('API.md')),
                                       'agent_reading': str(Path(__file__).with_name('AGENT-READING.md')),
                                       'interface': str(Path(__file__).with_name('INTERFACE.yaml'))},
-                    'reading_sequence': ['manifest', 'summary', 'search', 'entity', 'neighbors', 'brief', 'canonical_authorized_reread'],
+                    'reading_sequence': ['manifest', 'summary', 'search', 'entity', 'neighbors', 'brief', 'canonical_authorized_reread',
+                                            'scene_status', 'scene_graph'],
                     'scope': 'published_allowlisted_metadata_only', 'canonical_control_owner': 'OMO',
                     'context_pack_owner': 'ecos L4ContextPack; this response is not a ContextPack',
                     'lenses': list(LENSES), 'kinds': sorted({e['kind'] for e in self.entities.values()}),
@@ -562,6 +676,10 @@ class ObservationIndex:
                 rag = HybridRAGEngine()
                 self._rag_engine = rag
             data = rag.get_context_pack(params.get('id', ''))
+        elif operation == 'scene_status':
+            data = self._scene_status(params)
+        elif operation == 'scene_graph':
+            data = self._scene_graph(params)
         else:
             previous = self.previous
             if previous is None or previous.generation == self.generation or params.get('from_generation') != previous.generation:
@@ -580,6 +698,89 @@ class ObservationIndex:
                         and all(self.sources[k].get('status') == previous.sources[k].get('status') == 'OK' for k in self.sources)
                         and previous.scope == self.scope}
         return self._envelope(data, stamp)
+
+    # ── Scene system queries (Phase D: Serena observatory integration) ──
+
+    def _scene_kinds(self) -> set[str]:
+        return {e['kind'] for e in self.entities.values()
+                if e['kind'].startswith(('scene_', 'scene_system'))
+                or e.get('id', '').startswith('scene_system:')}
+
+    def _scene_status(self, params: dict) -> dict:
+        kinds = ('scene_system:cards', 'scene_system:signal_poller',
+                 'scene_system:journey_executions', 'scene_system:remote_hygiene',
+                 'scene_system:service_keeper', 'scene_system:connectors',
+                 'scene_system:bos_verifier')
+        filter_kind = params.get('kind')
+        status = {'sources': {}, 'entity_count': 0}
+        for identity in kinds:
+            entity = self.entities.get(identity)
+            if entity is None:
+                continue
+            if filter_kind and entity['kind'] != filter_kind:
+                continue
+            status['entity_count'] += 1
+            facts = entity['facts']
+            if identity.endswith(':cards'):
+                status['sources']['scene_cards'] = {
+                    'total': facts.get('total'), 'with_trigger': facts.get('with_trigger'),
+                    'lifecycle': {e['facts'].get('stage'): e['facts'].get('count')
+                                  for e in self.entities.values()
+                                  if e.get('kind') == 'scene_card_stage'}}
+            elif identity.endswith(':signal_poller'):
+                status['sources']['signal_poller'] = {
+                    'watermark_entries': facts.get('watermark_entries'),
+                    'scenes_with_triggers': facts.get('scenes_with_triggers'),
+                    'last_poll': facts.get('last_poll')}
+            elif identity.endswith(':journey_executions'):
+                status['sources']['journey_executions'] = {
+                    'total': facts.get('total'), 'escalated': facts.get('escalated'),
+                    'succeeded': facts.get('succeeded'), 'failed': facts.get('failed'),
+                    'auto_complete_rate': facts.get('auto_complete_rate')}
+            elif identity.endswith(':remote_hygiene'):
+                status['sources']['remote_hygiene'] = {
+                    'origin_canonical': facts.get('origin_canonical'),
+                    'origin_push_canonical': facts.get('origin_push_canonical'),
+                    'last_fix_remotes_run': facts.get('last_fix_remotes_run')}
+            elif identity.endswith(':service_keeper'):
+                status['sources']['service_keeper'] = facts.get('services', [])
+            elif identity.endswith(':connectors'):
+                status['sources']['connectors'] = {
+                    'total': facts.get('total'),
+                    'wired': [c.get('name') for c in facts.get('wired_to_scenes', [])],
+                    'unwired': [c.get('name') for c in facts.get('unwired_available', [])]}
+            elif identity.endswith(':bos_verifier'):
+                status['sources']['bos_verifier'] = {
+                    'last_run_ok': facts.get('last_run_ok'),
+                    'last_run_errors': facts.get('last_run_errors')}
+        status['available_kinds'] = sorted(self._scene_kinds())
+        return status
+
+    def _scene_graph(self, params: dict) -> dict:
+        root = params.get('root', 'scene_system:signal_poller')
+        depth = 2
+        try:
+            depth = int(params.get('depth', '2'))
+        except (TypeError, ValueError):
+            pass
+        depth = max(0, min(depth, 3))
+        nodes, visited = [], {root}
+        frontier = [(root, 0)]
+        while frontier:
+            current, level = frontier.pop(0)
+            visited.add(current)
+            nodes.append({'id': current, 'level': level,
+                          'facts': self.entities.get(current, {}).get('facts', {})})
+            if level >= depth:
+                continue
+            for edge in self.adjacency.get(current, []):
+                target = edge.get('to') or edge.get('from')
+                if target == current or target in visited:
+                    continue
+                visited.add(target)
+                frontier.append((target, level + 1))
+        return {'root': root, 'depth': depth, 'graph': nodes,
+                'scope': 'projected_scene_system_topology_only'}
 
     def _applicable_gaps(self, identity):
         found = []

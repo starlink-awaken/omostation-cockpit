@@ -145,6 +145,74 @@ def test_new_operations_registered():
     assert {'ontology', 'lineage', 'context_pack'} <= set(OPERATIONS)
 
 
+def test_scene_system_operations_registered():
+    """Serena Phase D: scene_status / scene_graph 注册到 OPERATIONS。"""
+    from cockpit.observatory.query_engine import OPERATIONS
+
+    assert {'scene_status', 'scene_graph'} <= set(OPERATIONS)
+    assert set(OPERATIONS['scene_status']) == {'kind'}
+    assert set(OPERATIONS['scene_graph']) == {'root', 'depth'}
+
+
+def test_scene_system_registration_and_query(tmp_path: Path):
+    """_register_scene_system 把 panorama 扩展注册为 entities + edges,
+       scene_status/scene_graph 能读取它们。"""
+    non_existent = tmp_path / "nope.json"
+    service = ObservatoryService(workspace=WORKSPACE_ROOT, snapshot_path=non_existent)
+    index = service.get_index()
+
+    # 无 panorama 数据时 entities 不应崩溃 (健壮降级)
+    status = service.query("scene_status")
+    assert status["data"]["entity_count"] == 0
+    graph = service.query("scene_graph", {"root": "scene_system:signal_poller", "depth": "1"})
+    assert graph["data"]["scope"] == "projected_scene_system_topology_only"
+    assert graph["data"]["root"] == "scene_system:signal_poller"
+
+
+def test_scene_system_registration_from_panorama(tmp_path: Path):
+    """当 panorama data.json 存在时 scene_* entities 被注册。"""
+    non_existent = tmp_path / "nope.json"
+    service = ObservatoryService(workspace=WORKSPACE_ROOT, snapshot_path=non_existent)
+    # 注入模拟 panorama 扩展
+    import json as _json
+    ext = {
+        "scene_cards": {"total": 5, "with_trigger": 2,
+                        "lifecycle": {"draft": 1, "supervised": 2, "routine": 2}},
+        "signal_poller": {"watermark_entries": 2, "scenes_with_triggers": 2,
+                          "last_poll": "2026-09-13T00:00:00Z",
+                          "state_keys": ["email"], "available_connectors": []},
+        "journey_executions": {"total": 2, "escalated": 1, "succeeded": 1,
+                               "failed": 0, "auto_complete_rate": 0.5, "top_escalated": []},
+        "remote_hygiene": {"origin_canonical": True, "origin_push_canonical": True,
+                           "last_fix_remotes_run": "2026-09-13T00:00:00Z", "submodules_checked": 16},
+        "service_keeper": {"services": []},
+        "connectors": {"total": 0, "available": [], "wired_to_scenes": [], "unwired_available": []},
+        "bos_verifier": {"last_run_ok": True, "last_run_errors": [], "output_tail": []},
+    }
+    service._cached_snapshot = service._build_dynamic_snapshot()
+    service._cached_snapshot.update(ext)
+    from cockpit.observatory.query_engine import ObservationIndex
+    service._cached_index = ObservationIndex(service._cached_snapshot)
+
+    ids = {e["id"] for e in service._cached_index.entities.values()}
+    assert "scene_system:cards" in ids
+    assert "scene_system:signal_poller" in ids
+    assert "scene_system:journey_executions" in ids
+    # 生命周期阶段实体
+    stage_ids = {i for i in ids if i.startswith("scene_system:cards:")}
+    assert len(stage_ids) == 3
+    # 边已注册 (signal_poller → journey_executions 链)
+    assert len(service._cached_index.edges) > 0
+
+    status = service.query("scene_status", {"generation": service._cached_index.generation})
+    assert status["data"]["entity_count"] >= 3
+    assert "signal_poller" in status["data"]["sources"]
+    assert "journey_executions" in status["data"]["sources"]
+    assert status["data"]["sources"]["signal_poller"]["watermark_entries"] == "2"
+    assert status["data"]["sources"]["journey_executions"]["auto_complete_rate"] == "0.5"
+    assert any(k.startswith("scene_") for k in status["data"]["available_kinds"])
+
+
 def _pick_real_entity_id(service) -> str | None:
     """挑一个 trace graph 里真实存在的 BET 实体; 无则返回 None (CI 子模块面差异时 skip)。"""
     index = service.get_index()
