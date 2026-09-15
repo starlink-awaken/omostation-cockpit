@@ -90,11 +90,7 @@ SCALAR_TEXT_KEYS = {'id', 'raw_id', 'title', 'name', 'description', 'objective',
                      'kind', 'type', 'status', 'state', 'path', 'uri', 'reason', 'missing_reason', 'verdict',
                      'declared_status', 'lifecycle_state', 'evidence_class', 'role', 'provider', 'profile',
                      'approval_state', 'authority_class', 'authority_scope', 'summary',
-                     'watermark_entries', 'scenes_with_triggers', 'last_poll', 'escalated',
-                     'succeeded', 'failed', 'auto_complete_rate', 'origin_canonical',
-                     'origin_push_canonical', 'last_fix_remotes_run', 'submodules_checked',
-                     'total', 'available', 'wired_to_scenes', 'unwired_available',
-                     'last_run_ok', 'last_run_errors', 'output_tail'}
+                     'last_poll', 'watermark_entries', 'scenes_with_triggers', 'auto_complete_rate'}
 SECRET = re.compile(r'\b(?:gh[pousr]_[A-Za-z0-9_]{12,}|sk-[A-Za-z0-9_-]{16,})\b')
 ASSIGNMENT_SECRET = re.compile(r'(?i)(bearer\s+|(?:password|secret|token|api[-_]?key)\s*[:=]\s*)[^\s,;]+')
 
@@ -747,8 +743,8 @@ class ObservationIndex:
             elif identity.endswith(':connectors'):
                 status['sources']['connectors'] = {
                     'total': facts.get('total'),
-                    'wired': [c.get('name') for c in facts.get('wired_to_scenes', [])],
-                    'unwired': [c.get('name') for c in facts.get('unwired_available', [])]}
+                    'wired': [c for c in facts.get('wired_to_scenes', []) or []],
+                    'unwired': [c for c in facts.get('unwired_available', []) or []]}
             elif identity.endswith(':bos_verifier'):
                 status['sources']['bos_verifier'] = {
                     'last_run_ok': facts.get('last_run_ok'),
