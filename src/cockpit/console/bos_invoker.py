@@ -13,11 +13,10 @@ Design constraints:
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import os
 from dataclasses import replace as dc_replace
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from inspect import isawaitable
 from pathlib import Path
 from typing import Any
@@ -29,6 +28,7 @@ from cockpit.console.models import InvokeRequest, InvokeResult
 from cockpit.console.risk import RiskLevel, classify_risk
 
 logger = logging.getLogger("cockpit.console.bos_invoker")
+
 
 # Inline agora endpoint resolution (no cockpit.web import)
 def _agora_endpoint() -> str:
@@ -80,7 +80,7 @@ class BosInvoker:
             )
             elapsed = (asyncio.get_event_loop().time() - start) * 1000
             return dc_replace(result, elapsed_ms=round(elapsed, 1))
-        except asyncio.TimeoutError:
+        except TimeoutError:
             elapsed = (asyncio.get_event_loop().time() - start) * 1000
             return InvokeResult(
                 uri=req.uri,
@@ -90,7 +90,7 @@ class BosInvoker:
                 result=None,
                 risk=risk.value,
                 confirmed=True,
-                recorded_at=datetime.now(timezone.utc).isoformat(),
+                recorded_at=datetime.now(UTC).isoformat(),
                 error="TIMEOUT",
             )
         except Exception as e:
@@ -103,13 +103,11 @@ class BosInvoker:
                 result=None,
                 risk=risk.value,
                 confirmed=True,
-                recorded_at=datetime.now(timezone.utc).isoformat(),
+                recorded_at=datetime.now(UTC).isoformat(),
                 error=str(e),
             )
 
-    async def _invoke_inner(
-        self, req: InvokeRequest, timeout_ms: int
-    ) -> InvokeResult:
+    async def _invoke_inner(self, req: InvokeRequest, timeout_ms: int) -> InvokeResult:
         """Try Agora HTTP, then in-process fallback."""
         # 1. Agora HTTP
         try:
@@ -134,7 +132,7 @@ class BosInvoker:
                             result=result,
                             risk=classify_risk(req.uri).value,
                             confirmed=True,
-                            recorded_at=datetime.now(timezone.utc).isoformat(),
+                            recorded_at=datetime.now(UTC).isoformat(),
                         )
         except Exception as e:
             logger.debug("Agora HTTP fallback to in-process: %s", e)
@@ -155,7 +153,7 @@ class BosInvoker:
                 result=res,
                 risk=classify_risk(req.uri).value,
                 confirmed=True,
-                recorded_at=datetime.now(timezone.utc).isoformat(),
+                recorded_at=datetime.now(UTC).isoformat(),
             )
         except Exception as e:
             return InvokeResult(
@@ -166,7 +164,7 @@ class BosInvoker:
                 result=None,
                 risk=classify_risk(req.uri).value,
                 confirmed=True,
-                recorded_at=datetime.now(timezone.utc).isoformat(),
+                recorded_at=datetime.now(UTC).isoformat(),
                 error=str(e),
             )
 
@@ -236,16 +234,9 @@ class BosInvoker:
 def _record_metrics(uri: str, status: str, elapsed_ms: int, transport: str) -> None:
     """Append a metrics record to bos-metrics.jsonl."""
     try:
-        entry = {
-            "uri": uri,
-            "status": status,
-            "elapsed_ms": elapsed_ms,
-            "transport": transport,
-            "recorded_at": datetime.now(timezone.utc).isoformat(),
-        }
-        METRICS_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with open(METRICS_FILE, "a", encoding="utf-8") as f:
-            f.write(json.dumps(entry) + "\n")
+        from omo.omo_bos_metrics import record
+
+        record(uri, status, float(elapsed_ms), transport=transport, path=METRICS_FILE)
     except Exception as e:
         logger.debug("Metrics recording failed (non-blocking): %s", e)
 
