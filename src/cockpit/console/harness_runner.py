@@ -112,7 +112,7 @@ class HarnessRunner:
                 spec.profile,
                 "--objective",
                 spec.objective,
-                "--json",
+                "--no-hitl-wait",
                 cwd=str(wt_path),
                 env={**__import__("os").environ, "WORKSPACE": str(WORKSPACE_ROOT)},
                 stdout=asyncio.subprocess.PIPE,
@@ -198,68 +198,63 @@ class HarnessRunner:
                 if len(raw_log) > 200:
                     raw_log.pop(0)
 
+                # Try JSON first, fall back to human-readable parsing
                 try:
                     event = json.loads(line_str)
                 except json.JSONDecodeError:
-                    continue
+                    event = None
 
-                # Map harness output to stage events
-                stage = event.get("stage", event.get("step", ""))
-                if stage and stage != current_stage:
-                    current_stage = stage
-                    await self._hub.publish(
-                        run_id,
-                        {
-                            "event": "stage_started",
-                            "stage": stage,
-                            "ts": datetime.now(UTC).isoformat(),
-                        },
-                    )
+                if event:
+                    # JSON output mode
+                    stage = event.get("stage", event.get("step", ""))
+                    if stage and stage != current_stage:
+                        current_stage = stage
+                        await self._hub.publish(
+                            run_id,
+                            {"event": "stage_started", "stage": stage, "ts": datetime.now(UTC).isoformat()},
+                        )
+                    if event.get("stage_state") == "completed" or event.get("status") == "completed":
+                        await self._hub.publish(
+                            run_id,
+                            {"event": "stage_completed", "stage": stage, "state": "completed", "ts": datetime.now(UTC).isoformat()},
+                        )
+                    if event.get("type") == "gate_required" or event.get("state") == "blocked":
+                        await self._hub.publish(
+                            run_id,
+                            {"event": "gate_required", "gate": event.get("gate", stage), "reason": event.get("reason", "approval needed"), "ts": datetime.now(UTC).isoformat()},
+                        )
+                        run_record["status"] = "blocked"
+                        self._save_run(run_record)
+                else:
+                    # Human-readable output parsing
+                    import re
+                    # Stage transition: "[N/8] StageName..."
+                    stage_match = re.match(r"\[(\d+)/8\]\s+(\w+)", line_str)
+                    if stage_match:
+                        stage_name = stage_match.group(2).lower()
+                        if stage_name in STAGES and stage_name != current_stage:
+                            current_stage = stage_name
+                            await self._hub.publish(
+                                run_id,
+                                {"event": "stage_started", "stage": stage_name, "ts": datetime.now(UTC).isoformat()},
+                            )
+                    # Result line: "=== harness run ... (OK|FAILED) ==="
+                    result_match = re.match(r"===.*?(OK|FAILED)\s*===", line_str)
+                    if result_match:
+                        outcome = "ok" if result_match.group(1) == "OK" else "failed"
+                        await self._hub.publish(
+                            run_id,
+                            {"event": "run_complete", "state": outcome, "ts": datetime.now(UTC).isoformat()},
+                        )
+                    # Gate required: "HITL" or "blocked" in output
+                    if "HITL" in line_str or "blocked" in line_str.lower():
+                        await self._hub.publish(
+                            run_id,
+                            {"event": "gate_required", "gate": current_stage, "reason": line_str[:100], "ts": datetime.now(UTC).isoformat()},
+                        )
+                        run_record["status"] = "blocked"
+                        self._save_run(run_record)
 
-                # Verify stage checks
-                check_name = event.get("check", event.get("name", ""))
-                check_state = event.get("state", event.get("status", ""))
-                if check_name and stage == "verify":
-                    blocking = event.get("blocking", True)
-                    await self._hub.publish(
-                        run_id,
-                        {
-                            "event": "run_progress",
-                            "stage": "verify",
-                            "check": check_name,
-                            "blocking": blocking,
-                            "state": check_state,
-                            "ts": datetime.now(UTC).isoformat(),
-                        },
-                    )
-
-                # Stage completion
-                if event.get("stage_state") == "completed" or event.get("status") == "completed":
-                    await self._hub.publish(
-                        run_id,
-                        {
-                            "event": "stage_completed",
-                            "stage": stage,
-                            "state": "completed",
-                            "ts": datetime.now(UTC).isoformat(),
-                        },
-                    )
-
-                # Gate required (HITL)
-                if event.get("type") == "gate_required" or event.get("state") == "blocked":
-                    await self._hub.publish(
-                        run_id,
-                        {
-                            "event": "gate_required",
-                            "gate": event.get("gate", stage),
-                            "reason": event.get("reason", "approval needed"),
-                            "ts": datetime.now(UTC).isoformat(),
-                        },
-                    )
-                    run_record["status"] = "blocked"
-                    self._save_run(run_record)
-
-                # Update current stage
                 run_record["stage"] = current_stage
                 self._save_run(run_record)
 
