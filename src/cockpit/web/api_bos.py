@@ -111,109 +111,11 @@ async def api_bos_metrics(prefix: str = ""):
             data = bos_metrics.status(prefix)
             return JSONResponse(content=data)
 
-        # Overall summary & domain breakdown aggregation for Observability View
-        import json
-        from pathlib import Path
+        # Use shared aggregation from bos_invoker
+        from cockpit.console.bos_invoker import aggregate_metrics
 
-        metrics_file = WORKSPACE_ROOT / ".omo" / "_knowledge" / "bos-metrics.jsonl"
-
-        domain_stats = {}
-        total_calls = 0
-        success_count = 0
-        total_latency = 0.0
-        latency_count = 0
-
-        if metrics_file.exists():
-            try:
-                for line in metrics_file.read_text(encoding="utf-8").splitlines():
-                    line = line.strip()
-                    if not line:
-                        continue
-                    entry = json.loads(line)
-                    uri = entry.get("uri") or ""
-                    if not uri.startswith("bos://"):
-                        continue
-
-                    # Extract domain
-                    domain = uri[6:].split("/", 1)[0]
-
-                    stats = domain_stats.setdefault(
-                        domain,
-                        {
-                            "domain": domain,
-                            "total": 0,
-                            "success": 0,
-                            "error": 0,
-                            "_latency_sum": 0.0,
-                            "_latency_count": 0,
-                        },
-                    )
-
-                    status = entry.get("status")
-                    elapsed = entry.get("elapsed_ms")
-
-                    stats["total"] += 1
-                    total_calls += 1
-
-                    if status == "resolved":
-                        stats["success"] += 1
-                        success_count += 1
-                    else:
-                        stats["error"] += 1
-
-                    if elapsed is not None:
-                        stats["_latency_sum"] += float(elapsed)
-                        stats["_latency_count"] += 1
-                        total_latency += float(elapsed)
-                        latency_count += 1
-            except Exception:  # defensive fallback
-                pass
-
-        # Format domains array
-        domains_list = []
-        for d_name, d_data in domain_stats.items():
-            avg_l = 0.0
-            if d_data["_latency_count"] > 0:
-                avg_l = round(d_data["_latency_sum"] / d_data["_latency_count"], 1)
-            domains_list.append(
-                {
-                    "domain": d_name,
-                    "total": d_data["total"],
-                    "success": d_data["success"],
-                    "error": d_data["error"],
-                    "avg_latency": avg_l,
-                }
-            )
-
-        # Sorting domains by total calls
-        domains_list.sort(key=lambda x: x["total"], reverse=True)
-
-        avg_latency_overall = round(total_latency / latency_count, 1) if latency_count > 0 else 0.0
-
-        # No synthetic metrics: an empty evidence store must stay visibly unavailable.
-        if not domains_list:
-            return JSONResponse(
-                content={
-                    "status": "unavailable",
-                    "data_quality": "unavailable",
-                    "error": "BOS 指标证据尚未产生",
-                    "next_action": "先执行一条 BOS 路由或挂载 metrics 采集，再回到观测页刷新。",
-                    "summary": {"total_calls": 0, "success_count": 0, "avg_latency": None},
-                    "domains": [],
-                },
-                status_code=503,
-            )
-
-        return JSONResponse(
-            content={
-                "summary": {
-                    "total_calls": total_calls,
-                    "success_count": success_count,
-                    "avg_latency": avg_latency_overall,
-                },
-                "domains": domains_list,
-            }
-        )
+        result = aggregate_metrics()
+        return JSONResponse(content=result)
     except Exception as e:  # defensive fallback
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
