@@ -71,7 +71,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[DASHBOARD_CORS_ORIGIN],
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Api-Key"],
+    allow_headers=["Authorization", "Content-Type", "X-Api-Key", "X-Console-Confirm"],
 )
 
 # ─── API 版本管理设置 ─────────────────────────────────────────
