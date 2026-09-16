@@ -267,12 +267,24 @@ async def router_health() -> dict[str, object]:
     return router_health_snapshot()
 
 
-# ─── Static files (Cockpit UI) ────────────────────────────
+# ─── Static files (Cockpit UI) with SPA catch-all ─────────
 
 if COCKPIT_UI_DIST.exists():
+    from fastapi.responses import FileResponse
     from fastapi.staticfiles import StaticFiles
 
-    app.mount("/", StaticFiles(directory=str(COCKPIT_UI_DIST), html=True), name="cockpit_ui")
+    # Mount only the /assets/ subdirectory for build assets (JS/CSS/fonts)
+    assets_dir = COCKPIT_UI_DIST / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="cockpit_ui_assets")
+
+    # Serve index.html for any unmatched route (SPA client-side routing)
+    @app.get("/{path:path}")
+    async def spa_fallback(path: str):
+        index_file = COCKPIT_UI_DIST / "index.html"
+        if index_file.exists():
+            return FileResponse(str(index_file))
+        return {"detail": "Not Found"}
 
 # 所有业务路由都挂载完成后，再同步版本目录，避免 /api/version/history 变成空壳。
 register_app_routes(app)
