@@ -114,7 +114,17 @@ async def api_bos_metrics(prefix: str = ""):
         # Use shared aggregation from bos_invoker
         from cockpit.console.bos_invoker import aggregate_metrics
 
-        result = aggregate_metrics()
+        result = aggregate_metrics(metrics_file=WORKSPACE_ROOT / ".omo" / "_knowledge" / "bos-metrics.jsonl")
+        if result.get("data_quality") == "unavailable":
+            return JSONResponse(
+                content={
+                    **result,
+                    "status": "unavailable",
+                    "error": "BOS 指标证据尚未产生",
+                    "next_action": "先执行一条 BOS 路由或挂载 metrics 采集，再回到观测页刷新。",
+                },
+                status_code=503,
+            )
         return JSONResponse(content=result)
     except Exception as e:  # defensive fallback
         return JSONResponse(content={"error": str(e)}, status_code=500)
