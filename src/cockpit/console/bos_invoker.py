@@ -241,7 +241,7 @@ def _record_metrics(uri: str, status: str, elapsed_ms: int, transport: str) -> N
         logger.debug("Metrics recording failed (non-blocking): %s", e)
 
 
-def aggregate_metrics(prefix: str = "") -> dict:
+def aggregate_metrics(prefix: str = "", metrics_file: Path | None = None) -> dict:
     """Aggregate BOS metrics from JSONL file.
 
     Shared by api_bos.py and api_console_bos.py to avoid duplicate parsing.
@@ -254,7 +254,8 @@ def aggregate_metrics(prefix: str = "") -> dict:
     total_latency = 0.0
     latency_count = 0
 
-    if not METRICS_FILE.exists():
+    evidence_file = metrics_file or METRICS_FILE
+    if not evidence_file.exists():
         return {
             "summary": {"total_calls": 0, "success_count": 0, "avg_latency": None},
             "domains": [],
@@ -262,7 +263,7 @@ def aggregate_metrics(prefix: str = "") -> dict:
         }
 
     try:
-        for line in METRICS_FILE.read_text(encoding="utf-8").splitlines():
+        for line in evidence_file.read_text(encoding="utf-8").splitlines():
             line = line.strip()
             if not line:
                 continue
