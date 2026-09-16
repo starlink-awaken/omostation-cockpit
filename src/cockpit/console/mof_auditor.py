@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -38,6 +39,11 @@ class MofAuditor:
         start = __import__("time").perf_counter()
 
         try:
+            # Include ecos src in PYTHONPATH so the subprocess can import the module
+            _ecos_src = str(self._workspace / "projects" / "ecos" / "src")
+            _pp = f"{_ecos_src}:{os.environ.get('PYTHONPATH', '')}"
+            _env = {**os.environ, "PYTHONPATH": _pp}
+
             result = subprocess.run(
                 [
                     sys.executable, "-m", "ecos.cli.constraint",
@@ -45,6 +51,7 @@ class MofAuditor:
                     str(self._workspace),
                 ],
                 cwd=self._workspace,
+                env=_env,
                 capture_output=True,
                 text=True,
                 timeout=180,
