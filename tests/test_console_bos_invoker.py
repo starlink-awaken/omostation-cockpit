@@ -27,7 +27,14 @@ class TestBosInvokerKnownServices:
 
     def test_filter_by_query(self):
         invoker = BosInvoker()
-        result = invoker.known_services(query="bos://")
+        # Patch POC_SERVICES import inside known_services
+        import sys
+        mock_agora = MagicMock()
+        mock_agora.POC_SERVICES = [
+            type("S", (), {"uri": "bos://system/health", "domain": "system", "action": "health", "transport": "http", "description": ""})()
+        ]
+        with patch.dict(sys.modules, {"cockpit.adapters.agora": mock_agora}):
+            result = invoker.known_services(query="bos://")
         assert len(result) > 0
 
     def test_no_match(self):
@@ -84,6 +91,9 @@ class TestBosInvokerInvoke:
         """Test fallback when Agora is unreachable."""
         invoker = BosInvoker(agora_endpoint="http://localhost:9999")
 
+        mock_agora = MagicMock()
+        mock_agora.resolve_bos_uri = MagicMock(return_value={"status": "ok"})
+
         with patch("cockpit.console.bos_invoker.httpx.AsyncClient") as MockClient:
             mock_client = AsyncMock()
             mock_client.post = AsyncMock(side_effect=Exception("connection refused"))
@@ -91,7 +101,8 @@ class TestBosInvokerInvoke:
             mock_client.__aexit__ = AsyncMock(return_value=None)
             MockClient.return_value = mock_client
 
-            with patch("cockpit.adapters.agora.resolve_bos_uri", return_value={"status": "ok"}):
+            import sys
+            with patch.dict(sys.modules, {"cockpit.adapters.agora": mock_agora}):
                 req = InvokeRequest(uri="bos://system/health", arguments={})
                 result = await invoker.invoke(req)
 
@@ -104,6 +115,9 @@ class TestBosInvokerInvoke:
         """Test when both Agora and in-process fail."""
         invoker = BosInvoker(agora_endpoint="http://localhost:9999")
 
+        mock_agora = MagicMock()
+        mock_agora.resolve_bos_uri = MagicMock(side_effect=Exception("resolver error"))
+
         with patch("cockpit.console.bos_invoker.httpx.AsyncClient") as MockClient:
             mock_client = AsyncMock()
             mock_client.post = AsyncMock(side_effect=Exception("connection refused"))
@@ -111,7 +125,8 @@ class TestBosInvokerInvoke:
             mock_client.__aexit__ = AsyncMock(return_value=None)
             MockClient.return_value = mock_client
 
-            with patch("cockpit.adapters.agora.resolve_bos_uri", side_effect=Exception("resolver error")):
+            import sys
+            with patch.dict(sys.modules, {"cockpit.adapters.agora": mock_agora}):
                 req = InvokeRequest(uri="bos://system/health", arguments={})
                 result = await invoker.invoke(req)
 
