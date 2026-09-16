@@ -157,6 +157,14 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     status_p.add_argument("--interval", type=float, default=5.0, help="监控刷新间隔（秒）")
     status_p.add_argument("--json", action="store_true", help="以 JSON 格式输出")
 
+    # ── org-relation (BET-Y2Q1-T7-01) ──────────────────────────
+    org_p = sub.add_parser(
+        "org-relation",
+        help="组织人脉图谱查询 (单位-人物-来件关系网络)",
+    )
+    org_p.add_argument("query", help="查询关键词（单位名称或人名）")
+    org_p.add_argument("--json", action="store_true", help="以 JSON 格式输出完整网络视图")
+
     # P66 增: readiness dashboard 子命令 (从 P65 wrapper 升级)
     from cockpit.commands import readiness as _readiness_mod
 
