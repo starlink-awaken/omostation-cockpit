@@ -948,6 +948,7 @@ def main(argv: list[str] | None = None) -> int:
         "brain": cmd_brain,
         "gbrain": cmd_gbrain,
         "kairon": cmd_kairon,
+        "org-relation": lambda a: __import__("cockpit.commands.org_relation", fromlist=["cmd_org_relation"]).cmd_org_relation(a),
         "bus": dispatch_bus,
         "observe": dispatch_observe,
         "family-hub": dispatch_family_hub,
