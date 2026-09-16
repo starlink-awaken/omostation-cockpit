@@ -16,6 +16,7 @@ import asyncio
 import json
 import logging
 import os
+from dataclasses import replace as dc_replace
 from datetime import datetime, timezone
 from inspect import isawaitable
 from pathlib import Path
@@ -78,7 +79,7 @@ class BosInvoker:
                 timeout=timeout_ms / 1000 + 1.0,  # +1s grace
             )
             elapsed = (asyncio.get_event_loop().time() - start) * 1000
-            return result._replace(elapsed_ms=round(elapsed, 1))
+            return dc_replace(result, elapsed_ms=round(elapsed, 1))
         except asyncio.TimeoutError:
             elapsed = (asyncio.get_event_loop().time() - start) * 1000
             return InvokeResult(

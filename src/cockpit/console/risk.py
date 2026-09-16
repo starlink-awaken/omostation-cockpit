@@ -72,8 +72,7 @@ def classify_risk(uri: str) -> RiskLevel:
         if len(parts) < 2:
             return RiskLevel.READ
         domain = parts[0]
-        # action is the last segment; subdomain is middle if 3+ parts
-        action = parts[-1].lower()
+        action = parts[-1].lower()  # last segment is the action
 
         # Harness domain is always dangerous
         if domain == "harness":
@@ -83,6 +82,13 @@ def classify_risk(uri: str) -> RiskLevel:
         for kw in _DANGEROUS_ACTIONS:
             if kw in action:
                 return RiskLevel.DANGEROUS
+
+        # Also check subdomain segments for dangerous keywords
+        # (e.g. bos://resident/sediment/trigger — "sediment" in subdomain)
+        for sub in parts[1:-1]:  # middle segments (exclude domain and action)
+            for kw in _DANGEROUS_ACTIONS:
+                if kw in sub.lower():
+                    return RiskLevel.DANGEROUS
 
         # Check action against write keywords
         for kw in _WRITE_ACTIONS:
