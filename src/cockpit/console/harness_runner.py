@@ -17,9 +17,11 @@ import logging
 import signal
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from omo.omo_cockpit_bridge import write_console_run_record
 
 from cockpit.compat import WORKSPACE_ROOT
 from cockpit.console.events import RunEventHub, get_hub
@@ -41,7 +43,6 @@ class HarnessRunner:
 
     def __init__(self) -> None:
         self._hub = get_hub()
-        RUNS_DIR.mkdir(parents=True, exist_ok=True)
 
     async def submit(self, spec: HarnessRunSpec) -> tuple[str, str | None]:
         """Submit a new run. Returns (run_id, error)."""
@@ -55,7 +56,9 @@ class HarnessRunner:
             return "", "WORKTREE_REQUIRED"
         try:
             result = await asyncio.create_subprocess_exec(
-                "git", "rev-parse", "--show-toplevel",
+                "git",
+                "rev-parse",
+                "--show-toplevel",
                 cwd=str(wt_path),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -70,6 +73,7 @@ class HarnessRunner:
         # Check circuit breaker
         try:
             from cockpit.resident_flight_deck import get_circuit_breaker
+
             breaker = get_circuit_breaker()
             decision = breaker.check("harness_run", confidence=0.8)
             if getattr(decision, "is_tripped", False):
@@ -78,7 +82,7 @@ class HarnessRunner:
             pass  # breaker not available, proceed
 
         # Generate run_id
-        run_id = f"cr-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{id(spec) % 0xFFFF:04x}"
+        run_id = f"cr-{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}-{id(spec) % 0xFFFF:04x}"
 
         # Create run record
         run_record = {
@@ -92,7 +96,7 @@ class HarnessRunner:
             "stage": "admission",
             "exit_code": None,
             "elapsed_ms": None,
-            "started_at": datetime.now(timezone.utc).isoformat(),
+            "started_at": datetime.now(UTC).isoformat(),
         }
         self._save_run(run_record)
 
@@ -102,9 +106,12 @@ class HarnessRunner:
                 sys.executable,
                 str(HARNESS_BIN),
                 "run",
-                "--bet", spec.bet_id,
-                "--profile", spec.profile,
-                "--objective", spec.objective,
+                "--bet",
+                spec.bet_id,
+                "--profile",
+                spec.profile,
+                "--objective",
+                spec.objective,
                 "--json",
                 cwd=str(wt_path),
                 env={**__import__("os").environ, "WORKSPACE": str(WORKSPACE_ROOT)},
@@ -135,14 +142,17 @@ class HarnessRunner:
             # Wait for graceful exit with 10s grace
             try:
                 await asyncio.wait_for(proc.wait(), timeout=10.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 proc.kill()
 
-            await self._hub.publish(run_id, {
-                "event": "run_complete",
-                "state": "cancelled",
-                "ts": datetime.now(timezone.utc).isoformat(),
-            })
+            await self._hub.publish(
+                run_id,
+                {
+                    "event": "run_complete",
+                    "state": "cancelled",
+                    "ts": datetime.now(UTC).isoformat(),
+                },
+            )
 
             run_data = self._load_run(run_id)
             if run_data:
@@ -171,9 +181,7 @@ class HarnessRunner:
         """Get a single run record."""
         return self._load_run(run_id)
 
-    async def _process_run(
-        self, run_id: str, proc: asyncio.subprocess.Process, run_record: dict
-    ) -> None:
+    async def _process_run(self, run_id: str, proc: asyncio.subprocess.Process, run_record: dict) -> None:
         """Parse subprocess stdout and publish events."""
         start_time = time.monotonic()
         current_stage = "admission"
@@ -199,43 +207,55 @@ class HarnessRunner:
                 stage = event.get("stage", event.get("step", ""))
                 if stage and stage != current_stage:
                     current_stage = stage
-                    await self._hub.publish(run_id, {
-                        "event": "stage_started",
-                        "stage": stage,
-                        "ts": datetime.now(timezone.utc).isoformat(),
-                    })
+                    await self._hub.publish(
+                        run_id,
+                        {
+                            "event": "stage_started",
+                            "stage": stage,
+                            "ts": datetime.now(UTC).isoformat(),
+                        },
+                    )
 
                 # Verify stage checks
                 check_name = event.get("check", event.get("name", ""))
                 check_state = event.get("state", event.get("status", ""))
                 if check_name and stage == "verify":
                     blocking = event.get("blocking", True)
-                    await self._hub.publish(run_id, {
-                        "event": "run_progress",
-                        "stage": "verify",
-                        "check": check_name,
-                        "blocking": blocking,
-                        "state": check_state,
-                        "ts": datetime.now(timezone.utc).isoformat(),
-                    })
+                    await self._hub.publish(
+                        run_id,
+                        {
+                            "event": "run_progress",
+                            "stage": "verify",
+                            "check": check_name,
+                            "blocking": blocking,
+                            "state": check_state,
+                            "ts": datetime.now(UTC).isoformat(),
+                        },
+                    )
 
                 # Stage completion
                 if event.get("stage_state") == "completed" or event.get("status") == "completed":
-                    await self._hub.publish(run_id, {
-                        "event": "stage_completed",
-                        "stage": stage,
-                        "state": "completed",
-                        "ts": datetime.now(timezone.utc).isoformat(),
-                    })
+                    await self._hub.publish(
+                        run_id,
+                        {
+                            "event": "stage_completed",
+                            "stage": stage,
+                            "state": "completed",
+                            "ts": datetime.now(UTC).isoformat(),
+                        },
+                    )
 
                 # Gate required (HITL)
                 if event.get("type") == "gate_required" or event.get("state") == "blocked":
-                    await self._hub.publish(run_id, {
-                        "event": "gate_required",
-                        "gate": event.get("gate", stage),
-                        "reason": event.get("reason", "approval needed"),
-                        "ts": datetime.now(timezone.utc).isoformat(),
-                    })
+                    await self._hub.publish(
+                        run_id,
+                        {
+                            "event": "gate_required",
+                            "gate": event.get("gate", stage),
+                            "reason": event.get("reason", "approval needed"),
+                            "ts": datetime.now(UTC).isoformat(),
+                        },
+                    )
                     run_record["status"] = "blocked"
                     self._save_run(run_record)
 
@@ -251,13 +271,16 @@ class HarnessRunner:
         elapsed_ms = (time.monotonic() - start_time) * 1000
 
         state = "completed" if exit_code == 0 else "failed"
-        await self._hub.publish(run_id, {
-            "event": "run_complete",
-            "state": state,
-            "exit_code": exit_code,
-            "elapsed_ms": round(elapsed_ms, 1),
-            "ts": datetime.now(timezone.utc).isoformat(),
-        })
+        await self._hub.publish(
+            run_id,
+            {
+                "event": "run_complete",
+                "state": state,
+                "exit_code": exit_code,
+                "elapsed_ms": round(elapsed_ms, 1),
+                "ts": datetime.now(UTC).isoformat(),
+            },
+        )
 
         run_record["status"] = state
         run_record["exit_code"] = exit_code
@@ -268,9 +291,7 @@ class HarnessRunner:
     def _save_run(self, record: dict) -> None:
         """Persist run record to JSON file."""
         try:
-            RUNS_DIR.mkdir(parents=True, exist_ok=True)
-            path = RUNS_DIR / f"{record['run_id']}.json"
-            path.write_text(json.dumps(record, indent=2, ensure_ascii=False), encoding="utf-8")
+            write_console_run_record(WORKSPACE_ROOT, str(record["run_id"]), record)
         except Exception as e:
             logger.error("Failed to save run record: %s", e)
 
