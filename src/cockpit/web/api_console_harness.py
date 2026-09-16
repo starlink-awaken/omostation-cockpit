@@ -24,6 +24,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from cockpit.console.harness_runner import STAGES, get_runner
 from cockpit.console.models import HarnessRunSpec
 from cockpit.console.events import get_hub
+from cockpit.console.risk import RiskLevel, require_confirm
 
 router = APIRouter(prefix="/api/console/harness", tags=["console-harness"])
 
@@ -74,12 +75,6 @@ async def api_harness_submit(
     x_console_confirm: str | None = Header(default=None, alias="X-Console-Confirm"),
 ):
     """Submit a new Harness run."""
-    if not x_console_confirm:
-        return JSONResponse(
-            _envelope(False, error_code="RISK_CONFIRM_REQUIRED", error="Harness runs require X-Console-Confirm"),
-            status_code=400,
-        )
-
     try:
         body = await request.json()
     except Exception:
@@ -95,6 +90,19 @@ async def api_harness_submit(
         return JSONResponse(
             _envelope(False, error_code="MISSING_FIELD", error="bet_id, profile, objective, and worktree_path are required"),
             status_code=400,
+        )
+
+    # Harness runs are always dangerous — verify confirm token against body
+    body_bytes = json.dumps(
+        {"bet_id": bet_id, "profile": profile, "objective": objective, "worktree_path": worktree_path, "dry_run": dry_run},
+        sort_keys=True,
+    ).encode()
+    rejection = require_confirm(RiskLevel.DANGEROUS, f"harness/run/{bet_id}", body_bytes, x_console_confirm)
+    if rejection:
+        status = 400 if rejection == "RISK_CONFIRM_REQUIRED" else 403
+        return JSONResponse(
+            _envelope(False, error_code=rejection, error=f"Harness run requires X-Console-Confirm"),
+            status_code=status,
         )
 
     spec = HarnessRunSpec(
