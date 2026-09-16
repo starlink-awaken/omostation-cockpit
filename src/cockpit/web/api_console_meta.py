@@ -18,11 +18,11 @@ async def api_console_meta():
     """Console 元信息 — 版本、阶段、标签页配置。"""
     try:
         from cockpit.compat import WORKSPACE_ROOT
-        from cockpit.console.bos_invoker import known_services
-        from cockpit.console.events import event_hub
+        from cockpit.console.bos_invoker import BosInvoker
+        from cockpit.console.events import get_hub
 
-        services = known_services()
-        runs = event_hub.recent_runs()
+        services = BosInvoker().known_services()
+        runs = get_hub().recent_runs()
 
         return JSONResponse(
             content={
