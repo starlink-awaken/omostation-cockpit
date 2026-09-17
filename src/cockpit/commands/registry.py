@@ -683,7 +683,7 @@ COMMAND_CATALOG: dict[str, CommandMeta] = {
     "spine": CommandMeta(
         name="spine",
         category="📄 专项工具 (Domain)",
-        summary="Spine 主干真值流与署名自进化操作 (ADR-0437)",
+        summary="Spine 主干真值流与署名自进化操作 (ADR-0439)",
         example="status / distill / sign / replay",
     ),
     # ── 双旗标审计补齐 (parser 已注册但 catalog 缺条目) ──────────────────────

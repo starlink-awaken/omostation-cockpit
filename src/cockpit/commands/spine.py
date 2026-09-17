@@ -1,4 +1,4 @@
-"""cockpit.commands.spine -- Spine Value Pipeline CLI (ADR-0437 / omlxc V5.0).
+"""cockpit.commands.spine -- Spine Value Pipeline CLI (ADR-0439 / omlxc V5.0).
 
 Provides the `cockpit spine` command group for the sovereign compute + signature diff loop:
   draft   -- Request an LLM draft from the local sovereign model via BOS.
