@@ -17,7 +17,7 @@ import sys
 import traceback
 
 import httpx
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 # Memory OS env (NEO4J_*/MOS_*) before routers invoke mos CLI
@@ -278,9 +278,16 @@ if COCKPIT_UI_DIST.exists():
     if assets_dir.exists():
         app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="cockpit_ui_assets")
 
-    # Serve index.html for any unmatched route (SPA client-side routing)
+    # Serve index.html for any unmatched route (SPA client-side routing).
+    # Well-known static-asset requests with no built file behind them (e.g. the
+    # browser's automatic favicon.ico probe) get a real 404 instead of the SPA
+    # shell, so tooling and browsers don't mistake a missing asset for a page.
+    _NO_SPA_FALLBACK_ASSETS = {"favicon.ico", "robots.txt"}
+
     @app.get("/{path:path}")
     async def spa_fallback(path: str):
+        if path in _NO_SPA_FALLBACK_ASSETS and not (COCKPIT_UI_DIST / path).exists():
+            raise HTTPException(status_code=404, detail="Not Found")
         index_file = COCKPIT_UI_DIST / "index.html"
         if index_file.exists():
             return FileResponse(str(index_file))
