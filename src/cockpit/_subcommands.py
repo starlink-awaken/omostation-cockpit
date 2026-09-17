@@ -709,7 +709,7 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     mesh_sub.add_parser("serve", help="启动 mesh router HTTP server")
 
     # ── spine ────────────────────────────────────────────────
-    spine_p = sub.add_parser("spine", help="Spine 主干真值流与署名自进化操作 (ADR-0437)")
+    spine_p = sub.add_parser("spine", help="Spine 主干真值流与署名自进化操作 (ADR-0439)")
     spine_sub = spine_p.add_subparsers(dest="spine_command", parser_class=workspace_parser)
     spine_draft_p = spine_sub.add_parser("draft", help="从本地主权大模型请求草稿")
     spine_draft_p.add_argument("--prompt", "-p", required=True, help="草稿生成提示词")

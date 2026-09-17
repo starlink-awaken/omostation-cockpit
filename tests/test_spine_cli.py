@@ -1,4 +1,4 @@
-"""Unit tests for cockpit spine CLI commands (ADR-0437)."""
+"""Unit tests for cockpit spine CLI commands (ADR-0439)."""
 from __future__ import annotations
 
 import argparse
