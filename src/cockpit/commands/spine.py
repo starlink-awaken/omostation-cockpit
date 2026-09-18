@@ -17,6 +17,7 @@ import os
 import subprocess
 import sys
 import time
+import uuid
 from pathlib import Path
 
 from rich.console import Console
@@ -566,6 +567,7 @@ def _spool_dir() -> Path:
 # ── T4-06: 外发网关风控 / 重放拦截 / 频次熔断 / 回执 / 真实通道 ──────────
 
 GATEWAY_POLICY_REL = ".omo/_truth/registry/spine-gateway-policy.yaml"
+_MESSAGE_ID_SEQUENCE = 0
 
 
 def _gateway_policy() -> dict:
@@ -717,6 +719,22 @@ def _send_builtin(channel: str, to: str, body: str, msg_id: str) -> tuple[bool, 
     return False, f"unknown channel: {channel}"
 
 
+def _next_message_id() -> str:
+    """Allocate a collision-resistant, chronologically sortable message ID.
+
+    Milliseconds alone collide when two sends occur in the same tick.  Keep a
+    process-local sequence for ordering, and add a short random discriminator
+    for independent processes.
+    """
+    global _MESSAGE_ID_SEQUENCE
+    _MESSAGE_ID_SEQUENCE += 1
+    return (
+        f"msg-{int(time.time() * 1000):013d}"
+        f"-{_MESSAGE_ID_SEQUENCE:06d}"
+        f"-{uuid.uuid4().hex[:8]}"
+    )
+
+
 def cmd_spine_send(args: argparse.Namespace) -> int:
     """One-key confirm & send via gateway spool (atomic state machine).
 
@@ -735,7 +753,7 @@ def cmd_spine_send(args: argparse.Namespace) -> int:
 
     spool = _spool_dir()
     spool.mkdir(parents=True, exist_ok=True)
-    msg_id = f"msg-{int(time.time() * 1000)}"
+    msg_id = _next_message_id()
     msg_dir = spool / msg_id
     digest = _content_digest(channel, to, body)
     # 原子性: 先写临时目录（完整 queued 态）再原子 rename

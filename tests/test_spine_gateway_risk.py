@@ -37,6 +37,19 @@ def _first_msg_dir(spool: Path) -> Path:
     return next(d for d in spool.iterdir() if d.is_dir())
 
 
+def _dir_with_status(spool: Path, status: str) -> Path:
+    """Locate a spool message without relying on filesystem creation order."""
+    matches = []
+    for d in spool.iterdir():
+        if not d.is_dir():
+            continue
+        env = json.loads((d / "envelope.json").read_text(encoding="utf-8"))
+        if env["status"] == status:
+            matches.append(d)
+    assert len(matches) == 1
+    return matches[0]
+
+
 @pytest.fixture()
 def no_builtin(monkeypatch: pytest.MonkeyPatch):
     """默认桩掉内建通道 (风控层单测不触真实发送); 需要 sent 态的用例自行覆盖为成功。"""
@@ -69,10 +82,10 @@ def test_replay_blocked_then_allowed(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert cmd_spine_send(_send_args()) == 0  # 首发成功
     # 二发同内容: 默认拦截
     assert cmd_spine_send(_send_args()) == 1
-    dirs = sorted(d for d in _spool(tmp_path).iterdir() if d.is_dir())
-    env = json.loads((dirs[-1] / "envelope.json").read_text(encoding="utf-8"))
+    blocked_dir = _dir_with_status(_spool(tmp_path), "blocked-replay")
+    env = json.loads((blocked_dir / "envelope.json").read_text(encoding="utf-8"))
     assert env["status"] == "blocked-replay"
-    receipt = json.loads((dirs[-1] / "receipt.json").read_text(encoding="utf-8"))
+    receipt = json.loads((blocked_dir / "receipt.json").read_text(encoding="utf-8"))
     assert receipt["schema"] == "outbound-message-receipt/v1"
     assert receipt["status"] == "blocked-replay" and "重放" in receipt["reason"]
     # --allow-replay 显式放行
@@ -88,10 +101,10 @@ def test_daily_cap_hard_block(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, n
     assert cmd_spine_send(_send_args(body="第一条")) == 0  # 占满 cap
     rc = cmd_spine_send(_send_args(body="第二条"))  # 不同的内容, 非重放
     assert rc == 1
-    dirs = sorted(d for d in _spool(tmp_path).iterdir() if d.is_dir())
-    env = json.loads((dirs[-1] / "envelope.json").read_text(encoding="utf-8"))
+    blocked_dir = _dir_with_status(_spool(tmp_path), "blocked-cap")
+    env = json.loads((blocked_dir / "envelope.json").read_text(encoding="utf-8"))
     assert env["status"] == "blocked-cap"
-    receipt = json.loads((dirs[-1] / "receipt.json").read_text(encoding="utf-8"))
+    receipt = json.loads((blocked_dir / "receipt.json").read_text(encoding="utf-8"))
     assert "超限" in receipt["reason"]
 
 
@@ -140,11 +153,20 @@ def test_dlp_high_blocked_then_acknowledged(tmp_path: Path, monkeypatch: pytest.
 
     monkeypatch.setattr(spine, "_dlp_high_findings", lambda body: [_F()])
     assert cmd_spine_send(_send_args(body="含密钥内容")) == 1
-    dirs = sorted(d for d in _spool(tmp_path).iterdir() if d.is_dir())
-    env = json.loads((dirs[-1] / "envelope.json").read_text(encoding="utf-8"))
+    blocked_dir = _dir_with_status(_spool(tmp_path), "blocked-risk")
+    env = json.loads((blocked_dir / "envelope.json").read_text(encoding="utf-8"))
     assert env["status"] == "blocked-risk"
     # 人工确认后放行
     assert cmd_spine_send(_send_args(body="含密钥内容", risk_acknowledge=True)) == 0
+
+
+def test_message_ids_are_unique_under_same_millisecond():
+    """Same-tick sends must not share an ID or temporary directory."""
+    import cockpit.commands.spine as spine
+
+    ids = [spine._next_message_id() for _ in range(100)]
+    assert len(ids) == len(set(ids))
+    assert all(message_id.startswith("msg-") for message_id in ids)
 
 
 def test_policy_registry_cap_read(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
