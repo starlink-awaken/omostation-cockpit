@@ -16,7 +16,11 @@ from pathlib import Path
 import yaml
 
 
-from cockpit.compat import WORKSPACE_ROOT
+try:
+    from cockpit.compat import WORKSPACE_ROOT
+except ModuleNotFoundError:
+    # The dashboard app deploys this collector as a standalone module.
+    WORKSPACE_ROOT = Path.home() / "Workspace"
 
 WORKSPACE = WORKSPACE_ROOT
 LIBRARY = Path.home() / "Documents/学习进化/基建架构/织星主权智能操作系统文档库"
