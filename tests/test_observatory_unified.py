@@ -31,6 +31,11 @@ def test_collect_catalog_smoke():
 def test_collect_strategy_sources_smoke():
     """Verify collect_strategy_sources returns strategic ledger metadata."""
     result = collect_strategy_sources(workspace=WORKSPACE_ROOT)
+    assert result["hard_gaps"] == []
+    assert set(result["optional_gaps"]) <= {
+        "workspace:.omo/debt/gap-items:empty_or_missing_directory",
+        "workspace:.omo/debt/gap-registry.yaml:missing",
+    }
     assert isinstance(result, dict)
     assert result.get("schema") == "zhixing-strategy-sources/v1"
     assert "records" in result
