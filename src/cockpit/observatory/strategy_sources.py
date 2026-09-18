@@ -796,9 +796,25 @@ def _collect_strategy_sources(workspace, library, app, observed_at=None):
     partial_reasons = sorted(set(reader.partial_reasons +
                                  (["runs:sample_budget"] if run_counts["truncated"] else []) +
                                  (["retros:sample_budget"] if retro_counts["truncated"] else [])))
-    state = "PARTIAL" if reader.blocking_errors or partial_reasons else "OBSERVED"
+    # Absence of optional historical metadata is evidence, but does not make the
+    # strategy source unavailable.  Blocking reads, budget exhaustion, and other
+    # degraded imports remain PARTIAL and retain their exact reasons.
+    soft_gaps = [
+        reason for reason in partial_reasons
+        if reason.endswith((":missing", ":empty_or_missing_directory"))
+    ]
+    hard_gaps = [
+        reason for reason in partial_reasons
+        if not reason.endswith((":missing", ":empty_or_missing_directory"))
+    ]
+    state = (
+        "PARTIAL"
+        if reader.blocking_errors or truncated or hard_gaps
+        else "OBSERVED"
+    )
     return {"schema": "zhixing-strategy-sources/v1", "observed_at": observed_at,
             "state": state, "partial": bool(partial_reasons or reader.blocking_errors),
+            "optional_gaps": soft_gaps, "hard_gaps": hard_gaps,
             "source_states": reader.source_states,
             "documents": documents, "model": model,
             "records": {"issues": issues, "retros": retros, "runs": runs, "knowledge": knowledge_records},
