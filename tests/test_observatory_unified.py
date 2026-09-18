@@ -36,6 +36,11 @@ def test_collect_strategy_sources_smoke():
         "workspace:.omo/debt/gap-items:empty_or_missing_directory",
         "workspace:.omo/debt/gap-registry.yaml:missing",
     } <= set(result["optional_gaps"])
+    assert result["hard_gaps"] == []
+    assert {
+        "workspace:.omo/debt/gap-items:empty_or_missing_directory",
+        "workspace:.omo/debt/gap-registry.yaml:missing",
+    } <= set(result["optional_gaps"])
     assert isinstance(result, dict)
     assert result.get("schema") == "zhixing-strategy-sources/v1"
     assert "records" in result

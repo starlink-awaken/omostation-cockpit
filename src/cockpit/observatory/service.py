@@ -100,7 +100,7 @@ class ObservatoryService:
         observatory still boots. The dashboard at :43191 consumes the same file.
         """
         import json as _json
-        data_path = self.workspace / "runtime" / "dashboard" / "data.json"
+        data_path = Path.home() / ".local/share/zhixing-dashboard/data.json"
         if not data_path.is_file():
             return {}
         try:
