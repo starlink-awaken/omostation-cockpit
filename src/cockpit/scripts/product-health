@@ -9,6 +9,8 @@ SRC_ROOT = Path(__file__).resolve().parents[2]
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
+# env_resolver will be imported after SRC_ROOT is in sys.path
+
 from cockpit.commands.base import _discover_services, _http_health
 from cockpit.storage import get_data_access
 

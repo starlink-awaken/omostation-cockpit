@@ -244,7 +244,8 @@ def _render_publish_content(result: dict[str, Any], style: str) -> str:
 
 
 def _workspace_root() -> Path:
-    return Path(__file__).resolve().parents[2]
+    from ..env_resolver import get_workspace_root
+    return get_workspace_root()
 
 
 def _load_json_file(path: Path) -> tuple[dict[str, Any] | None, str | None]:

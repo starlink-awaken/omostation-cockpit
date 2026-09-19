@@ -41,7 +41,9 @@ def resolve_workspace_root(explicit: str | Path | None = None) -> Path:
             return parent
         if parent.name == ".subtrees":
             return parent.parent
-    return source.parents[3]
+    # Fallback to env_resolver for cross-worktree compatibility
+    from cockpit.env_resolver import get_workspace_root
+    return get_workspace_root()
 
 
 def _load_domains(

@@ -11,7 +11,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[3]
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
+ROOT = _get_workspace_root()
 
 
 def get_pool_status() -> dict:

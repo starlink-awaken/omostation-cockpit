@@ -23,7 +23,8 @@ from fastapi import APIRouter, HTTPException
 
 router = APIRouter(prefix="/api/scene-lifecycle", tags=["scene-lifecycle"])
 
-WORKSPACE_ROOT = Path(__file__).resolve().parents[5]
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
+WORKSPACE_ROOT = _get_workspace_root()
 SCENES_DIR = WORKSPACE_ROOT / ".omo" / "_truth" / "scenarios" / "v3"
 JOURNEY_ENGINE = WORKSPACE_ROOT / "bin" / "ssot" / "journey-engine.py"
 CALIBRATION_ENGINE = WORKSPACE_ROOT / "bin" / "ssot" / "calibration-engine.py"
