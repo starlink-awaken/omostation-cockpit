@@ -15,7 +15,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-WORKSPACE_ROOT = Path(__file__).resolve().parents[4]
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
+WORKSPACE_ROOT = _get_workspace_root()
 JOURNEY_ENGINE = WORKSPACE_ROOT / "bin" / "ssot" / "journey-engine.py"
 CALIBRATION_ENGINE = WORKSPACE_ROOT / "bin" / "ssot" / "calibration-engine.py"
 SCENE_GRAPH = WORKSPACE_ROOT / "bin" / "ssot" / "scene-graph.py"

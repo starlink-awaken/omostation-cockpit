@@ -32,7 +32,8 @@ _AUTH_REQUIRED = os.environ.get("COCKPIT_AUTH_REQUIRED", "false").lower() in ("t
 _API_KEY_ENV = "COCKPIT_API_KEY"
 _KEYS_FILE_ENV = "COCKPIT_KEYS_FILE"
 _ENGINEERING_REVIEW_SIGNING_KEY_ENV = "COCKPIT_ENGINEERING_REVIEW_SIGNING_KEY"
-_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+from cockpit.env_resolver import get_workspace_root as _get_workspace_root
+_PROJECT_ROOT = _get_workspace_root()
 _DEFAULT_KEYS_FILE = _PROJECT_ROOT / "config" / "api_keys.yaml"
 
 

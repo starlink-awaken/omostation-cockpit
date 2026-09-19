@@ -89,11 +89,10 @@ def cmd_knowledge_search(args: argparse.Namespace) -> int:
         try:
             import sys
             from pathlib import Path
+            from cockpit.env_resolver import get_workspace_root
 
             # Auto-locate workspace projects/knowledge/src
-            # __file__ = projects/cockpit/src/cockpit/commands/knowledge.py
-            # parents[3] = projects/cockpit, parents[4] = projects
-            ws_knowledge_src = Path(__file__).resolve().parents[4] / "knowledge" / "src"
+            ws_knowledge_src = get_workspace_root() / "projects" / "knowledge" / "src"
             if ws_knowledge_src.exists() and str(ws_knowledge_src) not in sys.path:
                 sys.path.insert(0, str(ws_knowledge_src))
 

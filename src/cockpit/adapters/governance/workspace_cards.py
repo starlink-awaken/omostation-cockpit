@@ -71,7 +71,6 @@ def _workspace_state(workspace_root: Path) -> dict[str, Any]:
 def _omo_workdir(workspace_root: Path) -> Path | None:
     candidates = [
         workspace_root / "projects" / "omo",
-        Path(__file__).resolve().parents[3].parent / "omo",
     ]
     return next((path for path in candidates if path.is_dir()), None)
 
