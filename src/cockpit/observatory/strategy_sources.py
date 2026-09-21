@@ -234,13 +234,15 @@ class BoundedReader:
                 chunks = []
                 consumed = 0
                 first = stream.readline(limit)
-                chunks.append(first); consumed += len(first)
+                chunks.append(first)
+                consumed += len(first)
                 if first.rstrip(b"\r\n") == b"---":
                     while consumed < limit:
                         line = stream.readline(limit - consumed)
                         if not line:
                             break
-                        chunks.append(line); consumed += len(line)
+                        chunks.append(line)
+                        consumed += len(line)
                         if line.rstrip(b"\r\n") == b"---":
                             break
                 raw = b"".join(chunks)

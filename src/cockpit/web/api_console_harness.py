@@ -101,7 +101,7 @@ async def api_harness_submit(
     if rejection:
         status = 400 if rejection == "RISK_CONFIRM_REQUIRED" else 403
         return JSONResponse(
-            _envelope(False, error_code=rejection, error=f"Harness run requires X-Console-Confirm"),
+            _envelope(False, error_code=rejection, error="Harness run requires X-Console-Confirm"),
             status_code=status,
         )
 
