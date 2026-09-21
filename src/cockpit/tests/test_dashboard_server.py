@@ -330,7 +330,7 @@ class TestUnifiedAuth:
     def test_example_key_file_is_safe_and_matches_default_location(self, test_client, monkeypatch, tmp_path):
         import cockpit.web.auth as auth_mod
 
-        project_root = Path(__file__).resolve().parents[3]
+        project_root = auth_mod._PROJECT_ROOT
         example_file = project_root / "config" / "api_keys.yaml.example"
         assert auth_mod._DEFAULT_KEYS_FILE == project_root / "config" / "api_keys.yaml"
         assert auth_mod._resolve_keys_file(None) == auth_mod._DEFAULT_KEYS_FILE

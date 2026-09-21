@@ -353,7 +353,7 @@ def test_task_history_reads_omo_trail_without_shadowing_it(tmp_path, monkeypatch
     )
     monkeypatch.setattr(api_tasks, "WORKSPACE_DIR", tmp_path)
     monkeypatch.setattr(api_tasks_common, "WORKSPACE_DIR", tmp_path)
-    monkeypatch.setattr(api_tasks, "_task_group", lambda _task_id: "planned")
+    monkeypatch.setattr(api_tasks_queues_project, "_task_group", lambda _task_id: "planned")
     monkeypatch.setattr(api_tasks._task_data, "WORKSPACE_DIR", tmp_path)
     client = TestClient(app)
 

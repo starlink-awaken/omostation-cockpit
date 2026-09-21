@@ -631,12 +631,14 @@ class TestRenderPublishContent:
 class TestWorkspaceRoot:
     """_workspace_root 返回项目根目录。"""
 
-    def test_returns_cockpit_directory(self):
-        """返回 cockpit 项目根目录"""
+    def test_returns_cockpit_root(self):
+        """返回 cockpit 可用的 root：workspace checkout 或 standalone repo checkout"""
         root = _workspace_root()
         assert root.is_dir()
-        assert (root / "cockpit").is_dir()  # 包含 cockpit 包
-        assert (root / "commands").is_dir() or (root / "cockpit").is_dir()
+        assert (
+            (root / "projects" / "cockpit").is_dir()
+            or (root / "src" / "cockpit").is_dir()
+        )
 
 
 class TestLoadJsonFile:
