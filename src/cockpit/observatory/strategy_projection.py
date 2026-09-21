@@ -143,7 +143,8 @@ class TraceBuilder:
         suffix = 2
         base = identity
         while identity in {row["id"] for row in self.gaps}:
-            identity = base + "~" + str(suffix); suffix += 1
+            identity = base + "~" + str(suffix)
+            suffix += 1
         row = {"id": identity, "kind": kind, "title": _text(title) or kind,
                "next_action": _text(next_action) or "review source", "severity": _text(severity) or "medium"}
         if entity_id is not None:
@@ -161,7 +162,8 @@ class TraceBuilder:
             self.gap("duplicate_id", "Duplicate " + kind + " ID", raw_id, source,
                      "resolve duplicate source identities", "high")
             while identity in self.ids:
-                identity = base + "~" + str(suffix); suffix += 1
+                identity = base + "~" + str(suffix)
+                suffix += 1
         if len(self.nodes) >= MAX_NODES:
             self.truncated["nodes"] += 1
             return None
@@ -223,10 +225,13 @@ class TraceBuilder:
                 return
             if node in visited or len(stack) > 100:
                 return
-            visiting.add(node); stack.append(node)
+            visiting.add(node)
+            stack.append(node)
             for child in adjacency.get(node, [])[:500]:
                 walk(child)
-            stack.pop(); visiting.remove(node); visited.add(node)
+            stack.pop()
+            visiting.remove(node)
+            visited.add(node)
 
         for node in list(adjacency)[:MAX_NODES]:
             walk(node)
@@ -342,7 +347,8 @@ def _add_portfolio(builder, portfolio, observed_at):
             for receipt in _rows(axis.get("evidence_refs"))[:100]:
                 if not isinstance(receipt, dict):
                     continue
-                ref = _text(receipt.get("ref")); digest = _text(receipt.get("sha256"))
+                ref = _text(receipt.get("ref"))
+                digest = _text(receipt.get("sha256"))
                 if not ref:
                     continue
                 raw = ref + "@" + (digest or "unknown")

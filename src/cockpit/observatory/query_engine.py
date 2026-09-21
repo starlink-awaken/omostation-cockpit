@@ -370,7 +370,8 @@ class ObservationIndex:
                     if not isinstance(ref, dict):
                         continue
                     src = dict(mapping(source_documents.get(ref.get('source_key'))))
-                    src['line'] = ref.get('line'); refs.append(src)
+                    src['line'] = ref.get('line')
+                    refs.append(src)
                 self._add(conflict['id'], 'contract_conflict', conflict.get('title'), 'review_required',
                           refs[0] if refs else {}, dict(conflict, source_refs=refs), 'advisory_plan', None)
         for candidate in rows(strategy.get('proposals')):
@@ -854,7 +855,8 @@ class ObservationIndex:
                     continue
                 key = (edge['from'], edge['to'], edge['relation'], edge['relation_basis'])
                 if key not in edge_keys:
-                    edge_keys.add(key); edges.append(edge)
+                    edge_keys.add(key)
+                    edges.append(edge)
                 neighbor = edge['to'] if edge['from'] == current else edge['from']
                 if neighbor not in self.entities or neighbor in self.duplicates:
                     unresolved.add(neighbor)

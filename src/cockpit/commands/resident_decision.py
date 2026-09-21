@@ -142,12 +142,12 @@ def cmd_status(args: argparse.Namespace) -> int:
     reviewed = by_status.get(STATUS_REVIEWED, 0) + by_status.get(STATUS_PROMOTED, 0) + by_status.get(STATUS_DISMISSED, 0)
     unreviewed = total - reviewed
 
-    print(f"📊 决策提案归档进度\n")
+    print("📊 决策提案归档进度\n")
     print(f"  总量: {total} 份")
     if total > 0:
         print(f"  已归档: {reviewed} 份 ({reviewed/total*100:.1f}%)")
     else:
-        print(f"  已归档: 0 份")
+        print("  已归档: 0 份")
     print(f"  待处理: {unreviewed} 份")
     print()
     for s, count in sorted(by_status.items()):
