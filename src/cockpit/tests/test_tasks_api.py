@@ -625,7 +625,7 @@ def test_queue_debt_task_is_idempotent_for_existing_planned_task(monkeypatch):
         "cockpit.dashboard.helpers.load_debt",
         lambda: {"items": [{"id": "debt-1", "title": "债务", "severity": "p2"}]},
     )
-    monkeypatch.setattr(api_tasks, "_task_group", lambda _task_id: "planned")
+    monkeypatch.setattr(api_tasks_queues_project, "_task_group", lambda _task_id: "planned")
 
     response = TestClient(app).post("/api/cockpit/debt/debt-1/queue")
 
