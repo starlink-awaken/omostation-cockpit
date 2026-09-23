@@ -88,15 +88,29 @@ def _cmd_health(args: Namespace) -> int:
             from cockpit.env_resolver import get_workspace_root
 
             ws = Path(os.environ.get("WORKSPACE_ROOT", str(get_workspace_root())))
-            agora_bin = ws / "projects" / "agora" / ".venv" / "bin" / "agora"
-            if agora_bin.exists():
+            # 查找顺序: PATH → cockpit 自身 .venv (agora 是依赖, 装在这里) → agora 项目 .venv
+            import shutil as _shutil
+            import sys as _sys
+
+            _exe = "agora.exe" if _sys.platform == "win32" else "agora"
+            _venv_bin = Path(_sys.executable).parent
+            agora_candidates = [
+                Path(_shutil.which("agora") or ""),
+                _venv_bin / _exe,
+                ws / "projects" / "agora" / ".venv" / "bin" / _exe,
+            ]
+            agora_bin = next((p for p in agora_candidates if p and p.exists()), None)
+            if agora_bin is not None:
                 result = _sp.run([str(agora_bin), "stats"], capture_output=True, text=True, timeout=15)
                 if not args.json:
                     for line in result.stdout.split("\n"):
                         if "总计" in line or "健康" in line or "异常" in line or "健康率" in line:
                             console.print(f"  [dim]{line.strip()}[/]")
             else:
-                console.print("[yellow]⚠ agora CLI 未安装[/]")
+                console.print(
+                    "[yellow]⚠ I0 agora stats 不可用 (CLI 未找到, 服务发现维度); "
+                    "上方健康率来自 L4 文档域聚合, 两者口径独立[/]"
+                )
         except Exception as e:  # defensive fallback
             console.print(f"[yellow]⚠ I0 检查跳过: {e}[/]")
 
