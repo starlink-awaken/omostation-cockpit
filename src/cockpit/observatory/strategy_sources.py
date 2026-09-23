@@ -29,7 +29,9 @@ MAX_FILES = 1000
 MAX_FILE_BYTES = 256 * 1024
 MAX_TOTAL_BYTES = 16 * 1024 * 1024
 MAX_RUN_FILES = 250
-MAX_RETRO_FILES = 500
+# 2026-09-23: retros 递归文件数已达 516 (500 上限触发 retros:sample_budget → hard_gaps,
+# cascading_test 的 test_collect_strategy_sources_smoke 断言 hard_gaps==[] 失败)。提到 600 留余量。
+MAX_RETRO_FILES = 600
 MAX_DOCUMENTS = 500
 MAX_HEADINGS = 500
 RETRO_HEADER_BYTES = 8 * 1024
