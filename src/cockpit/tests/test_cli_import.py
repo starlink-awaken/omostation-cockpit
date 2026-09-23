@@ -236,3 +236,39 @@ def test_cmd_import_empty_body(monkeypatch):
     output = capture.export_text()
     assert code == 1
     assert "导入内容为空" in output
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 2026-09-24 真实业务走查回归 — 二进制拒绝 + OCR 标题去噪
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestImportBinaryAndTitleNoise:
+    def test_binary_docx_rejected_with_guidance(self, tmp_path, capsys):
+        """PK 魔数 (docx) 应拒绝导入并给出转换指引, 而非乱码入库 ("PK" 标题事故)。"""
+        from cockpit.commands.importer import cmd_import
+
+        binary = tmp_path / "report.docx"
+        binary.write_bytes(b"PK\x03\x04" + b"\x00" * 64)
+        args = argparse.Namespace(source=str(binary), json=False)
+        code = cmd_import(args)
+        captured = capsys.readouterr()
+        combined = str(captured.out) + str(captured.err)
+        assert code == 1
+        assert "二进制" in combined
+        assert "textutil" in combined
+
+    def test_title_skips_ocr_page_markers(self):
+        """OCR 首行 "--- Page 1 ---" 不应成为研究标题。"""
+        from cockpit.commands.base import _derive_import_title
+
+        text = "--- Page 1 ---\n\n《北京市概念验证平台建设工作指引》发布\n正文..."
+        title = _derive_import_title("x.txt", text)
+        assert title == "《北京市概念验证平台建设工作指引》发布"
+
+    def test_title_skips_markdown_divider(self):
+        """markdown 分隔线 "---" 不应成为标题 (周报导入 "---" 事故)。"""
+        from cockpit.commands.base import _derive_import_title
+
+        title = _derive_import_title("weekly.md", "---\n# 内容采集周报\n正文")
+        assert title == "# 内容采集周报".lstrip("# ").strip() or "周报" in title

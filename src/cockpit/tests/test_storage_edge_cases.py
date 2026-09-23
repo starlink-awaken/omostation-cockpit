@@ -198,3 +198,26 @@ def test_normalize_tags_direct():
     # Single element
     result3 = storage._normalize_tags(["single"])
     assert result3 == ["single"]
+
+
+def test_list_research_deserializes_follow_ups(tmp_path, monkeypatch):
+    """list_research 必须返回反序列化后的 follow_ups 列表 — 否则追问统计恒为 0 (2026-09-24 走查实证)。"""
+    import json
+    import time
+
+    import cockpit.paths as _paths
+    from cockpit.storage_sqlite import SQLiteDataAccess
+
+    monkeypatch.setattr(_paths, "DB_PATH", tmp_path / "w.db")
+    access = SQLiteDataAccess()
+    rid = access.save_research(topic="t", summary="s", full_text="f")
+    access.add_follow_up(rid, "Q?", "A!")
+    results = access.list_research(limit=10)
+    row = next(r for r in results if r["id"] == rid)
+    assert isinstance(row["follow_ups"], list)
+    assert row["follow_ups"] and row["follow_ups"][0]["question"] == "Q?"
+    assert "answer" in row["follow_ups"][0]
+    assert json.dumps(row["follow_ups"], ensure_ascii=False)
+    # 时间戳字段存在性 (follow-up 工作台依赖)
+    assert isinstance(row["follow_ups"][0].get("timestamp"), float)
+    assert time.time() >= row["follow_ups"][0]["timestamp"]

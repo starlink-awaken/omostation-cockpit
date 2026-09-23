@@ -177,7 +177,7 @@ class SQLiteDataAccess:
         self._ensure_db()
         conn = self._connect()
         conn.row_factory = sqlite3.Row
-        query = "SELECT id, topic, summary, created_at, source_count, tags, archived_at, archive_reason, quarantined_at, quarantine_reason, agent FROM research"
+        query = "SELECT id, topic, summary, created_at, source_count, follow_ups, tags, archived_at, archive_reason, quarantined_at, quarantine_reason, agent FROM research"
         filters: list[str] = []
         if not include_quarantined:
             filters.append("quarantined_at IS NULL")
@@ -192,6 +192,11 @@ class SQLiteDataAccess:
         results = [dict(r) for r in rows]
         for item in results:
             item["tags"] = json.loads(item.get("tags", "[]"))
+            # follow_ups 同步反序列化 — 否则 follow-up 工作台/daily/status 的追问统计恒为 0 (2026-09-24 走查实证)
+            try:
+                item["follow_ups"] = json.loads(item.get("follow_ups") or "[]")
+            except (json.JSONDecodeError, TypeError):
+                item["follow_ups"] = []
         return results
 
     def search_research(self, keyword: str, limit: int = 10) -> list[dict[str, Any]]:

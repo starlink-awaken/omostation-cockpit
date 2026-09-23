@@ -395,9 +395,17 @@ def cmd_research_ask(args: argparse.Namespace) -> int:
     )
     answer_quality: str = "degraded"
     answer: str = ""
+    # 注入材料原文片段 — 只给 topic 会让降级模型凭标题幻觉"编造文档内容" (合同审查场景实证, 2026-09-24)
+    _material = f"{research.get('summary', '')}\n{research.get('full_text', '')}".strip()
+    _material_snippet = _material[:3000]
+    _grounding = (
+        f"\n\n【研究材料摘录】(基于以下材料回答, 材料未涵盖的部分请明确说明材料中未提及):\n{_material_snippet}"
+        if _material_snippet
+        else ""
+    )
     minerva = _find_cli("minerva")
     if minerva:
-        question_with_context = f"{question} (based on: {research['topic']})"
+        question_with_context = f"{question} (based on: {research['topic']}){_grounding}"
         with Progress(
             SpinnerColumn(style="cyan"),
             TextColumn("[bold]{task.description}[/bold]"),
@@ -417,7 +425,7 @@ def cmd_research_ask(args: argparse.Namespace) -> int:
             answer_quality = "degraded"
             _get_err().print("[yellow]⚠️ minerva 执行失败，尝试 ollama 降级...[/yellow]")
             ollama_out = _run_ollama(
-                f"基于以下研究主题回答问题（用中文简洁回答）:\n\n研究: {research['topic']}\n问题: {question}"
+                f"基于以下研究材料回答问题（用中文简洁回答，材料未涵盖的部分请明确说明）:\n{_grounding}\n\n问题: {question}"
             )
             if ollama_out:
                 answer = (
@@ -435,7 +443,7 @@ def cmd_research_ask(args: argparse.Namespace) -> int:
         answer_quality = "degraded"
         _research_progress("正在关联上下文并生成答复")
         ollama_out = _run_ollama(
-            f"基于以下研究主题回答问题（用中文简洁回答）:\n\n研究: {research['topic']}\n问题: {question}"
+            f"基于以下研究材料回答问题（用中文简洁回答，材料未涵盖的部分请明确说明）:\n{_grounding}\n\n问题: {question}"
         )
         if ollama_out:
             answer = f"[ollama 回复] {ollama_out}\n\n---\n⚠️ **注意：此为 ollama 降级回复，非 minerva 研究引擎结果。**"
@@ -512,7 +520,7 @@ def cmd_research_publish(args: argparse.Namespace) -> int:
     _get_data_access().save_published_report(research_id, style, str(output_path))
     _get_console().print(
         _panel(
-            f"[bold green]✅ 已发布到[/bold green]\n{output_path}\n\n下一步:\n- `cockpit research open {result['id']}`\n- `cockpit research export {result['id']} --format markdown`",
+            f"[bold green]✅ 已发布到[/bold green]\n{output_path}\n\n下一步:\n- `cockpit research open {result['id']}`\n- `cockpit research export {result['id']} --format markdown`\n- `cockpit render docx --input <导出的md> --output report.docx`  — 生成 GB/T 9704 红头公文",
             "green",
         )
     )
@@ -993,7 +1001,8 @@ def cmd_research_export(args: argparse.Namespace) -> int:
         dossier = _get_data_access().get_research_dossier(result["id"])
         pub_count = len(dossier.get("publications", [])) if dossier else 0
         hl = _get_data_access().compute_half_life(result["id"])
-        _get_console().print(
+        # JSON 必须裸 print — rich console.print 会原样透传控制字符破坏 JSON 合法性 (2026-09-24 走查实证)
+        print(
             _json.dumps(
                 {
                     "id": result["id"],

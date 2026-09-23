@@ -30,6 +30,24 @@ def cmd_family_hub(args: argparse.Namespace) -> int:
         console.print("[cyan]family-hub[/cyan]")
         console.print("  API server:  bun run api  (api/server.ts)")
         console.print("  MCP server:  python mcp_server.py")
+        # 真实探测 API 是否在跑 + 前置条件 (2026-09-24 走查: 只打印启动命令不探测状态, 用户无法判断可用性)
+        import urllib.error
+        import urllib.request
+
+        api_port = int(__import__("os").environ.get("FAMILY_HUB_PORT", "3001"))
+        try:
+            with urllib.request.urlopen(f"http://localhost:{api_port}/api/health", timeout=2) as resp:  # noqa: S310
+                import json as _json
+
+                health = _json.loads(resp.read())
+            console.print(f"  [green]● API 运行中[/green] :{api_port} · db={health.get('database', '?')}")
+            if not health.get("write_auth_configured"):
+                console.print("  [yellow]⚠ FAMILY_HUB_API_TOKEN 未配置 — 数据接口停用[/yellow]")
+                console.print("[dim]    启动: `cockpit family-hub api` (需 bun) · 配置 token 后数据面可用[/dim]")
+        except (urllib.error.URLError, OSError):
+            console.print(f"  [red]● API 未运行[/red] :{api_port}  [dim]→ `cockpit family-hub api`[/dim]")
+        except Exception as exc:  # defensive — status 永不崩溃
+            console.print(f"  [yellow]● API 探测失败[/yellow] [dim]({exc})[/dim]")
         return 0
     if subcmd == "api":
         bun_bin = shutil.which("bun")

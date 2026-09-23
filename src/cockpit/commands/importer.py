@@ -122,6 +122,17 @@ def cmd_import(args: argparse.Namespace) -> int:
                 _get_err().print(f"[red]❌ 未找到要导入的文件: {source}[/red]")
                 _notify_pipeline_error("导入", source)
                 return 1
+            # 二进制魔数校验 — docx/pdf 等按纯文本读会产生乱码研究记录 ("PK" 标题事故, 2026-09-24 走查实证)
+            head_bytes = path.open("rb").read(8)
+            _BINARY_MAGIC = (b"PK\x03\x04", b"%PDF", b"\x1f\x8b", b"\x89PNG", b"\xff\xd8\xff", b"\x00\x00\x00 ")
+            if any(head_bytes.startswith(m) for m in _BINARY_MAGIC):
+                _get_err().print(
+                    f"[red]❌ {path.suffix or '该文件'} 是二进制格式，无法直接导入为文本。[/red]"
+                    "\n[yellow]建议: docx 先转文本 — `textutil -convert txt -stdout <file>.docx > <file>.txt`"
+                    " (macOS)；PDF 用 `pdftotext`。转换后再 `cockpit import <文本文件>`。[/yellow]"
+                )
+                _notify_pipeline_error("导入", f"binary file: {path.name}")
+                return 1
             raw_text = path.read_text(encoding="utf-8", errors="replace")
             resolved_source = str(path)
     except urlerror.URLError as exc:
