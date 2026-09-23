@@ -94,9 +94,9 @@ def build_research_hub() -> dict[str, Any]:
         )
         status = _research_status(record)
         if publications:
-            next_action = f"继续打开研究或处理追问：cockpit research --open {research_id}"
+            next_action = f"继续打开研究或处理追问：cockpit research open {research_id}"
         else:
-            next_action = f"发布一版研究摘要：cockpit research --publish {research_id} --style brief"
+            next_action = f"发布一版研究摘要：cockpit research publish {research_id} --style brief"
 
         recent.append(
             {
@@ -148,9 +148,9 @@ def build_research_hub() -> dict[str, Any]:
             {
                 "id": "research-publish",
                 "label": "发布最近研究",
-                "value": f"cockpit research --publish {latest_id} --style brief"
+                "value": f"cockpit research publish {latest_id} --style brief"
                 if latest_id
-                else "cockpit research --publish <ID> --style brief",
+                else "cockpit research publish <ID> --style brief",
                 "detail": "把研究对象转成可追踪的报告输出。",
             },
             {

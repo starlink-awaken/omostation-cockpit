@@ -100,6 +100,7 @@ def register_research_subcommands(
     r_export.add_argument("--format", choices=["markdown", "text", "json"], default="markdown", help="导出格式")
     r_ask = r_sub.add_parser("ask", help="对指定研究发起追问")
     r_ask.add_argument("id", type=int, metavar="ID", help="研究 ID")
+    r_ask.add_argument("question", nargs=argparse.REMAINDER, metavar="QUESTION", help="问题内容")
 
     # search / compare / merge / digest
     r_sub.add_parser("search", help="全文搜索").add_argument("keyword", type=str, metavar="KEYWORD")

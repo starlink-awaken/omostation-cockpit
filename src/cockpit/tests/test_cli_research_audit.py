@@ -103,7 +103,7 @@ def test_cmd_research_audit_flags_traceback_records(monkeypatch):
     # Suggestion line may be wrapped by Rich; assert constituent tokens.
     assert "cockpit" in output or "workspace" in output
     assert "research" in output
-    assert "--open" in output
+    assert "research open" in output
     assert "10" in output
 
 

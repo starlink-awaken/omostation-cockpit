@@ -407,3 +407,47 @@ class TestCmdResearchOpen:
         assert '"id": 42' in output
         assert '"topic": "test topic"' in output
         assert '"full_text": "研究全文内容"' in output
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 真实 argparse 路径 — 防止"测试绿但 CLI 坏"回归 (dispatch 期望 a.ask=[id, question])
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestResearchAskArgparsePath:
+    """端到端 parser 验证: cockpit research ask <ID> <问题> 必须产出 handler 可消费的属性。"""
+
+    def test_ask_parser_produces_id_and_question(self):
+        """parse_args(['research','ask','42','为什么']) → id=42, question=['为什么']"""
+        parser, _, _ = cli.create_parser([])
+        args = parser.parse_args(["research", "ask", "42", "为什么", "Transformer", "重要？"])
+        assert args.research_command == "ask"
+        assert args.id == 42
+        assert args.question == ["为什么", "Transformer", "重要？"]
+
+    def test_ask_dispatch_assembly_matches_handler_contract(self, monkeypatch):
+        """复现 dispatch_research ask 分支的属性组装 → handler 应正常执行而非报参数缺失。"""
+        parser, _, _ = cli.create_parser([])
+        a = parser.parse_args(["research", "ask", "42", "为什么？"])
+        # 与 cli.py dispatch_research ask 分支保持一致
+        a.ask = [a.id] + list(getattr(a, "question", None) or [])
+
+        capture = Console(record=True, force_terminal=True, width=140)
+        monkeypatch.setattr(cli, "console", capture)
+        monkeypatch.setattr(cli, "err", capture)
+        mock = MockDataAccess()
+        mock.get_research = lambda rid: _make_research(id=42)
+        mock.add_follow_up = lambda rid, q, ans: None
+        monkeypatch.setattr(cli, "get_data_access", lambda: mock)
+        from cockpit.commands import base as _base_mod
+
+        monkeypatch.setattr(_base_mod, "_research_progress", lambda task: None)
+        monkeypatch.setattr(_base_mod, "_find_cli", lambda name: None)
+        monkeypatch.setattr(_base_mod, "_run_ollama", lambda prompt: "Mock 回答")
+        monkeypatch.setattr(_base_mod, "_notify_research_complete", lambda topic: None)
+
+        code = cli.cmd_research_ask(a)
+        output = capture.export_text()
+        assert code == 0
+        assert "为什么？" in output
+        assert "参数缺失" not in output and "请提供研究 ID" not in output

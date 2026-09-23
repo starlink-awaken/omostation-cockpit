@@ -140,7 +140,7 @@ def _f1_technical_radar(*, limit: int = 10) -> dict[str, Any]:
                     "source": "cockpit:research (DB unavailable)",
                     "source_path": str(research_db),
                     "timestamp": _now_iso(),
-                    "next_action": "open cockpit research --list to triage",
+                    "next_action": "open cockpit research list to triage",
                     "evidence_id": None,
                 }
             )
