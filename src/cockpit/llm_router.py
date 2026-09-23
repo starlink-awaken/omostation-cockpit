@@ -72,6 +72,9 @@ def _chat_gateway(prompt: str, model: str, temperature: float = 0.7, max_tokens:
         content = msg.get("content") or ""
         if not content:
             content = msg.get("reasoning_content") or ""
+        if not content:
+            # 设计原则 3: 每级失败打印原因 — 网关返回空 content 不应静默
+            print(f"[llm-router] Tier1 网关空响应: 模型 {model!r} — 视为失败")
         return content or None
     except Exception as exc:
         print(f"[llm-router] Tier1 HTTP 网关失败: {exc}")
@@ -99,7 +102,11 @@ def _chat_ollama(prompt: str, model: str, temperature: float = 0.3, num_predict:
         )
         with urlrequest.urlopen(req, timeout=120) as resp:  # noqa: S310
             data = json.loads(resp.read())
-        return data.get("response", "")
+        content = data.get("response", "")
+        if not content:
+            # 设计原则 3: 每级失败打印原因 — ollama 返回空响应 (模型异常/过载/thinking 耗尽配额) 不应静默
+            print(f"[llm-router] Tier2 ollama 空响应: 模型 {model!r} (done={data.get('done')}) — 视为失败")
+        return content
     except Exception as exc:
         print(f"[llm-router] Tier2 ollama 失败: {exc}")
         return None

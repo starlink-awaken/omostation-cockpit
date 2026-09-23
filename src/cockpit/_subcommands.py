@@ -117,7 +117,7 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     # list/summary 委派 omo debt (修复 US-C2: invalid choice: 'list' 被 argparse 拦)
     debt_list_p = debt_sub.add_parser("list", help="列债务项 (委派 omo debt)")
     debt_list_p.add_argument("omo_debt_args", nargs=argparse.REMAINDER, help="传给 omo debt 的参数")
-    debt_summary_p = debt_sub.add_parser("summary", help="债务摘要 (委派 omo debt)")
+    debt_summary_p = debt_sub.add_parser("summary", help="债务摘要 (映射 omo debt report)")
     debt_summary_p.add_argument("omo_debt_args", nargs=argparse.REMAINDER, help="传给 omo debt 的参数")
     runtime_p = sub.add_parser(
         "runtime",

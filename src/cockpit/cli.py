@@ -397,7 +397,7 @@ def main(argv: list[str] | None = None) -> int:
                 "  [cyan]cockpit brief[/]            — 会话简报\n\n"
                 "[bold]研究对象[/]\n"
                 '  [cyan]cockpit research "主题"[/]   — 发起研究\n'
-                "  [cyan]cockpit research --list[/]   — 查看历史\n\n"
+                "  [cyan]cockpit research list[/]   — 查看历史\n\n"
                 "[bold]项目入口[/]\n"
                 "  [cyan]cockpit agora[/]            — BOS 服务网关\n"
                 "  [cyan]cockpit kairon[/]            — 知识引擎 monorepo\n"
@@ -474,7 +474,8 @@ def main(argv: list[str] | None = None) -> int:
             a.open = _id  # export 用 --open 传 id
             return cmd_research_export(a)
         if cmd == "ask":
-            a.ask = _id
+            # handler 期望 [research_id, question] 列表 (cmd_research_ask 兼容双形式)
+            a.ask = [_id] + list(getattr(a, "question", None) or [])
             return cmd_research_ask(a)
         if cmd == "search":
             a.search = getattr(a, "keyword", "")
@@ -636,9 +637,11 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_debt_score(a)
         # 其他子命令 (list/summary/predict 等) 委派给 omo debt
         # 子命令名作为 omo debt 首参 (cockpit debt list → omo debt list)
+        # summary 在 omo debt 中叫 report — 此处做别名映射, 避免 invalid choice
         from cockpit.commands.omo import cmd_omo_debt
 
-        a.omo_debt_args = [sub] + list(getattr(a, "omo_debt_args", []))
+        omo_sub = "report" if sub == "summary" else sub
+        a.omo_debt_args = [omo_sub] + list(getattr(a, "omo_debt_args", []))
 
         return cmd_omo_debt(a)
 

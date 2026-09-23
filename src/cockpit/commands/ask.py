@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import json
 import os
 import subprocess
-import urllib.error
-import urllib.request
 
 from rich.console import Console
 from rich.markdown import Markdown
@@ -33,63 +30,35 @@ def _get_api_key() -> str:
         return ""
 
 
-def _get_model() -> str:
-    """Get the available coding model from the local directory."""
-    url = f"{AETHERFORGE_BASE_URL}/models"
-    req = urllib.request.Request(url)  # noqa: S310
-    key = _get_api_key()
-    if key:
-        req.add_header("Authorization", f"Bearer {key}")
-    try:
-        with urllib.request.urlopen(req, timeout=3.0) as response:  # noqa: S310
-            catalog = json.load(response)
-            items = catalog.get("data", [])
-            for item in items:
-                if item.get("id", "").startswith("coding"):
-                    return item["id"]
-            if items:
-                return items[0]["id"]
-    except Exception:
-        pass
-    return "coding-next"
-
-
 def cmd_ask(args) -> int:
-    """快速询问本地大模型."""
+    """快速询问本地大模型 (llm-router 三级降级: omlxc 网关 → ollama)。"""
     prompt = " ".join(args.prompt) if getattr(args, "prompt", None) else None
     if not prompt:
         console.print('[yellow]用法: cockpit ask "你的问题"[/yellow]')
         return 1
 
-    model = getattr(args, "model", None) or _get_model()
-
-    url = f"{AETHERFORGE_BASE_URL}/chat/completions"
-    payload = {"model": model, "messages": [{"role": "user", "content": prompt}], "stream": False}
-
-    req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"))  # noqa: S310
-    req.add_header("Content-Type", "application/json")
-
-    key = _get_api_key()
-    if key:
-        req.add_header("Authorization", f"Bearer {key}")
+    model = getattr(args, "model", None)
 
     try:
-        with console.status(f"[cyan]AetherForge ({model}) is thinking...[/cyan]"):
-            with urllib.request.urlopen(req, timeout=120.0) as response:  # noqa: S310
-                result = json.load(response)
-                content = result["choices"][0]["message"]["content"]
+        from cockpit.llm_router import complete
 
-        console.print()
-        console.print(Markdown(content))
-        console.print()
-        return 0
-
-    except urllib.error.HTTPError as e:
-        console.print(f"[red]HTTP Error {e.code}: {e.read().decode('utf-8')}[/red]")
-        return 1
-    except Exception as e:
+        with console.status("[cyan]llm-router 推理中 (omlxc → ollama)...[/cyan]"):
+            content, source = complete(prompt, model=model)
+    except Exception as e:  # noqa: BLE001 — CLI 边界兜底, 保持与旧行为一致的错误呈现
         console.print(f"[red]Error: {e}[/red]")
         return 1
+
+    if not content:
+        console.print("[red]所有推理后端均不可用 (omlxc 网关 + ollama)。[/red]")
+        console.print("[yellow]排查: 1) 启动 omlxc 网关  2) `ollama pull <model>` 拉取本地模型[/yellow]")
+        return 1
+
+    console.print()
+    console.print(Markdown(content))
+    console.print()
+    if source == "ollama":
+        console.print("[dim]⚠️ 此为 ollama 降级回复 (omlxc 网关不可用)。[/dim]")
+    return 0
 
 
 def cmd_proxy_env(args) -> int:

@@ -209,14 +209,17 @@ def _render_workbench(cycle: int | None = None, interval: float | None = None) -
                 status_badge = "[yellow]🧊 待保鲜[/yellow]"
             else:
                 status_badge = "[green]✅ 活跃[/green]"
-            actions = f"[cyan]open {rid}[/]  [cyan]ask {rid}[/]  [cyan]pub {rid}[/]  [cyan]dos {rid}[/]"
+            actions = (
+                f"[cyan]research open {rid}[/]  [cyan]research ask {rid}[/]  "
+                f"[cyan]research publish {rid}[/]  [cyan]research dossier {rid}[/]"
+            )
             wb_table.add_row(str(rid), r["topic"], status_badge, src, fups, actions)
         c.print(wb_table)
         c.print(
             _panel(
-                "[dim]💡 提示:[/dim] [cyan]cockpit research --open <ID>[/] 查看详情  ·  "
-                "[cyan]cockpit research --publish <ID> --style brief[/] 发布报告  ·  "
-                "[cyan]cockpit research --dossier <ID>[/] 查看关系",
+                "[dim]💡 提示:[/dim] [cyan]cockpit research open <ID>[/] 查看详情  ·  "
+                "[cyan]cockpit research publish <ID> --style brief[/] 发布报告  ·  "
+                "[cyan]cockpit research dossier <ID>[/] 查看关系",
                 "dim",
             )
         )
@@ -235,13 +238,13 @@ def _render_workbench(cycle: int | None = None, interval: float | None = None) -
         recs.append("[cyan]cockpit demo[/] — 快速体验完整旅程")
     elif active_count == 1 and recent:
         latest = recent[0]
-        recs.append(f"[cyan]cockpit research --open {latest['id']}[/] — 继续'{latest['topic']}'")
-        recs.append(f'[cyan]cockpit research --ask {latest["id"]} "追问"[/] — 深入挖掘')
-        recs.append(f"[cyan]cockpit research --publish {latest['id']} --style brief[/] — 发布为报告")
+        recs.append(f"[cyan]cockpit research open {latest['id']}[/] — 继续'{latest['topic']}'")
+        recs.append(f'[cyan]cockpit research ask {latest["id"]} "追问"[/] — 深入挖掘')
+        recs.append(f"[cyan]cockpit research publish {latest['id']} --style brief[/] — 发布为报告")
     else:
-        recs.append("[cyan]cockpit research --list[/] — 浏览所有活跃研究")
+        recs.append("[cyan]cockpit research list[/] — 浏览所有活跃研究")
         recs.append("[cyan]cockpit daily[/] — 今日研究简报")
-        recs.append("[cyan]cockpit research --audit[/] — 治理审计")
+        recs.append("[cyan]cockpit research audit[/] — 治理审计")
     if healthy_count < total_services:
         offline = total_services - healthy_count
         offline_list = ", ".join(offline_names[:5]) + ("…" if len(offline_names) > 5 else "")
@@ -820,19 +823,21 @@ def cmd_daily(args: argparse.Namespace) -> int:
         else:
             decay_mark = f"[red]{decay:.2f}[/]"
         fup_count = len(r.get("follow_ups") or [])
-        actions = f"[cyan]open {rid}[/]  [cyan]ask {rid}[/]  [cyan]pub {rid}[/]"
+        actions = (
+            f"[cyan]research open {rid}[/]  [cyan]research ask {rid}[/]  [cyan]research publish {rid}[/]"
+        )
         table.add_row(str(rid), r["topic"], status, decay_mark, str(fup_count), actions)
     c.print(table)
     unpub = [r for r in recent if r.get("archived_at") is None]
     no_fup = [r for r in unpub if not r.get("follow_ups")]
     recs = []
     if no_fup:
-        recs.append(f'[cyan]cockpit research --ask {no_fup[0]["id"]} "追问"[/] — 深入尚未追问的研究')
+        recs.append(f'[cyan]cockpit research ask {no_fup[0]["id"]} "追问"[/] — 深入尚未追问的研究')
     if unpub:
-        recs.append(f"[cyan]cockpit research --publish {unpub[0]['id']} --style brief[/] — 发布重点研究")
-        recs.append(f"[cyan]cockpit research --dossier {unpub[0]['id']}[/] — 查看研究关系网")
-    recs.append("[cyan]cockpit research --audit[/] — 检查待治理对象")
-    recs.append(f"[cyan]cockpit research --open {recent[0]['id']}[/] — 继续最近研究")
+        recs.append(f"[cyan]cockpit research publish {unpub[0]['id']} --style brief[/] — 发布重点研究")
+        recs.append(f"[cyan]cockpit research dossier {unpub[0]['id']}[/] — 查看研究关系网")
+    recs.append("[cyan]cockpit research audit[/] — 检查待治理对象")
+    recs.append(f"[cyan]cockpit research open {recent[0]['id']}[/] — 继续最近研究")
     c.print(_panel("[bold]🎯 优先级推荐[/bold]\n" + "\n".join(f"  {r}" for r in recs), "cyan"))
     return 0
 

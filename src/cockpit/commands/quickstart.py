@@ -69,7 +69,7 @@ def _ensure_workspace_db() -> bool:
         get_data_access().save_research(
             topic="欢迎使用 Workspace",
             summary="这是您的第一条研究记录。Workspace 已准备就绪！",
-            full_text='恭喜您成功初始化 Workspace 环境！\n\n您可以通过以下命令开始使用：\n- `cockpit research "主题"` 发起新研究\n- `cockpit research --list` 浏览记录\n- `cockpit demo` 体验完整闭环',
+            full_text='恭喜您成功初始化 Workspace 环境！\n\n您可以通过以下命令开始使用：\n- `cockpit research "主题"` 发起新研究\n- `cockpit research list` 浏览记录\n- `cockpit demo` 体验完整闭环',
             source_count=1,
         )
         return True
@@ -412,7 +412,7 @@ def cmd_quickstart(args: argparse.Namespace) -> int:
     guide.add_column("说明", width=40)
     guide.add_row("1", "[cyan]cockpit demo[/]", "体验研究闭环（5 分钟）")
     guide.add_row("2", '[cyan]cockpit research "主题"[/]', "发起你的第一个研究")
-    guide.add_row("3", "[cyan]cockpit research --list[/]", "浏览所有研究记录")
+    guide.add_row("3", "[cyan]cockpit research list[/]", "浏览所有研究记录")
     guide.add_row("4", "[cyan]cockpit status[/]", "查看工作台（含 Memory OS 行）")
     guide.add_row("5", "[cyan]cockpit memory status --json[/]", "Memory OS 控制面健康")
     guide.add_row("6", "[cyan]cockpit daily[/]", "每日研究简报")
