@@ -69,10 +69,18 @@ def create_parser(
             from cockpit.domain.fuzzy_matcher import find_closest_commands
 
             suggestions = []
+            natural_language = False
+            bad_word = ""
             m = re.search(r"invalid choice: '([^']+)'", message)
             if m:
                 bad_word = m.group(1)
                 suggestions = find_closest_commands(bad_word)
+                # 低智商用户最大卡点: 直接输入自然语言 (中文/长句) 而非命令名。
+                # 倾泻 110+ 命令目录毫无引导价值 — 识别为自然语言时改给任务式引导。
+                if bad_word and (
+                    re.search(r"[一-鿿]", bad_word) or len(bad_word) > 24
+                ):
+                    natural_language = True
 
             is_json = (
                 "--json" in current_argv
@@ -87,6 +95,18 @@ def create_parser(
                 sys.exit(2)
 
             parser_console = get_console()
+            if natural_language:
+                parser_console.print(
+                    f"\n[bold red]✗[/] [cyan]{bad_word}[/cyan] 看起来是一句话，不是一个命令。"
+                )
+                parser_console.print("\n[bold cyan]🎯 按你想做的事选择:[/]")
+                parser_console.print(f'  • 想深入研究   [green]cockpit research "{bad_word}"[/]')
+                parser_console.print(f'  • 想快速提问   [green]cockpit ask "{bad_word}"[/]')
+                parser_console.print(f'  • 想边检索边答 [green]cockpit brain ask {bad_word}[/]')
+                parser_console.print("\n[dim]完整命令目录: cockpit help · 按关键词搜: cockpit help <关键词>[/]")
+                parser_console.print()
+                sys.exit(2)
+
             parser_console.print(f"\n[bold red]✗[/] {message}")
 
             if suggestions:

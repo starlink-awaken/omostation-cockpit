@@ -186,7 +186,12 @@ def cmd_add(args: argparse.Namespace) -> int:
         console.print(f"[red]❌ 无法添加决策项:[/] {result.get('error', 'unknown error')}")
         return 1
     item = result.get("intent", {})
-    console.print(f"[green]✓ 已添加决策项:[/] {item.get('id', '?')} — {title}")
+    item_id = item.get("id", "?")
+    console.print(f"[green]✓ 已添加决策项:[/] {item_id} — {title}")
+    console.print("[dim]下一步:[/] "
+                  f"[cyan]cockpit decide approve {item_id}[/] 批准 · "
+                  f"[cyan]cockpit decide reject {item_id}[/] 拒绝 · "
+                  "[cyan]cockpit decide list[/] 查看收件箱")
     return 0
 
 

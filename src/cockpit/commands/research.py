@@ -512,7 +512,7 @@ def cmd_research_publish(args: argparse.Namespace) -> int:
     _get_data_access().save_published_report(research_id, style, str(output_path))
     _get_console().print(
         _panel(
-            f"[bold green]✅ 已发布到[/bold green]\n{output_path}\n\n下一步:\n- `cockpit research open {result['id']}`\n- `cockpit research export markdown --open {result['id']}`",
+            f"[bold green]✅ 已发布到[/bold green]\n{output_path}\n\n下一步:\n- `cockpit research open {result['id']}`\n- `cockpit research export {result['id']} --format markdown`",
             "green",
         )
     )

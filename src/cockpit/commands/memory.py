@@ -71,8 +71,30 @@ def _invoke_mos(
         return {"ok": False, "error": "invalid json", "raw": proc.stdout[-500:]}
 
 
+def _humanize_errors(value: Any, depth: int = 0) -> Any:
+    """人类输出模式下截断深层原始异常串 (如 neo4j connection refused 堆栈)。
+
+    低智商走查发现: memory write 成功时输出尾部附带数十行 neo4j 原始异常,
+    用户误以为写入失败。--json 模式保持完整契约不变。
+    """
+    if depth > 6:
+        return value
+    if isinstance(value, dict):
+        out = {}
+        for k, v in value.items():
+            if k in ("error", "stderr") and isinstance(v, str) and len(v) > 120:
+                out[k] = v[:120].replace("\n", " ") + "… [--json 查看完整错误]"
+            else:
+                out[k] = _humanize_errors(v, depth + 1)
+        return out
+    if isinstance(value, list):
+        return [_humanize_errors(v, depth + 1) for v in value[:50]]
+    return value
+
+
 def _emit(result: dict[str, Any], *, as_json: bool) -> int:
-    text = json.dumps(result, ensure_ascii=False, indent=2)
+    payload = result if as_json else _humanize_errors(result)
+    text = json.dumps(payload, ensure_ascii=False, indent=2)
     if as_json:
         print(text)
     else:
