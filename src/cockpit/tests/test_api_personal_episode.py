@@ -908,8 +908,8 @@ def test_personal_status_read_only_summary(monkeypatch, tmp_path):
     assert body["controls"]["workflow_state_mutation"] is False
 
 
-def test_personal_setup_ingest_system_draft_e2e(monkeypatch, tmp_path):
-    """Setup → Ingest (local signal) → Confirm → System Draft works end-to-end."""
+def test_personal_setup_ingest_system_draft_feedback_e2e(monkeypatch, tmp_path):
+    """The Golden flow persists one private, causal, burden-aware episode."""
     import base64
 
     ledger_path = tmp_path / "event-ledger.sqlite3"
@@ -975,6 +975,19 @@ def test_personal_setup_ingest_system_draft_e2e(monkeypatch, tmp_path):
     assert artifact["output_origin"] == "system"
     assert "Important." not in json.dumps(artifact)
 
+    feedback = client.post(
+        "/api/workflow-mesh/personal-episode/feedback",
+        json={
+            "episode_id": episode_id,
+            "principal_id": "principal:alice",
+            "feedback_id": "feedback:golden-regression-001",
+            "verdict": "accept",
+            "review_duration_seconds": 30.0,
+            "estimated_time_saved_seconds": 300.0,
+        },
+    )
+    assert feedback.status_code == 200
+
     status = client.get(
         "/api/workflow-mesh/personal-episode/status",
         params={"principal_id": "principal:alice"},
@@ -985,3 +998,39 @@ def test_personal_setup_ingest_system_draft_e2e(monkeypatch, tmp_path):
     assert "content_sha256" not in status_text
     assert str(signal_dir) not in status_text
     assert "Important." not in status_text
+
+    observation = status.json()["observation"]
+    assert observation["qualifying_episodes"] == 1
+    assert observation["episode_gaps"] == {episode_id: []}
+    assert observation["weekly_samples"][0]["complete_burden_episodes"] == 1
+    assert observation["weekly_samples"][0]["review_lt_saved_episodes"] == 1
+
+    canonical_types = [
+        "SignalObserved.v1",
+        "RoleContextAssigned.v1",
+        "ResponsibilityLinked.v1",
+        "DecisionProposed.v1",
+        "HumanAdjudication.v1",
+        "MandateGranted.v1",
+        "ActionSucceeded.v1",
+        "EvidenceRecorded.v1",
+        "OutcomeObserved.v1",
+        "AdjudicationRecorded.v1",
+        "MemoryCandidateProposed.v1",
+        "EpisodeClosed.v1",
+    ]
+    broker = LedgerBroker.connect(ledger_path)
+    try:
+        rows = broker.read(episode_id=episode_id)
+        chain_rows = [row for row in rows if row["event_type"] in canonical_types]
+        assert [row["event_type"] for row in chain_rows] == canonical_types
+        assert all(
+            current["causation_id"] == previous["event_id"]
+            for previous, current in zip(chain_rows[:-1], chain_rows[1:], strict=True)
+        )
+        serialized_rows = json.dumps(rows)
+        assert "Important." not in serialized_rows
+        assert str(signal_dir) not in serialized_rows
+        assert broker.verify_chain()["ok"] is True
+    finally:
+        broker.close()
