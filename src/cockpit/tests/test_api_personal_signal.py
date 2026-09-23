@@ -20,7 +20,13 @@ from agora.mcp.policy_enforcement import reset_pep_provider_cache
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from omo.event_ledger import LedgerBroker
-from omo.personal_episode import EVT_EPISODE_DECISION, EVT_SIGNAL_OBSERVED
+from omo.personal_episode import (
+    EVT_DECISION_PROPOSED,
+    EVT_EPISODE_DECISION,
+    EVT_RESPONSIBILITY_LINKED,
+    EVT_ROLE_CONTEXT_ASSIGNED,
+    EVT_SIGNAL_OBSERVED,
+)
 from omo.sovereignty import SovereigntyService
 
 from cockpit.web import api_workflow_mesh_operations
@@ -143,12 +149,19 @@ def test_ingest_creates_causal_private_inbox_episode(monkeypatch, tmp_path):
         signal_payload = json.loads(signal_row["payload_json"])
         episode_payload = json.loads(episode_row["payload_json"])
 
-        # The SignalObserved event causally precedes the Inbox Episode decision.
+        # The signal is the root of the complete ingress chain, while the
+        # legacy Episode.Decision projection follows DecisionProposed.
         assert signal_row["privacy_class"] == "private"
         assert episode_row["privacy_class"] == "private"
         assert signal_row["event_id"] == payload["signal"]["signal_event_id"]
         assert episode_row["episode_id"] == payload["episode"]["episode_id"]
-        assert episode_row["causation_id"] == signal_row["event_id"]
+        role_row = next(row for row in rows if row["event_type"] == EVT_ROLE_CONTEXT_ASSIGNED)
+        responsibility_row = next(row for row in rows if row["event_type"] == EVT_RESPONSIBILITY_LINKED)
+        decision_row = next(row for row in rows if row["event_type"] == EVT_DECISION_PROPOSED)
+        assert role_row["causation_id"] == signal_row["event_id"]
+        assert responsibility_row["causation_id"] == role_row["event_id"]
+        assert decision_row["causation_id"] == responsibility_row["event_id"]
+        assert episode_row["causation_id"] == decision_row["event_id"]
         assert episode_payload["source_signal_ref"] == signal_row["event_id"]
         assert episode_payload["summary"] == "Follow up with the project team"
         assert episode_payload["status"] == "pending_confirmation"
@@ -261,8 +274,9 @@ def test_ingest_exact_replay_returns_same_ids_and_no_new_events(monkeypatch, tmp
     assert second.json()["signal"]["signal_event_id"] == first.json()["signal"]["signal_event_id"]
     assert second.json()["signal"]["signal_id"] == first.json()["signal"]["signal_id"]
     assert second.json()["episode"]["episode_id"] == first.json()["episode"]["episode_id"]
-    # role assignment + one SignalObserved + one Episode.Decision only.
-    assert _ledger_state(ledger_path) == (3, True)
+    # role assignment + complete ingress chain + legacy decision projection;
+    # the exact replay appends nothing.
+    assert _ledger_state(ledger_path) == (6, True)
 
 
 def test_ingest_changed_file_digest_creates_a_new_causal_pair(monkeypatch, tmp_path):
