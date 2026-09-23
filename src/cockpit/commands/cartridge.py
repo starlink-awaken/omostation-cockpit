@@ -28,6 +28,17 @@ def cmd_cartridge(args: argparse.Namespace) -> int:
         if not getattr(args, "cartridge_file", None) or not getattr(args, "intent", None):
             console.print("[red]❌ 缺少必要参数: cockpit cartridge run <FILE> --intent <INTENT>[/]")
             return 1
+        # export (ecos) 产出 YAML manifest 清单, run 只接受 pack 产出的 zip 胶囊 —
+        # 提前识别避免 "File is not a zip file" 裸报错 (2026-09-24 走查实证)
+        cartridge_file = Path(args.cartridge_file).expanduser()
+        if cartridge_file.exists() and cartridge_file.read_bytes()[:2] != b"PK":
+            console.print(
+                f"[red]❌ {cartridge_file.name} 是清单导出 (YAML), 不是可执行的卡带胶囊 (zip)。[/red]"
+                "\n[yellow]区别: `cartridge export <ID>` 导出已注册卡带的清单视图;"
+                " `cartridge pack <DIR> --output <FILE>.cartridge` 打包可执行胶囊。"
+                "运行请用 pack 产物。[/yellow]"
+            )
+            return 1
         workspace_root = resolve_workspace_root()
         return run_cartridge(args.cartridge_file, args.intent, workspace_root)
 

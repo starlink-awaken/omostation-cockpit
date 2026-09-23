@@ -273,10 +273,8 @@ class TestCmdResearchExport:
         assert "Title: Test Topic" in content
         assert "Date:" in content
 
-    def test_export_json(self, monkeypatch):
-        """json 导出→打印 JSON 到控制台"""
-        capture = Console(record=True, force_terminal=True, width=140)
-        monkeypatch.setattr(cli, "console", capture)
+    def test_export_json(self, monkeypatch, capsys):
+        """json 导出→裸 stdout 打印合法 JSON (不经 rich console — 控制字符会破坏 JSON, 2026-09-24 修复)"""
         mock_da = self._make_mock_da()
         mock_da.get_research_dossier = lambda rid: {
             "record": {"id": rid, "topic": "Test"},
@@ -287,13 +285,17 @@ class TestCmdResearchExport:
 
         code = cli.cmd_research_export(argparse.Namespace(research_id=1, export="json"))
 
-        output = capture.export_text()
+        output = capsys.readouterr().out
         assert code == 0
         assert '"id": 1' in output
         assert '"topic": "Test Topic"' in output
         assert '"published_count": 1' in output
         assert '"decay": 0.85' in output
         assert '"follow_up_count": 0' in output
+        # 输出必须是可解析的合法 JSON
+        import json as _json
+
+        _json.loads(output)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

@@ -138,6 +138,15 @@ def _derive_import_title(source: str, text: str) -> str:
         candidate = line.strip()
         if candidate.startswith("#"):
             candidate = candidate.lstrip("# ").strip()
+        # 跳过噪声行: OCR 页分隔/纯符号分隔线/markdown 水平线 — 否则 "--- Page 1 ---" 会成为研究标题
+        if not candidate:
+            continue
+        if re.fullmatch(r"(?:-{3,}|\*{3,}|={3,}|_{3,})(?:\s*\S{0,20})?", candidate) and not re.search(
+            r"[一-鿿A-Za-z]{3,}", candidate
+        ):
+            continue
+        if re.fullmatch(r"-{2,}\s*Page\s*\d+\s*-{2,}", candidate, flags=re.IGNORECASE):
+            continue
         if candidate:
             return _short(candidate, 80)
     if _looks_like_url(source):

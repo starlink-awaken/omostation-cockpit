@@ -261,6 +261,7 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     sub.add_parser(
         "gongwen",
         help="📄 公文写作门户引导 (文种/规范/入口, 委派 @公文 域)",
+        description="📄 公文写作门户 — 展示法定文种与写作规范; 红头 DOCX 导出请用 `cockpit render docx --input <md>` (GB/T 9704-2012)",
     )
     sub.add_parser(
         "finance",
@@ -680,7 +681,11 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
 
     # ── im-triage ─────────────────────────────────────────────
     # BET-Y1Q4-T2-02: IM 会话感知待办卡片渲染
-    sub.add_parser("im-triage", help="渲染 IM 会话感知待办卡片 (bos://im/session/triage)")
+    sub.add_parser(
+        "im-triage",
+        help="渲染 IM 会话感知待办卡片 (bos://im/session/triage)",
+        description="📱 IM 待办卡片渲染 — 当前数据面为演示数据; 真实 IM 信号接入待 bos://im/session 域启用",
+    )
 
     # ── BOS URI gateway ───────────────────────────────────────
     bos_p = sub.add_parser("bos", help="BOS URI 查询与管理")
