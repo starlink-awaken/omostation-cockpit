@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import sys
+import types
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -187,3 +190,35 @@ def test_adjudicate_endpoint_rejects_partial_payload():
     body = resp.json()
     assert body["ok"] is False
     assert "all required" in body["error"]
+
+
+def test_adjudicate_endpoint_blocks_legacy_truth_write(monkeypatch):
+    """A complete legacy payload must not create a parallel value-truth record."""
+
+    class ForbiddenStore:
+        def __init__(self):
+            raise AssertionError("legacy adjudication store must not be constructed")
+
+    legacy_module = types.ModuleType("omo.omo_adjudication")
+    legacy_module.AdjudicationStore = ForbiddenStore
+    legacy_module.HumanAdjudication = object
+    monkeypatch.setitem(sys.modules, "omo.omo_adjudication", legacy_module)
+
+    response = TestClient(_app()).post(
+        "/api/decision-inbox/decisions/do-001/adjudicate",
+        json={
+            "principal_id": "principal:x",
+            "verdict": "accept",
+            "authority_receipt_digest": "sha256:authority",
+            "scene_id": "scene-real-work",
+            "episode_id": "episode-real-work",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "ok": False,
+        "status": "blocked",
+        "error": "legacy_wp5_adjudication_disabled",
+        "canonical_endpoint": "/api/workflow-mesh/personal-episode/feedback",
+    }
