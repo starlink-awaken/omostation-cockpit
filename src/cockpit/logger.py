@@ -54,6 +54,8 @@ def configure_logging(
     """Configure basic root logging according to CLI flags."""
     if trace_id:
         os.environ[_TRACE_ID_VAR] = trace_id
-    level = logging.DEBUG if verbose else (logging.WARNING if quiet else logging.INFO)
+    # 默认 WARNING: root logger 只留给第三方库告警。cockpit 自身的用户输出走 rich console,
+    # 不经过 logging — 默认 INFO 会让 agora BOSRouter 等子模块 INFO 行泄漏进人类输出 (P45 走查实证)。
+    level = logging.DEBUG if verbose else logging.WARNING
     logging.basicConfig(level=level, format="%(asctime)s [%(levelname)s] %(message)s")
 

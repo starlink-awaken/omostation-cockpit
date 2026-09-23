@@ -104,8 +104,28 @@ def _chat_ollama(prompt: str, model: str, temperature: float = 0.3, num_predict:
             data = json.loads(resp.read())
         content = data.get("response", "")
         if not content:
-            # 设计原则 3: 每级失败打印原因 — ollama 返回空响应 (模型异常/过载/thinking 耗尽配额) 不应静默
-            print(f"[llm-router] Tier2 ollama 空响应: 模型 {model!r} (done={data.get('done')}) — 视为失败")
+            # thinking 模型 (如 qwen3.5) 可能把 num_predict 配额全部消耗在思考上, response 为空。
+            # 用 /api/chat + think:false 重试一次, 关闭思考模式直出答案。
+            print(f"[llm-router] Tier2 ollama 空响应: 模型 {model!r} (done={data.get('done')}) — 尝试 chat+think:false 重试")
+            try:
+                chat_payload = {
+                    "model": model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "stream": False,
+                    "think": False,
+                    "options": {"num_predict": num_predict, "temperature": temperature},
+                }
+                chat_req = urlrequest.Request(  # noqa: S310
+                    f"{OLLAMA_API}/api/chat",
+                    data=json.dumps(chat_payload).encode(),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlrequest.urlopen(chat_req, timeout=120) as chat_resp:  # noqa: S310
+                    chat_data = json.loads(chat_resp.read())
+                content = (chat_data.get("message") or {}).get("content") or ""
+            except Exception as retry_exc:
+                print(f"[llm-router] Tier2 ollama chat 重试失败: {retry_exc}")
         return content
     except Exception as exc:
         print(f"[llm-router] Tier2 ollama 失败: {exc}")
