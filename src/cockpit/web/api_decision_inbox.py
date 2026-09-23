@@ -217,16 +217,16 @@ async def inbox_summary() -> dict[str, Any]:
         return {"ok": False, "status": "error", "error": str(exc)}
 
 
-# ── WP5 (BET-Y1Q3-T4-07): human adjudication → OMO truth-writer ──────────────
+# ── WP5 legacy adjudication fuse ─────────────────────────────────────────────
 
 
 @router.post("/decisions/{decision_id}/adjudicate")
 async def adjudicate_decision(decision_id: str, request: Request) -> dict[str, Any]:
-    """WP5 human adjudication command — 只委派 OMO truth-writer, 不直接写 projection。
+    """Fail closed instead of creating a parallel legacy value-truth record.
 
-    payload 必须携带 WP4 authority binding:
-      principal_id / verdict / authority_receipt_digest / scene_id / episode_id
-    qualifying 判定、幂等、durable 写入全部由 omo.omo_adjudication 承担。
+    The legacy payload cannot prove the complete causal Personal Episode chain.
+    Existing historical records remain readable, while new feedback must use the
+    canonical PersonalEpisodeService-backed endpoint.
     """
     try:
         payload = await request.json()
@@ -243,26 +243,11 @@ async def adjudicate_decision(decision_id: str, request: Request) -> dict[str, A
                 "status": "invalid",
                 "error": "principal_id/verdict/authority_receipt_digest/scene_id/episode_id all required",
             }
-        from datetime import UTC, datetime
-
-        from omo.omo_adjudication import AdjudicationStore, HumanAdjudication
-
-        adjudication = HumanAdjudication(
-            adjudication_id=f"adj-{decision_id}-{int(datetime.now(UTC).timestamp())}",
-            decision_id=decision_id,
-            principal_id=principal_id,
-            verdict=verdict,
-            source_class="real_human",
-            authority_receipt_digest=authority_receipt_digest,
-            adjudicated_at=datetime.now(UTC).isoformat(),
-        )
-        store = AdjudicationStore()
-        result = store.record_wp5_outcome(
-            adjudication,
-            scene_id=scene_id,
-            episode_id=episode_id,
-            burden_minutes=payload.get("burden_minutes"),
-        )
-        return {"ok": True, **result}
+        return {
+            "ok": False,
+            "status": "blocked",
+            "error": "legacy_wp5_adjudication_disabled",
+            "canonical_endpoint": "/api/workflow-mesh/personal-episode/feedback",
+        }
     except (OSError, RuntimeError, ValueError, TypeError, ImportError) as exc:
         return {"ok": False, "status": "invalid", "error": str(exc)}
