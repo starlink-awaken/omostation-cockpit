@@ -247,9 +247,9 @@ class TestCmdResearchExport:
         assert code == 0
         assert "Exported to" in output
 
-        # Verify file was written (under Desktop subdir, extension = .markdown)
-        exported_files = list(tmp_path.rglob("*.markdown"))
-        assert len(exported_files) >= 1, f"No .markdown files under {tmp_path}"
+        # Verify file was written (under Desktop subdir, extension = .md — 标准扩展名, 2026-09-24 修复)
+        exported_files = list(tmp_path.rglob("*.md"))
+        assert len(exported_files) >= 1, f"No .md files under {tmp_path}"
         content = exported_files[0].read_text()
         assert "# Test Topic" in content
         assert "Sources: 3" in content

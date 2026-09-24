@@ -190,6 +190,10 @@ def run_chain(
             "status": "running",
         }
 
+    # 启动即落盘 — 原实现首步完成前 kill 不会留下任何 run 记录, --resume 无从恢复
+    # (2026-09-24 链路B走查: 8s kill 后 data/chain-runs/ 无目录)
+    _save_state(run_dir, state)
+
     hitl_map = {h.get("at"): h for h in spec.hitl}
     chain_failed = False
     final_rc = 0
