@@ -296,6 +296,10 @@ if COCKPIT_UI_DIST.exists():
     async def spa_fallback(path: str):
         if path in _NO_SPA_FALLBACK_ASSETS and not (COCKPIT_UI_DIST / path).exists():
             raise HTTPException(status_code=404, detail="Not Found")
+        # API 命名空间不落 SPA 壳 — 未定义的 /api/* 返回 404 JSON, 避免 API 消费者
+        # 把 200+HTML 误读为有效响应 (2026-09-24 走查: /api/health 曾被伪装成 200)
+        if path == "api" or path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not Found")
         index_file = COCKPIT_UI_DIST / "index.html"
         if index_file.exists():
             return FileResponse(str(index_file))

@@ -44,7 +44,19 @@ def is_port_available(host: str, port: int) -> bool:
 
 
 def is_dashboard_alive(url: str, timeout: float = 1.5) -> bool:
-    """检测指定 URL 是否正在响应 Cockpit Dashboard HTTP 请求"""
+    """检测指定 URL 是否正在响应 Cockpit Dashboard HTTP 请求。
+
+    优先探测 /api/health (真 JSON 探针); 该端点不可用时回退探测页面 URL —
+    SPA catch-all 对任意页面路径都返回 200, 页面探测无法区分真服务与任意占位 HTTP 服务。
+    """
+    try:
+        base = url.rstrip("/")
+        health_url = f"{base}/api/health"
+        r = urlrequest.urlopen(health_url, timeout=timeout)
+        if getattr(r, "status", 200) == 200:
+            return True
+    except Exception:
+        pass
     try:
         r = urlrequest.urlopen(url, timeout=timeout)
         return getattr(r, "status", 200) == 200
