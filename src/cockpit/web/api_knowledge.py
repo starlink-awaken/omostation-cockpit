@@ -32,7 +32,7 @@ async def _resolve_bos_uri_network_or_compat(uri: str, payload: dict) -> dict:
         async with httpx.AsyncClient(timeout=2.0) as client:
             resp = await client.post(
                 f"{_AGORA_HTTP_ENDPOINT}/v1/tools/call",
-                json={"tool": "bos_resolve", "arguments": {"uri": uri, "payload": payload}},
+                json={"tool": "bos_resolve", "arguments": {"uri": uri, "arguments": payload}},
             )
             if resp.status_code == 200:
                 data = resp.json()
