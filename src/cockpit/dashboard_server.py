@@ -67,6 +67,14 @@ async def _lifespan(app: FastAPI):
 
 app = FastAPI(title="Cockpit Dashboard", version=version_manager.current_version, lifespan=_lifespan)
 
+
+@app.get("/api/health")
+def _api_health() -> dict[str, object]:
+    """顶层健康探针 — 必须先于 SPA catch-all 注册, 否则 /api/health 会被前端壳伪装成 200 HTML
+    (2026-09-24 链路D走查: API 消费者拿到 200 + HTML 无法判活)。"""
+    return {"ok": True, "service": "cockpit-dashboard", "version": version_manager.current_version}
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[DASHBOARD_CORS_ORIGIN],

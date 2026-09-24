@@ -174,12 +174,17 @@ def cmd_dashboard(args: argparse.Namespace) -> int:
     except Exception:
         pass
 
+    import tempfile
+
+    _server_err = tempfile.NamedTemporaryFile(  # 失败时回读诊断 (原先 DEVNULL 使启动死因不可见)
+        prefix="cockpit-dashboard-err-", suffix=".log", delete=False
+    )
     try:
         proc = subprocess.Popen(
             cmd,
             cwd=str(workspace_root),
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stderr=_server_err,
             env=child_env,
         )
     except FileNotFoundError:
@@ -189,10 +194,25 @@ def cmd_dashboard(args: argparse.Namespace) -> int:
             console.print("[red]❌ 无法启动 Dashboard (模块不存在)[/]")
         return ExitCode.SERVICE_UNAVAILABLE
 
-    # 等待 2 秒检查就绪状态
-    time.sleep(2)
-    if not is_dashboard_alive(url, timeout=3.0):
+    # 轮询等待就绪 — 首次启动需加载全部 web router (实测冷启动 >5s), 固定 2s 探活会误杀健康进程
+    # (2026-09-24 链路D走查: 包装器报"无法连接"但手动直起同一命令 200)
+    ready = False
+    for _ in range(40):  # 最多 20s
+        if proc.poll() is not None:
+            break  # 子进程已退出 (如端口冲突), 下方报错
+        if is_dashboard_alive(url, timeout=1.0):
+            ready = True
+            break
+        time.sleep(0.5)
+    if not ready:
         proc.terminate()
+        _server_err.close()
+        try:
+            err_tail = Path(_server_err.name).read_text(errors="replace").strip()[-400:]
+        except OSError:
+            err_tail = ""
+        if err_tail and not as_json:
+            console.print(f"[dim]server stderr 尾部: {err_tail}[/]")
         if as_json:
             print(json.dumps({"ok": False, "error": f"Failed to connect to dashboard at {url}"}))
         else:
