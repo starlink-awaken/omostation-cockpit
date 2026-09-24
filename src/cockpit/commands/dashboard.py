@@ -90,7 +90,10 @@ def cmd_dashboard(args: argparse.Namespace) -> int:
             console.print(f"[red]❌ 无效端口: {raw_port}[/]")
         return ExitCode.CONFIG_ERROR
 
-    url = f"http://{host}:{port}/bos"
+    path = "/panorama" if getattr(args, "panorama", False) else "/bos"
+    if getattr(args, "panorama", False) and getattr(args, "tab", None):
+        path += f"?tab={args.tab}"
+    url = f"http://{host}:{port}{path}"
     workspace_root = _get_workspace_root()
 
     # 1. 探针：检查是否已经在运行

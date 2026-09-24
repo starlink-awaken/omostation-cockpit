@@ -738,14 +738,9 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_journey(a)
 
     def dispatch_panorama(a):
-        import subprocess
+        from cockpit.commands.panorama import cmd_panorama
 
-        omo_project = str((_script_dir().parent.parent.parent.parent / "omo").resolve())
-        cmd = ["uv", "run", "--project", omo_project, "python", "-m", "omo.cli", "panorama"]
-        if getattr(a, "json", False):
-            cmd.append("--json")
-        env = {k: v for k, v in os.environ.items() if not k.startswith("VIRTUAL_ENV") and k != "PYTHONHOME"}
-        return subprocess.call(cmd, env=env)
+        return cmd_panorama(a)
 
     def dispatch_project(a):
         import subprocess
