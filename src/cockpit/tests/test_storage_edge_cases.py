@@ -221,3 +221,14 @@ def test_list_research_deserializes_follow_ups(tmp_path, monkeypatch):
     # 时间戳字段存在性 (follow-up 工作台依赖)
     assert isinstance(row["follow_ups"][0].get("timestamp"), float)
     assert time.time() >= row["follow_ups"][0]["timestamp"]
+
+
+def test_find_item_rejects_short_prefix():
+    """空/超短 ID 前缀必须拒绝 — startswith('') 恒真会误批第一个无关决策 (链路F走查高危实证)。"""
+    from cockpit.commands.decide import _find_item
+
+    items = [{"id": "intent-aaaa1111", "title": "A"}, {"id": "intent-bbbb2222", "title": "B"}]
+    assert _find_item(items, "") is None
+    assert _find_item(items, "int") is None
+    assert _find_item(items, "intent-") is not None  # 足够长的合法前缀仍可用
+    assert _find_item(items, "intent-bbbb2222")["title"] == "B"

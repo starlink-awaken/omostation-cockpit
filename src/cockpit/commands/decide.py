@@ -53,6 +53,10 @@ def _canonical_items(root: Path) -> tuple[list[dict[str, Any]], str | None]:
 
 
 def _find_item(items: list[dict[str, Any]], item_id: str) -> dict[str, Any] | None:
+    # 前缀匹配需要最小长度 — 空/超短前缀 startswith 恒真, 会误批第一个无关决策
+    # (2026-09-24 链路F走查: 空 ID approve 误中另一决策, 高危)
+    if len(item_id) < 6:
+        return None
     return next(
         (item for item in items if str(item.get("id", "")).startswith(item_id) or item.get("id") == item_id),
         None,
