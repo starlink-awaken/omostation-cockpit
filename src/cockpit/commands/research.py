@@ -1024,7 +1024,9 @@ def cmd_research_export(args: argparse.Namespace) -> int:
         return 0
     safe_topic = result["topic"].replace(" ", "_").replace("/", "_")[:30]
     date = datetime.fromtimestamp(result["created_at"]).strftime("%Y%m%d")
-    filename = f"{date}_{safe_topic}.{fmt}"
+    # markdown 格式用标准 .md 扩展名 — ".markdown" 对下游工具 (render/编辑器) 兼容性差 (2026-09-24 走查)
+    ext = "md" if fmt == "markdown" else fmt
+    filename = f"{date}_{safe_topic}.{ext}"
     output_dir = Path.home() / "Desktop"
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / filename
@@ -1091,31 +1093,32 @@ def cmd_research_heatmap(args: argparse.Namespace) -> int:
         return 0
     now_ts = time.time()
     weeks_back = 8
+    # 桶 i: 0=最旧(weeks_back-1 周前) … weeks_back-1=本周。原实现 week_idx=0(本周)
+    # 落进 week_data[0](8 周前的桶) — 标签与数据完全错位, 且当前周永远不显示 (2026-09-24 走查实证)
     week_data: dict[int, dict[str, Any]] = {}
     for i in range(weeks_back):
-        week_start = now_ts - (weeks_back - i) * 7 * 86400
+        weeks_ago_of_bucket = weeks_back - 1 - i  # 7,6,…,0(本周)
+        week_start = now_ts - weeks_ago_of_bucket * 7 * 86400
         week_label = datetime.fromtimestamp(week_start).strftime("%m/%d")
         week_data[i] = {"label": week_label, "created": 0, "follow_ups": 0, "published": 0}
     for r in results:
         created = float(r["created_at"])
-        week_idx = min(weeks_back - 1, max(0, int((now_ts - created) / (7 * 86400))))
-        if week_idx < weeks_back:
-            week_data[week_idx]["created"] += 1
+        weeks_ago = min(weeks_back - 1, max(0, int((now_ts - created) / (7 * 86400))))
+        week_data[weeks_back - 1 - weeks_ago]["created"] += 1
         fups = r.get("follow_ups", [])
         if isinstance(fups, list):
             for fup in fups:
                 if isinstance(fup, dict) and "timestamp" in fup:
                     ts = float(fup["timestamp"])
                     wi = min(weeks_back - 1, max(0, int((now_ts - ts) / (7 * 86400))))
-                    if wi < weeks_back:
-                        week_data[wi]["follow_ups"] += 1
+                    week_data[weeks_back - 1 - wi]["follow_ups"] += 1
     max_created = max(w["created"] for w in week_data.values()) or 1
     max_fups = max(w["follow_ups"] for w in week_data.values()) or 1
     table = Table(title="📊 研究活跃度热力图 (近8周)", box=box.ROUNDED)
     table.add_column("周", style="cyan")
     table.add_column("新研究", justify="center")
     table.add_column("追问", justify="center")
-    for i in range(weeks_back - 1, -1, -1):
+    for i in range(weeks_back):  # 0(最旧) → 7(本周) 自然升序
         w = week_data[i]
         table.add_row(w["label"], _heat_char(w["created"], max_created), _heat_char(w["follow_ups"], max_fups))
     _get_console().print(table)

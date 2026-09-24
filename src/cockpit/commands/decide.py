@@ -147,7 +147,9 @@ def cmd_list(args: argparse.Namespace) -> int:
     if pending:
         console.print(f"[bold]决策收件箱 ({len(pending)} 项待处理):[/]\n")
         for item in pending:
-            console.print(f"  [cyan]{str(item.get('id', '?'))[:8]}[/] {_item_title(item)}")
+            # 展示完整 id — 截断到 8 字符 ("intent-7") 恰好过最小前缀阈值但难以唯一,
+            # 复制误批风险高; 完整 id 可直接复制使用 (2026-09-24 链路F实证)
+            console.print(f"  [cyan]{item.get('id', '?')}[/] {_item_title(item)}")
             if item.get("source"):
                 console.print(f"    [dim]来源: {item['source']}[/]")
 

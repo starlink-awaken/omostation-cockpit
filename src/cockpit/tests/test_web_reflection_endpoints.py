@@ -88,7 +88,9 @@ class TestReflectionEndpoints:
         assert "available" in data
 
     def test_p74_returns_200(self, client: TestClient):
+        """p74 端点透传 agent-workflow compliance --json — 契约为 ok/p74_solidification,
+        旧断言 "available" 是过时契约导致长期误报失败 (2026-09-24 实证修复)。"""
         resp = client.get("/api/p74")
         assert resp.status_code == 200
         data = resp.json()
-        assert "available" in data
+        assert "ok" in data
