@@ -182,6 +182,8 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     dash_p = sub.add_parser("dashboard", help="打开 Web 运维与全景仪表盘 (Web Dashboard)")
     dash_p.add_argument("--port", "-p", type=int, default=None, help="指定监听端口 (默认 8090, 冲突时自愈探测)")
     dash_p.add_argument("--host", default="127.0.0.1", help="指定监听主机 (默认 127.0.0.1)")
+    dash_p.add_argument("--panorama", action="store_true", help="直达治理全景控制舱 (/panorama)")
+    dash_p.add_argument("--tab", choices=["gates", "guardian", "topology", "bcos", "macro"], help="直达指定全景板块")
     dash_p.add_argument("--no-open", action="store_true", help="启动后不自动唤起系统默认浏览器")
     dash_p.add_argument("--status-only", action="store_true", help="仅探测 Dashboard 运行健康状态并退出")
     dash_p.add_argument("--dry-run", action="store_true", help="预检端口与运行环境，不启动真实服务")
@@ -1023,10 +1025,30 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
         "journey_args", nargs=argparse.REMAINDER, help="透传 journey-runner 的子命令与参数 (validate/run/templates)"
     )
 
-    sub.add_parser(
+    panorama_p = sub.add_parser(
         "panorama",
-        help="🌐 7 维全景终极可观测仪表盘 (执行过程/服务/内容/知识/数据/异常/债务资产)",
+        help="🌐 体系全景治理控制舱 (终端 7 维全景快照 / --web 唤起原生控制舱)",
     )
+    panorama_p.add_argument(
+        "--web",
+        "-w",
+        action="store_true",
+        help="在浏览器中唤起原生治理全景控制舱 (http://localhost:5173/panorama)",
+    )
+    panorama_p.add_argument("--wallboard", action="store_true", help="以沉浸壁挂全屏模式直达全景控制舱")
+    panorama_p.add_argument(
+        "--tab",
+        choices=["gates", "guardian", "topology", "bcos", "macro"],
+        default=None,
+        help="直达指定板块 (gates/guardian/topology/bcos/macro)",
+    )
+    panorama_p.add_argument(
+        "--sunset",
+        action="store_true",
+        help="启动或检查双核下线导流守护器 (sunset-redirector)",
+    )
+    panorama_p.add_argument("--port", type=int, default=5173, help="前端服务端口 (默认 5173)")
+    panorama_p.add_argument("--json", action="store_true", help="以结构化 JSON 输出全景数据快照")
 
     proj_p = sub.add_parser("project", help=f"🔍 {submodule_count()} 项目全景 4D 体检与诊断")
     proj_p.add_argument("project_subcmd", nargs="?", default="inspect", help="inspect|list (default: inspect)")
