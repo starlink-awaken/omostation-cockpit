@@ -28,7 +28,11 @@ _TIMEOUT = 30
 
 
 def _run_json(cmd: list[str], timeout: int = _TIMEOUT) -> dict[str, Any]:
-    """运行命令并解析 JSON 输出, 失败返回 {available:false}."""
+    """运行命令并解析 JSON 输出。统一契约: 成功含 ok=True, 失败含 ok=False (+available:false)。
+
+    此前成功分支透传子命令 JSON (无 ok 键), 失败分支用 {available:false} 结构 —
+    两个分支契约不一致导致 p74 测试在本地/CI 环境差异下此消彼长 (2026-09-24 实证)。
+    """
     try:
         result = subprocess.run(
             cmd,
@@ -38,14 +42,17 @@ def _run_json(cmd: list[str], timeout: int = _TIMEOUT) -> dict[str, Any]:
             cwd=str(WORKSPACE_ROOT),
         )
         if result.returncode == 0 and result.stdout.strip():
-            return json.loads(result.stdout)
-        return {"available": False, "error": f"exit={result.returncode}", "stderr": result.stderr[:500]}
+            data = json.loads(result.stdout)
+            if isinstance(data, dict) and "ok" not in data:
+                data["ok"] = True
+            return data
+        return {"ok": False, "available": False, "error": f"exit={result.returncode}", "stderr": result.stderr[:500]}
     except subprocess.TimeoutExpired:
-        return {"available": False, "error": "timeout"}
+        return {"ok": False, "available": False, "error": "timeout"}
     except json.JSONDecodeError as exc:
-        return {"available": False, "error": f"json_decode: {exc}"}
+        return {"ok": False, "available": False, "error": f"json_decode: {exc}"}
     except Exception as exc:
-        return {"available": False, "error": str(exc)}
+        return {"ok": False, "available": False, "error": str(exc)}
 
 
 @router.get("/resident")
