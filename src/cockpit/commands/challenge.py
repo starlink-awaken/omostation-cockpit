@@ -8,6 +8,7 @@ from pathlib import Path
 
 from ..data_index import resolve_workspace_root
 from .base import _get_console
+from .delegation import clean_env
 
 
 def cmd_challenge(args: argparse.Namespace) -> int:
@@ -32,7 +33,9 @@ def cmd_challenge(args: argparse.Namespace) -> int:
 
     full_cmd = ["uv", "run", "--directory", str(ecos_project), *cmd]
     try:
-        res = subprocess.run(full_cmd, cwd=str(workspace_root), capture_output=True, text=True, check=False)
+        res = subprocess.run(
+            full_cmd, cwd=str(workspace_root), capture_output=True, text=True, check=False, env=clean_env()
+        )
         if res.returncode == 0 or not getattr(args, "strict", False):
             print(res.stdout, end="")
             return res.returncode

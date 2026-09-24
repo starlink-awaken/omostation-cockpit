@@ -100,6 +100,13 @@ class TestDashboardEndpoints:
         resp = test_client.get("/nonexistent")
         assert resp.status_code == 404
 
+    def test_unknown_api_path_returns_404(self, test_client):
+        """未定义的 /api/* 路径必须 404 JSON — SPA 壳只兜页面路由, 不吞 API 命名空间
+        (此前 /api/health 曾被兜底伪装成 200 HTML, API 消费者无法判活)。"""
+        resp = test_client.get("/api/definitely-not-a-real-endpoint")
+        assert resp.status_code == 404
+        assert "text/html" not in resp.headers.get("content-type", "")
+
 
 class TestDashboardAuth:
     def test_auth_bypassed_when_token_empty(self, test_client):

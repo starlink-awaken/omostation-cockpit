@@ -6,6 +6,7 @@ import argparse
 import subprocess
 
 from .base import _SCRIPT_DIR
+from .delegation import clean_env
 
 
 def cmd_omo(args: argparse.Namespace) -> int:
@@ -23,7 +24,7 @@ def cmd_omo(args: argparse.Namespace) -> int:
         "-m",
         "omo.cli",
     ] + list(getattr(args, "omo_args", []))
-    return subprocess.call(cmd)
+    return subprocess.call(cmd, env=clean_env())
 
 
 # 以下为高频子命令的具名包装 —— 可在 cli.py 中直接绑定
@@ -44,7 +45,7 @@ def cmd_omo_debt(args: argparse.Namespace) -> int:
         "omo.cli",
         "debt",
     ] + list(getattr(args, "omo_debt_args", []))
-    return subprocess.call(cmd)
+    return subprocess.call(cmd, env=clean_env())
 
 
 def cmd_omo_state(args: argparse.Namespace) -> int:
@@ -62,4 +63,4 @@ def cmd_omo_state(args: argparse.Namespace) -> int:
         "omo.cli",
         "state",
     ] + list(getattr(args, "omo_state_args", []))
-    return subprocess.call(cmd)
+    return subprocess.call(cmd, env=clean_env())
