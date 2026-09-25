@@ -60,7 +60,12 @@ class TestDashboardEndpoints:
         payload = resp.json()
         assert payload["summary"]["total"] >= 10
         assert payload["summary"]["loaded"] >= 1
-        assert payload["summary"]["loaded"] + payload["summary"]["unavailable"] == payload["summary"]["total"]
+        assert (
+            payload["summary"]["loaded"]
+            + payload["summary"]["critical_failed"]
+            + payload["summary"]["degraded"]
+            == payload["summary"]["total"]
+        )
         assert any(
             item["module"] == "cockpit.web.api_tasks" and item["status"] == "loaded" for item in payload["items"]
         )

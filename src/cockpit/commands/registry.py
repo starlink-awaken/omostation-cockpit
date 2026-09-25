@@ -103,7 +103,6 @@ LEGACY_COMMAND_MAPPING: dict[str, tuple[str, str]] = {
     "debt": ("governance", "debt"),
     "contracts": ("governance", "contracts"),
     "policy": ("governance", "policy"),
-    "watchdog": ("governance", "watchdog"),
     "kems": ("governance", "kems"),
     # 工作流域
     "agent": ("workflow", "agent"),
@@ -454,11 +453,6 @@ COMMAND_CATALOG: dict[str, CommandMeta] = {
         category="📡 通讯 (Messaging)",
         summary="Agora BOS 网关入口 (委派 agora CLI)",
     ),
-    "ssb": CommandMeta(
-        name="ssb",
-        category="📡 通讯 (Messaging)",
-        summary="[DEPRECATED] SSB 签名链操作 — ECOS SSB 独立 CLI 已弃用，请使用 cockpit 替代",
-    ),
     # ── 基础设施 (Infrastructure) ────────────────────────────────────────────
     "dashboard": CommandMeta(
         audit_ref="docs/command-audit/dashboard.yaml",
@@ -485,13 +479,6 @@ COMMAND_CATALOG: dict[str, CommandMeta] = {
         name="mof",
         category="🖥️ 基础设施 (Infra)",
         summary="MOF 元模型操作 (委派 mof CLI)",
-    ),
-    "model-driven": CommandMeta(
-        audit_ref="docs/command-audit/model-driven.yaml",
-        maturity="deprecated",
-        name="model-driven",
-        category="🖥️ 基础设施 (Infra)",
-        summary="[DEPRECATED] 模型驱动生命周期入口 (ADR-0240 D1) — 拒绝执行",
     ),
     # ── 专项工具 (Domain Tools) ──────────────────────────────────────────────
     "gongwen": CommandMeta(
@@ -662,14 +649,6 @@ COMMAND_CATALOG: dict[str, CommandMeta] = {
         category="🖥️ 基础设施 (Infra)",
         summary="🔧 Service Gateway — 统一运维控制面",
     ),
-    "watchdog": CommandMeta(
-        name="watchdog",
-        category="🖥️ 基础设施 (Infra)",
-        summary="🐕 [DEPRECATED] 自治守护犬已退役 → Mesh-bound capability admission (Cockpit PR #78)",
-        maturity="deprecated",
-        risk="low",
-        example="cockpit watchdog --help\n  # → 提示: 守护犬已退役, 请用 mesh capability admission (cockpit mesh fabric)",
-    ),
     "ask": CommandMeta(
         name="ask",
         category="🧠 知识引擎 (BOS)",
@@ -702,34 +681,9 @@ COMMAND_CATALOG: dict[str, CommandMeta] = {
         category="🏛️ 治理 (Governance)",
         summary="Harness 全生命周期合规 (trace/verify/gac/compliance/…)",
     ),
-    "audit-ledger": CommandMeta(
-        name="audit-ledger",
-        category="🏛️ 治理 (Governance)",
-        summary="📒 [DEPRECATED] 治理审计账本 ADR-0201 → 查询 .omo/_knowledge/decisions/ + cockpit command-audit",
-        maturity="deprecated",
-        risk="low",
-        example="cockpit audit-ledger\n  # → 提示: 决策查询改用: ls .omo/_knowledge/decisions/ | grep ADR-0201",
-    ),
-    "fabric-mesh": CommandMeta(
-        name="fabric-mesh",
-        category="🖥️ 基础设施 (Infra)",
-        summary="🕸️ [DEPRECATED] 算力网格检视 ADR-0202 → omlxc-compute-fabric skill",
-        maturity="deprecated",
-        risk="low",
-        example="cockpit fabric-mesh\n  # → 提示: 改用 skill: omlxc-compute-fabric (本地大模型推理 + 算力调度)",
-        audit_ref="docs/command-audit/fabric-mesh.yaml",
-    ),
     "dlp-guard": CommandMeta(
         name="dlp-guard",
         category="🏛️ 治理 (Governance)",
         summary="外发前防泄密扫描 (敏感识别+挂起+脱敏)",
-    ),
-    "memory-distill": CommandMeta(
-        name="memory-distill",
-        category="📚 研究 (Research)",
-        summary="🧠 [DEPRECATED] 记忆蒸馏 ADR-0200 → KOS pipeline (gbrain + eidos)",
-        maturity="deprecated",
-        risk="low",
-        example="cockpit memory-distill\n  # → 提示: 改用: cockpit kairon --distill + cockpit gbrain --digest",
     ),
 }

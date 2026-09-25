@@ -36,7 +36,6 @@ JSON_CAPABLE: frozenset[str] = frozenset(
         "readiness",  # readiness --format json (注入 format)
         "research",  # research list/open --json
         "scenario",  # scenario --json
-        "watchdog",  # watchdog --json
         "swarm",  # swarm --json
         "audit",  # audit --format json (注入 format)
         "kems",  # kems status --json

@@ -149,6 +149,16 @@ def cmd_spine_draft(args: argparse.Namespace) -> int:
     # Delegate to cockpit compute gateway
     ws_root = _ws()
     omlxc_root = ws_root / "projects" / "omlxc"
+    try:
+        import sys
+        sys.path.insert(0, str(omlxc_root / "src"))
+        from cockpit.commands.delegation_guard import DelegationPreflightError, preflight_delegation
+        preflight_delegation(ws_root, project="omlxc", command="uv")
+    except DelegationPreflightError as exc:
+        console.print(f"[red]前置检查失败: {exc}[/red]")
+        return 1
+    except Exception:
+        pass
     cmd = ["uv", "run", "omlxc", "fabric", "triage", prompt]
     if omlxc_root.exists():
         return subprocess.call(cmd, cwd=str(omlxc_root))

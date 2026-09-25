@@ -121,10 +121,11 @@ for _router_module in ROUTER_MODULES:
         else:
             ROUTER_LOAD_REPORT.append({"module": _router_module, "status": "missing_router", "route_count": 0})
     except Exception as e:  # defensive fallback
+        _status = "critical_unavailable" if _router_module in CRITICAL_ROUTERS else "unavailable"
         ROUTER_LOAD_REPORT.append(
             {
                 "module": _router_module,
-                "status": "unavailable",
+                "status": _status,
                 "route_count": 0,
                 "error_type": type(e).__name__,
                 "error": str(e),

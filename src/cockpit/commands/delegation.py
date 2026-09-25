@@ -147,8 +147,7 @@ EXISTING_REMAINDER_DELEGATIONS: dict[str, str] = {
     "resident": "resident_args",
     "bcos": "bcos_args",
     "runtime": "runtime_args",
-    "mof": "extra",  # mof/ssb 共用 dest "extra"
-    "ssb": "extra",
+    "mof": "extra",
     "agora": "agora_args",
     "gbrain": "gbrain_args",
     "kairon": "kairon_args",
@@ -197,11 +196,6 @@ SHELL_HELP: dict[str, str] = {
         "      子命令级帮助: cockpit omo <sub> --help。"
     ),
     "resident": ("用法: cockpit resident <sub> [args...]\n子命令: status / roles / daemon 等 (委派 omo resident)。"),
-    "ssb": (
-        "用法: cockpit ssb <sub> [options]\n"
-        "子命令: publish / query / state / recover / events / stats\n"
-        "(委派 ssb-client, 下游 --help 返回码非 0 故由壳层接管)。"
-    ),
     "omlxc": (
         "用法: cockpit omlxc <COMMAND> [ARGS]...\n"
         "说明: omlxc 工具目录 CLI (Click 框架, 完整帮助: cockpit omlxc --help)。\n"
@@ -217,7 +211,7 @@ SHELL_HELP: dict[str, str] = {
 # 仅拦截显式 --help/-h、空参保持原行为的命令
 # (omo/resident 空参委派下游是既有约定; submodule-gitlink-check / gac <sub>
 #  空参默认执行检查 —— 与 bin/gac-local-gate.py 调用方式一致)
-SHELL_HELP_HELP_ONLY: frozenset[str] = frozenset({"omo", "resident", "ssb", "submodule-gitlink-check", "gac"})
+SHELL_HELP_HELP_ONLY: frozenset[str] = frozenset({"omo", "resident", "submodule-gitlink-check", "gac"})
 
 # 仅拦截 -h 短旗标的命令 (--help 仍透传; Click 系下游不认 -h 但认 --help)
 SHELL_HELP_SHORT_ONLY: frozenset[str] = frozenset({"omlxc"})

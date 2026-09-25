@@ -234,9 +234,19 @@ class BosInvoker:
 def _record_metrics(uri: str, status: str, elapsed_ms: int, transport: str) -> None:
     """Append a metrics record to bos-metrics.jsonl."""
     try:
-        from omo.omo_bos_metrics import record
+        from cockpit.omo_write_guard import append_jsonl
 
-        record(uri, status, float(elapsed_ms), transport=transport, path=METRICS_FILE)
+        append_jsonl(
+            WORKSPACE_ROOT / ".omo",
+            "_knowledge",
+            "bos-metrics.jsonl",
+            record={
+                "uri": uri,
+                "status": status,
+                "elapsed_ms": float(elapsed_ms),
+                "transport": transport,
+            },
+        )
     except Exception as e:
         logger.debug("Metrics recording failed (non-blocking): %s", e)
 

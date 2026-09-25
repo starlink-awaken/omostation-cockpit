@@ -87,11 +87,6 @@ def _read_beliefs_outcomes(root: Path) -> list[dict[str, Any]]:
 def _read_knowledge_funnel(root: Path) -> dict[str, Any]:
     """Read the knowledge-to-action funnel from the OMO knowledge action log."""
     try:
-        import sys
-
-        omo_src = root / "projects" / "omo" / "src"
-        if str(omo_src) not in sys.path:
-            sys.path.insert(0, str(omo_src))
         from omo.knowledge_action import build_knowledge_action_snapshot
 
         snapshot = build_knowledge_action_snapshot(root / ".omo")

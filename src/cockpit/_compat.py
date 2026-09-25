@@ -44,7 +44,6 @@ __all__ = [
     "cmd_kairon",
     "cmd_mcp",
     "cmd_mesh",
-    "cmd_model_driven",
     "cmd_mof",
     "cmd_observe",
     "cmd_profile",
@@ -75,7 +74,6 @@ __all__ = [
     "cmd_research_unarchive",
     "cmd_research",
     "cmd_spine",
-    "cmd_ssb",
     "cmd_status",
 ]
 
@@ -308,12 +306,6 @@ def cmd_mesh(*args, **kwargs):  # T8-15 lazy
     return _f(*args, **kwargs)
 
 
-def cmd_model_driven(*args, **kwargs):  # T8-15 lazy
-    from .commands.model_driven import cmd_model_driven as _f
-
-    return _f(*args, **kwargs)
-
-
 def cmd_observe(*args, **kwargs):  # T8-15 lazy
     from .commands.observe import cmd_observe as _f
 
@@ -540,12 +532,6 @@ def cmd_status(*args, **kwargs):  # T8-15 lazy
     from .commands.status import cmd_status as _f
 
     return _f(*args, **kwargs)
-
-
-def cmd_ssb(a):
-    from cockpit.commands.ssb import cmd_ssb as _c
-
-    return _c(a)
 
 
 def cmd_mof(a):
