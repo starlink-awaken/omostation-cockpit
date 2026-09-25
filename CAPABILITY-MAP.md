@@ -8,17 +8,17 @@
 
 | 通道 | 数量 |
 |------|------|
-| CLI 命令 (含子命令) | 217 |
-| MCP 工具 | 642 |
+| CLI 命令 (含子命令) | 197 |
+| MCP 工具 | 643 |
 | MCP 服务器 | 27 |
-| BOS 服务 | 306 |
-| BOS 域 | 23 |
+| BOS 服务 | 351 |
+| BOS 域 | 24 |
 
 ## MCP 服务器清单
 
 | 服务器 | 层 | 工具数 | 传输 | 文件 |
 |--------|-----|--------|------|------|
-| `agora` | I0 | 110 | stdio/sse | `projects/agora/src/agora/server/mcp.py` |
+| `agora` | I0 | 111 | stdio/sse | `projects/agora/src/agora/server/mcp.py` |
 | `gbrain` | L2 | 75 | stdio | `projects/knowledge/gbrain/src/core/operations/exports.ts` |
 | `runtime` | L1 | 50 | stdio | `projects/runtime/src/runtime/mcp_server.py` |
 | `l4-kernel` | L4 | 47 | stdio/http/sse | `projects/l4-kernel/src/l4_kernel/mcp_server.py` |
@@ -51,32 +51,33 @@
 | 域 | 服务数 |
 |-----|--------|
 | `agent-cell` | 23 |
-| `agora` | 3 |
+| `agora` | 6 |
 | `analysis` | 28 |
 | `bcos` | 3 |
-| `capability` | 44 |
-| `cockpit` | 8 |
-| `compute` | 17 |
-| `documents` | 3 |
+| `capability` | 51 |
+| `cockpit` | 9 |
+| `compute` | 21 |
+| `documents` | 5 |
 | `ecos` | 10 |
 | `fabric` | 1 |
 | `forge` | 1 |
-| `governance` | 70 |
+| `governance` | 80 |
 | `harness` | 9 |
 | `l4-kernel` | 1 |
-| `memory` | 47 |
+| `memory` | 51 |
 | `meta` | 1 |
 | `omo` | 4 |
-| `perception` | 2 |
-| `persona` | 10 |
+| `perception` | 5 |
+| `persona` | 11 |
 | `resident` | 8 |
-| `runtime` | 1 |
+| `runtime` | 3 |
 | `swarm` | 1 |
-| `system` | 11 |
+| `system` | 16 |
+| `toolbox` | 3 |
 
 ## CLI 命令清单
 
-> 完整命令参考见 [`CLI-REFERENCE.md`](CLI-REFERENCE.md)
+> 完整命令参考见 [`CLI-REFERENCE.md`](../../docs/CLI-REFERENCE.md) (分类分册: [`docs/cli/`](../../docs/cli/))
 
 | 命令 | 描述 |
 |------|------|
@@ -90,14 +91,10 @@
 | `cockpit analyze` | 运行全部分析工具 |
 | `cockpit api` | 启动 API server |
 | `cockpit approve` | 批准决策 |
-| `cockpit archive` | 归档研究记录 |
-| `cockpit ask` | 对指定研究发起追问 |
-| `cockpit audit` | 扫描可疑研究记录 |
-| `cockpit audit-ledger` |  |
+| `cockpit archive` | 归档已处理完毕的 Inbox 待办文件 |
+| `cockpit ask` | 向大脑提问（知识检索 + LLM 回答） |
+| `cockpit audit` | 🔍 6 维度全方位审计 (调 bin/workspace-audit) |
 | `cockpit backends` | 列出 BOS 后端 |
-| `cockpit backup` | 全量备份研究数据到 JSON 文件 |
-| `cockpit backup-restore` | 从备份 JSON 文件恢复研究数据 |
-| `cockpit batch` | 批量研究模式: 逐个处理多个 topic，汇总结果 |
 | `cockpit bcos` | BCOS 业务域系统 (evolve/signals/north-star) |
 | `cockpit bdsk` | 🧠 B.D.S.K. 虚拟董事会 (4角对抗辩论与 0-Touch 影子预演) |
 | `cockpit bos` | BOS URI 查询与管理 |
@@ -121,7 +118,6 @@
 | `cockpit cluster` | 异构三节点智能路由与拓扑诊断 |
 | `cockpit code` | 代码库分析与审查 (基于 codeanalyze) |
 | `cockpit compact` | 上下文滑动蒸馏与双区自适应量化压缩模拟 |
-| `cockpit compare` | 对比多个研究结果 |
 | `cockpit compass` | 🧭 C2G 战略罗盘 (V2P -> C2G -> AGC 统一管理) |
 | `cockpit completion` | 生成 Shell 自动补全脚本 |
 | `cockpit compute` | 算力与 LLM 网关操作 (委派 aetherforge) |
@@ -130,7 +126,6 @@
 | `cockpit contracts` | 契约验证 |
 | `cockpit control` | 控制平面：submit / ack / nack |
 | `cockpit controller-shadow` | 读取 Runtime 旧控制器影子迁移回执 |
-| `cockpit create` | 创建新研究 |
 | `cockpit daily` | 每日研究简报 |
 | `cockpit dashboard` | 打开 Web 运维与全景仪表盘 (Web Dashboard) |
 | `cockpit data` | 数据目录索引 / 类型注册 / TTL 清理 |
@@ -139,7 +134,6 @@
 | `cockpit demo` | 快速演示 |
 | `cockpit dflash` | DFlash 2 块扩散投机解码加速与集群基准 |
 | `cockpit diff` | 查看待处理署名 Diff 统计 |
-| `cockpit digest` | 提炼多个研究结果 |
 | `cockpit discover` | 发现可用功能和资源 |
 | `cockpit distill` | 在 Mac mini M4 触发闲时 LoRA 蒸馏 |
 | `cockpit dlp-guard` | 外发前防泄密扫描 (敏感识别+挂起+脱敏) |
@@ -148,22 +142,19 @@
 | `cockpit docx` | 渲染为 GB/T 9704-2012 红头公文 DOCX |
 | `cockpit domain-status` | 显示 Documents 域项目绑定与引导状态 |
 | `cockpit domains` | 列出 L4 所有域及其状态 |
-| `cockpit dossier` | 查看研究的关系与产物视图 |
 | `cockpit down` | 停止观测栈 |
 | `cockpit draft` | 从本地主权大模型请求草稿 |
 | `cockpit event` | 导出事件封套 (EventEnvelope) |
 | `cockpit events` | 实时查看 Agora SSE 事件流 (Phase 34 L3 Dashboard) |
 | `cockpit events-watch` | 实时监听 SSE 事件流简便入口 |
 | `cockpit execute` | [v2] 执行场景卡 (BOS/MCP 驱动) |
-| `cockpit export` | 导出研究 (markdown/text/json) |
+| `cockpit export` | 导出契约封套 |
 | `cockpit export-research` | 将研究对象导出为 WorkspaceObject JSON |
 | `cockpit fabric` | 检查 omlxc 智能算力织网 (温控/分诊/显存/缓存) |
-| `cockpit fabric-mesh` |  |
 | `cockpit facts-audit` | 审计 Documents 文档域 facts 文件 |
 | `cockpit facts-validation` | 读取 Runtime Facts 审计回执 |
 | `cockpit family-hub` | 家庭数字枢纽入口 |
 | `cockpit finance` | 💰 个人财务门户引导 (场景/原则/入口, 委派 @个人 域) |
-| `cockpit follow-up` | 查看追问工作台（待追问/已回答统计） |
 | `cockpit forget` | 遗忘传播 |
 | `cockpit gac` | GaC 治理健康检查 (ADR-0106, 7 机制 + 115 规则 + drift) |
 | `cockpit gbrain` | Postgres-native 知识库入口 (委派 gbrain CLI) |
@@ -172,8 +163,8 @@
 | `cockpit gongwen` | 📄 公文写作门户引导 (文种/规范/入口, 委派 @公文 域) |
 | `cockpit governance` | 架构治理 (委派 arcnode-*) |
 | `cockpit graph` | 运行语义图谱分析 |
-| `cockpit health` | 查看研究健康报告（衰减状态/保鲜建议） |
-| `cockpit heatmap` | 显示研究活跃度热力图 |
+| `cockpit health` | 一键系统健康检查 |
+| `cockpit heatmap` | 查看分布式 KV 内存池热力分布与投机蒸馏指标 |
 | `cockpit help` | 查看产品地图与快速入门 (cockpit help <关键词> 模糊搜命令/工具/服务) |
 | `cockpit history` | 查看对话历史 |
 | `cockpit hud` | 查看次世代主权算力织网全景 HUD 实时状态 |
@@ -195,18 +186,15 @@
 | `cockpit knowledge` | 📚 KOS 知识检索 (search/status/stats) |
 | `cockpit knowledge-ref` | ADR-0315 引用元数据 (无正文) |
 | `cockpit lifecycle` | [v2] 场景卡生命周期管理 (list/status/promote/demote/validate) |
-| `cockpit list` | 查看研究历史 |
+| `cockpit list` | 列债务项 (委派 omo debt) |
 | `cockpit logs` | 查看日志 |
 | `cockpit lora` | 查看与测试端侧在线 LoRA 适配层热插拔 |
 | `cockpit mail-draft` | 邮箱 3 档拟复 (经 BOS inbox/mail/draft 服务) |
 | `cockpit mcp` | 启动 MCP server 或列出工具 |
 | `cockpit memory` | 🧠 Memory OS (status/recall/write/forget/consolidate/knowledge-ref) |
-| `cockpit memory-distill` |  |
-| `cockpit merge` | 合并多个研究结果为新研究 |
 | `cockpit mesh` | omlx 算力网格路由入口 |
 | `cockpit metrics` | 查看 bus metrics 快照 |
 | `cockpit minutes` | 会议转写文本 → 交办事项督办清单 |
-| `cockpit model-driven` |  |
 | `cockpit model-freshness` | 读取 Runtime 模型新鲜度回执 |
 | `cockpit mof` | MOF 元模型操作 (委派 mof CLI) |
 | `cockpit monitor` | 📊 实时终端大盘 (C2G Pipeline 监控仪, 默认实时; --status 一次性快照) |
@@ -216,11 +204,12 @@
 | `cockpit observe` | 可观测性栈（Langfuse）入口 |
 | `cockpit omo` | OMO CLI 委派 (debt/state/governance/lint/...) |
 | `cockpit onboarding` | 为 AI 构建项目全貌上下文 |
-| `cockpit open` | 打开研究全文 |
 | `cockpit ops` | 🔧 Service Gateway — 统一运维控制面 (status/up/down/deploy/deps/logs/discover/validate/generate) |
+| `cockpit org-relation` | 组织人脉图谱查询 (单位-人物-来件关系网络) |
 | `cockpit pack` | 将代码库打包为 LLM 友好格式 |
 | `cockpit panorama` | 🌐 7 维全景终极可观测仪表盘 (执行过程/服务/内容/知识/数据/异常/债务资产) |
 | `cockpit pending` | 查看未决待办快照预览 |
+| `cockpit persona-radar` | 个人文风一致性多维雷达评估 (T3-01) |
 | `cockpit pipeline` | pipeline 概览 |
 | `cockpit policy` | ⚖️ 领域监管合规与 Policy-as-Code 红线审查 (E-POL-*) |
 | `cockpit pptx` | 渲染为 16:9 高管技术汇报 PPTX |
@@ -229,8 +218,7 @@
 | `cockpit profile` | 查看/编辑身份档案 (L4 入口) |
 | `cockpit project` | inspect|list (default: inspect) |
 | `cockpit proxy-env` | 输出兼容外部客户端的本地环境变量 (OPENAI_API_BASE) |
-| `cockpit publish` | 发布研究为正式 Markdown 报告 |
-| `cockpit quarantine` | 隔离可疑研究记录 |
+| `cockpit publish` | 发布事件 |
 | `cockpit quickstart` | 🚀 新用户快速上手向导（环境核验 + 上手指引） |
 | `cockpit quickstart-check` | 快速检查新用户环境核验状态 |
 | `cockpit read` | 通过 BOS 网关统一读取指定 URI 资源 |
@@ -240,13 +228,10 @@
 | `cockpit reject` | 拒绝决策 |
 | `cockpit reload` | 重载 BOS 配置/M1 |
 | `cockpit remember` | 手动存入偏好/事实 |
-| `cockpit rename` | 重命名研究标题 |
 | `cockpit render` | 初稿 Markdown 一键渲染导出 (GB/T 9704 DOCX / 16:9 PPTX / 矢量图) |
 | `cockpit replay` | 查看 Experience Replay 缓冲区状态 |
-| `cockpit research` | 深度研究 — 创建/查询/管理研究对象 |
-| `cockpit resident` | Resident 常驻 Agent 体系 (status/roles/daemon/decision/execute/...) |
+| `cockpit resident` | Resident 常驻 Agent (status/roles/daemon/decision triage/approve/status/execute/...) |
 | `cockpit resolve` | 统一 BOS URI 路由解析与目标元数据提取 |
-| `cockpit restore` | 恢复已隔离研究记录 |
 | `cockpit review` | 左右分栏 Diff 审阅工作台 (初稿 vs 编辑态) |
 | `cockpit route` | 为模型选择最优节点 |
 | `cockpit run` | 在隔离沙箱中挂载卡带并执行领域意图 |
@@ -256,33 +241,30 @@
 | `cockpit scenario` | P5 统一 scenario 入口 (radar/assistant/health/inbox/intake/task/approval/connector/review) |
 | `cockpit scene` | 🗺️ 业务场景正交领域 (scenario/journey/gongwen/brief/family-hub) |
 | `cockpit score` | 评分债务项 |
-| `cockpit search` | 全文搜索 |
+| `cockpit search` | 全文搜 CARDS |
 | `cockpit send` | 一键确认署名并经外发网关真实外发 |
 | `cockpit serve` | stdio JSON-RPC serve mode |
 | `cockpit sign` | 提交用户署名 Diff 并入队 Experience Replay |
 | `cockpit skill` | 运行 L4 定时技能 |
 | `cockpit snapshot` | KV 缓存快照管理与预热 |
 | `cockpit speculative-eval` | 本地首选投机推演评估 |
-| `cockpit spine` | Spine 主干真值流与署名自进化操作 (ADR-0437) |
-| `cockpit ssb` |  |
+| `cockpit spine` | Spine 主干真值流与署名自进化操作 (ADR-0439) |
 | `cockpit stats` | 索引统计 |
 | `cockpit status` | 系统健康 |
+| `cockpit strategy` | 🎲 战略决策沙盘 → 蒙特卡洛多智能体推演 (T5-01) |
 | `cockpit stream` | 跨节点 Chunk-level 流式协同流水线基准 |
 | `cockpit submit` | 提交控制任务 |
-| `cockpit summary` | 债务摘要 (委派 omo debt) |
+| `cockpit summary` | 债务摘要 (映射 omo debt report) |
 | `cockpit svg` | 渲染 ```diagram 代码块为矢量架构图 SVG |
 | `cockpit swarm` | 分布式跨节点 KV 共享池与超长上下文置换基准 |
 | `cockpit system` | 🖥️ 系统与运维正交领域 (status/health/dashboard/readiness/runtime) |
-| `cockpit tag` | 为研究添加/覆盖标签 |
 | `cockpit telemetry` | 命令遥测与 Prometheus 指标导出 |
 | `cockpit test_export_formats` | 离线自测: 三格式导出 + GB/T 参数断言 |
-| `cockpit timeline` | 查看研究的演化时间线 |
 | `cockpit topics` | 列出已注册 topic |
 | `cockpit tree` | 自适应熵感知树状投机解码与多候选验证基准 |
 | `cockpit triage` | 分析 Prompt 意图复杂度分级 |
 | `cockpit tui` | 极客终端交互控制台 (Textual 全屏 TUI) |
 | `cockpit types` | 查看已注册的数据类型 |
-| `cockpit unarchive` | 恢复已归档研究记录 |
 | `cockpit up` | 启动观测栈 |
 | `cockpit url` | 打印 Langfuse Web URL |
 | `cockpit user` | 👤 用户体验与向导正交领域 (quickstart/help/demo/init/profile/completion) |
@@ -293,7 +275,6 @@
 | `cockpit vram` | 计算模型动态 KV Cache 显存预算 |
 | `cockpit warm` | 预热系统 Prompt 前缀缓存以实现 0ms TTFT |
 | `cockpit watch` | 监听 BOS Inbox 紧急待办与提醒快照 (Event-Driven Watcher) |
-| `cockpit watchdog` | 🐕 自治守护犬与自愈探针 (Agora Bus / Resident 监视器) |
 | `cockpit wave2` | 📈 Wave2 预测治理面板 (dashboard/proposals/predictive JSON) |
 | `cockpit workflow` | BOS workflow 相关 |
 | `cockpit write` | 双轨写入 (+ Neo4j FACT 若配置) |
