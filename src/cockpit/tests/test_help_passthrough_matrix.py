@@ -25,7 +25,7 @@ from cockpit.commands.delegation import (
 
 # 10 个壳层接管命令
 SHELL_HELP_CMDS = sorted(SHELL_HELP.keys())
-# 全拦截命令 (空参也接管); 排除 help-only (omo/resident/ssb 空参保持原行为)
+# 全拦截命令 (空参也接管); 排除 help-only (omo/resident 空参保持原行为)
 # 与 short-only (omlxc 仅拦 -h, --help 透传 Click)
 FULL_INTERCEPT_CMDS = sorted(
     set(SHELL_HELP_CMDS) - SHELL_HELP_HELP_ONLY - SHELL_HELP_SHORT_ONLY
@@ -102,7 +102,7 @@ class TestShellHelpIntercept:
 
     @pytest.mark.parametrize("cmd", sorted(SHELL_HELP_HELP_ONLY))
     def test_help_only_empty_remainder_not_intercepted(self, cmd: str):
-        """help-only 命令 (omo/resident/ssb): 空参保持既有委派行为, 不接管."""
+        """help-only 命令 (omo/resident): 空参保持既有委派行为, 不接管."""
         attr = _get_attr(cmd)
         ns = _make_args(cmd, attr, [])
         assert shell_help_if_requested(ns) is None

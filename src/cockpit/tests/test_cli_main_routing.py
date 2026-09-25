@@ -69,7 +69,6 @@ RouteCase = tuple[list[str], str | None, int | None, int | str]
         (["workspace", "governance"], "cmd_governance", 0, ""),
         # ── CLI 收敛路由 (9) ──
         (["workspace", "agora", "list"], "cmd_agora", 0, ""),
-        (["workspace", "model-driven", "lifecycle", "dashboard"], "cmd_model_driven", 0, ""),
         (["workspace", "gbrain", "search", "attention"], "cmd_gbrain", 0, ""),
         (["workspace", "kairon", "kos", "search", "attention"], "cmd_kairon", 0, ""),
         (["workspace", "bus", "status"], "cmd_bus", 0, ""),

@@ -53,19 +53,42 @@ ROUTER_MODULES = (
     "cockpit.web.api_console_meta",
 )
 
+CRITICAL_ROUTERS = frozenset(
+    {
+        "cockpit.web.governance.api",
+        "cockpit.web.api_memory",
+        "cockpit.web.api_scene_cards",
+        "cockpit.web.api_scene_lifecycle",
+        "cockpit.web.api_workflow_mesh_operations",
+        "cockpit.web.api_unified_inbox",
+        "cockpit.web.api_flight_deck",
+    }
+)
+
 ROUTER_LOAD_REPORT: list[dict[str, object]] = []
 
 
 def router_health_snapshot() -> dict[str, object]:
     """Return a stable, read-only snapshot for SystemMap and operator views."""
     loaded = sum(1 for item in ROUTER_LOAD_REPORT if item.get("status") == "loaded")
-    unavailable = [item for item in ROUTER_LOAD_REPORT if item.get("status") != "loaded"]
+    critical_failed = [
+        item for item in ROUTER_LOAD_REPORT
+        if item.get("status") != "loaded" and item.get("module") in CRITICAL_ROUTERS
+    ]
+    degraded = [
+        item for item in ROUTER_LOAD_REPORT
+        if item.get("status") != "loaded" and item.get("module") not in CRITICAL_ROUTERS
+    ]
+    status = "ready" if not critical_failed and ROUTER_LOAD_REPORT else "degraded" if critical_failed else "attention"
     return {
-        "status": "ready" if not unavailable and ROUTER_LOAD_REPORT else "attention",
+        "status": status,
         "summary": {
             "total": len(ROUTER_LOAD_REPORT),
             "loaded": loaded,
-            "unavailable": len(unavailable),
+            "critical_failed": len(critical_failed),
+            "degraded": len(degraded),
         },
+        "critical_failed": [dict(item) for item in critical_failed],
+        "degraded": [dict(item) for item in degraded],
         "items": [dict(item) for item in ROUTER_LOAD_REPORT],
     }

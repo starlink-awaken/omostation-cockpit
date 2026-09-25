@@ -9,11 +9,11 @@ from cockpit.console import bos_invoker, harness_runner
 
 
 def test_bos_metrics_use_omo_append_broker(tmp_path: Path, monkeypatch) -> None:
-    metrics_file = tmp_path / "bos-metrics.jsonl"
-    monkeypatch.setattr(bos_invoker, "METRICS_FILE", metrics_file)
+    monkeypatch.setattr(bos_invoker, "WORKSPACE_ROOT", tmp_path)
 
     bos_invoker._record_metrics("bos://system/health", "resolved", 123, "http")
 
+    metrics_file = tmp_path / ".omo" / "_knowledge" / "bos-metrics.jsonl"
     rows = [json.loads(line) for line in metrics_file.read_text(encoding="utf-8").splitlines()]
     assert rows == [
         {
@@ -21,8 +21,6 @@ def test_bos_metrics_use_omo_append_broker(tmp_path: Path, monkeypatch) -> None:
             "status": "resolved",
             "elapsed_ms": 123.0,
             "transport": "http",
-            "error": "",
-            "recorded_at": rows[0]["recorded_at"],
         }
     ]
 

@@ -959,10 +959,8 @@ def main(argv: list[str] | None = None) -> int:
         "controller-shadow": _c_controller_shadow,
         "skill": _c_skill,
         "events": _c_events,
-        "ssb": cmd_ssb,
         "mof": cmd_mof,
         "agora": cmd_agora,
-        "model-driven": cmd_model_driven,
         "brain": cmd_brain,
         "gbrain": cmd_gbrain,
         "kairon": cmd_kairon,
@@ -975,10 +973,7 @@ def main(argv: list[str] | None = None) -> int:
         "render": dispatch_render,
         "im-triage": dispatch_im_triage,
         "dlp-guard": dispatch_dlp_guard,
-        # ADR-0200~0202 stub 命令 (parser 已注册, 功能待实现 — 输出规划说明)
-        "memory-distill": lambda a: _cmd_adr_stub(a, "memory-distill", "ADR-0200 记忆自蒸馏与冲突自愈"),
-        "audit-ledger": lambda a: _cmd_adr_stub(a, "audit-ledger", "ADR-0201 密码学级 Merkle 审计账本"),
-        "fabric-mesh": lambda a: _cmd_adr_stub(a, "fabric-mesh", "ADR-0202 局域网边缘算力漫游网格"),
+        # ADR-0200~0202 功能已落地到对应命令组, 移除 stub 条目
         "compute": cmd_compute,
         "intent": lambda a: __import__("cockpit.commands.intent", fromlist=["cmd_intent"]).cmd_intent(a),
         "decide": lambda a: __import__("cockpit.commands.decide", fromlist=["cmd_decide"]).cmd_decide(a),
@@ -1019,7 +1014,6 @@ def main(argv: list[str] | None = None) -> int:
         "quickstart-check": lambda a: __import__(
             "cockpit.commands.quickstart", fromlist=["cmd_quickstart"]
         ).cmd_quickstart(__import__("argparse").Namespace(check=True, json=getattr(a, "json", False))),
-        "watchdog": lambda a: __import__("cockpit.commands.watchdog", fromlist=["cmd_watchdog"]).cmd_watchdog(a),
         "policy": lambda a: __import__("ecos.cli.constraint", fromlist=["main"]).main(
             ["policy"] + getattr(a, "policy_args", [])
         ),

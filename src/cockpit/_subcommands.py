@@ -152,15 +152,6 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     data_gc_p.add_argument("--max-age-hours", type=float, default=24.0, help="TTL 小时数（默认 24）")
     data_gc_p.add_argument("--json", action="store_true", help="以 JSON 输出清理结果")
 
-    # ── ADR-0200~0202 记忆/审计/算力 ──────────────────────────
-    # 保留注册以兼容历史引用, 但标记为隐藏 (不在 help 中展示), 调用时提示
-    _mem_distill = sub.add_parser("memory-distill", help=argparse.SUPPRESS)
-    _mem_distill.add_argument("args", nargs=argparse.REMAINDER)
-    _audit_ledger = sub.add_parser("audit-ledger", help=argparse.SUPPRESS)
-    _audit_ledger.add_argument("args", nargs=argparse.REMAINDER)
-    _fabric_mesh = sub.add_parser("fabric-mesh", help=argparse.SUPPRESS)
-    _fabric_mesh.add_argument("args", nargs=argparse.REMAINDER)
-
     # ── contracts ─────────────────────────────────────────────
     contracts_p = sub.add_parser("contracts", help="契约验证")
     contracts_sub = contracts_p.add_subparsers(dest="contracts_command", parser_class=workspace_parser)
@@ -433,17 +424,7 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     qcheck_p = sub.add_parser("quickstart-check", help="快速检查新用户环境核验状态")
     qcheck_p.add_argument("--json", action="store_true", help="JSON 格式输出")
 
-    # ── SSB / MOF / Agora / model-driven ──────────────────────
-    # SSB: 已弃用, 隐藏帮助但保留调用兼容
-    ssb_p = sub.add_parser(
-        "ssb",
-        help=argparse.SUPPRESS,
-        add_help=False,  # --help 透传下游 CLI (Phase A1)
-        epilog="子命令 (源自 ecos-ssb): publish / query / state / recover / events / stats\n示例: cockpit ssb stats",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    ssb_p.add_argument("extra", nargs=argparse.REMAINDER, help="传递给 ecos-ssb 的参数")
-
+    # ── mof / agora / model-driven ────────────────────────────
     mof_p = sub.add_parser(
         "mof",
         help="MOF 元模型操作 (委派 mof CLI)",
@@ -464,19 +445,6 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
         "agora_args",
         nargs=argparse.REMAINDER,
         help="传递给 agora CLI 的参数",
-    )
-
-    # model-driven: 已弃用 (ADR-0240 D1), 隐藏帮助但保留调用兼容
-    model_driven_p = sub.add_parser(
-        "model-driven",
-        help=argparse.SUPPRESS,
-        epilog="子命令: lifecycle / spec / adr / okr / tool / mcp\n示例: cockpit model-driven lifecycle dashboard",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    model_driven_p.add_argument(
-        "model_driven_args",
-        nargs=argparse.REMAINDER,
-        help="传递给 model-driven CLI 的参数",
     )
 
     # ── brain / gbrain / kairon ───────────────────────────────
@@ -1264,12 +1232,6 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     fab_eval = fab_sub.add_parser("speculative-eval", help="本地首选投机推演评估")
     fab_eval.add_argument("prompt", help="任务提示词")
     fab_eval.add_argument("--domain", help="领域标识")
-
-    # ── watchdog ───────────────────────────────────────────────
-    watchdog_p = sub.add_parser("watchdog", help="🐕 自治守护犬与自愈探针 (Agora Bus / Resident 监视器)")
-    watchdog_p.add_argument("--probe", action="store_true", help="仅执行单轮自愈探针检查并输出状态")
-    watchdog_p.add_argument("--json", action="store_true", help="以 JSON 格式输出健康数据")
-    watchdog_p.add_argument("--interval", type=float, default=5.0, help="守护巡检间隔秒数 (默认 5.0)")
 
     # ── policy ────────────────────────────────────────────────
     policy_p = sub.add_parser(

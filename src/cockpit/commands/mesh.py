@@ -12,6 +12,7 @@ from urllib import request as urlrequest
 from rich.console import Console
 
 from cockpit.env_resolver import get_workspace_root as _get_workspace_root
+from cockpit.commands.delegation_guard import DelegationPreflightError, check_port_open, preflight_delegation
 
 console = Console()
 
@@ -35,6 +36,7 @@ def _urlopen_safe(url: str, timeout: float = 5.0):
 def cmd_mesh(args: argparse.Namespace) -> int:
     """算力网格入口：nodes / status / route --model / serve。"""
     subcmd = getattr(args, "mesh_command", None)
+    ws_root = _workspace_root()
 
     if subcmd == "nodes":
         try:
@@ -53,19 +55,39 @@ def cmd_mesh(args: argparse.Namespace) -> int:
             console.print(f"[red]获取状态失败: {exc}[/red]")
             return 1
     if subcmd == "fabric":
+        try:
+            preflight_delegation(ws_root, project="omlxc", command="uv")
+        except DelegationPreflightError as exc:
+            console.print(f"[red]前置检查失败: {exc}[/red]")
+            return 1
         omlxc_root = _workspace_root() / "projects" / "omlxc"
         return subprocess.call(["uv", "run", "omlxc", "fabric", "inspect"], cwd=str(omlxc_root))
     if subcmd == "triage":
         prompt = getattr(args, "prompt", "")
+        try:
+            preflight_delegation(ws_root, project="omlxc", command="uv")
+        except DelegationPreflightError as exc:
+            console.print(f"[red]前置检查失败: {exc}[/red]")
+            return 1
         omlxc_root = _workspace_root() / "projects" / "omlxc"
         return subprocess.call(["uv", "run", "omlxc", "fabric", "triage", prompt], cwd=str(omlxc_root))
     if subcmd == "vram":
         model = getattr(args, "model", "coding")
         tokens = str(getattr(args, "tokens", 32768))
+        try:
+            preflight_delegation(ws_root, project="omlxc", command="uv")
+        except DelegationPreflightError as exc:
+            console.print(f"[red]前置检查失败: {exc}[/red]")
+            return 1
         omlxc_root = _workspace_root() / "projects" / "omlxc"
         return subprocess.call(["uv", "run", "omlxc", "fabric", "vram", model, tokens], cwd=str(omlxc_root))
     if subcmd == "warm":
         model = getattr(args, "model", "coding")
+        try:
+            preflight_delegation(ws_root, project="omlxc", command="uv")
+        except DelegationPreflightError as exc:
+            console.print(f"[red]前置检查失败: {exc}[/red]")
+            return 1
         omlxc_root = _workspace_root() / "projects" / "omlxc"
         return subprocess.call(["uv", "run", "omlxc", "fabric", "warm", "--model", model], cwd=str(omlxc_root))
     if subcmd == "route":
@@ -81,18 +103,38 @@ def cmd_mesh(args: argparse.Namespace) -> int:
             console.print(f"[red]路由选择失败: {exc}[/red]")
             return 1
     if subcmd == "cache":
+        try:
+            preflight_delegation(ws_root, project="omlxc", command="uv")
+        except DelegationPreflightError as exc:
+            console.print(f"[red]前置检查失败: {exc}[/red]")
+            return 1
         omlxc_root = _workspace_root() / "projects" / "omlxc"
         bench_script = _workspace_root() / "bin" / "demo" / "live_context_and_cache_benchmark.py"
         return subprocess.call(["uv", "run", "--project", str(omlxc_root), "python", str(bench_script)])
     if subcmd == "dflash":
+        try:
+            preflight_delegation(ws_root, project="omlxc", command="uv")
+        except DelegationPreflightError as exc:
+            console.print(f"[red]前置检查失败: {exc}[/red]")
+            return 1
         omlxc_root = _workspace_root() / "projects" / "omlxc"
         bench_script = _workspace_root() / "bin" / "demo" / "live_cluster_wide_benchmark.py"
         return subprocess.call(["uv", "run", "--project", str(omlxc_root), "python", str(bench_script)])
     if subcmd == "cluster":
+        try:
+            preflight_delegation(ws_root, project="omlxc", command="uv")
+        except DelegationPreflightError as exc:
+            console.print(f"[red]前置检查失败: {exc}[/red]")
+            return 1
         omlxc_root = _workspace_root() / "projects" / "omlxc"
         bench_script = _workspace_root() / "bin" / "demo" / "live_cluster_wide_benchmark.py"
         return subprocess.call(["uv", "run", "--project", str(omlxc_root), "python", str(bench_script)])
     if subcmd in {"tree", "stream", "swarm"}:
+        try:
+            preflight_delegation(ws_root, project="omlxc", command="uv")
+        except DelegationPreflightError as exc:
+            console.print(f"[red]前置检查失败: {exc}[/red]")
+            return 1
         omlxc_root = _workspace_root() / "projects" / "omlxc"
         bench_script = omlxc_root / "examples" / "live_nextgen_compute_engine_benchmark.py"
         return subprocess.call(["uv", "run", "--project", str(omlxc_root), "python", str(bench_script)])
@@ -106,6 +148,11 @@ def cmd_mesh(args: argparse.Namespace) -> int:
             console.print(f"[red]渲染 HUD 失败: {exc}[/red]")
             return 1
     if subcmd in {"dma", "lora"}:
+        try:
+            preflight_delegation(ws_root, project="omlxc", command="uv")
+        except DelegationPreflightError as exc:
+            console.print(f"[red]前置检查失败: {exc}[/red]")
+            return 1
         omlxc_root = _workspace_root() / "projects" / "omlxc"
         bench_script = _workspace_root() / "bin" / "demo" / "live_nextgen_compute_engine_benchmark.py"
         return subprocess.call(["uv", "run", "--project", str(omlxc_root), "python", str(bench_script)])
@@ -113,6 +160,11 @@ def cmd_mesh(args: argparse.Namespace) -> int:
         model = getattr(args, "model", "coding")
         tokens = str(getattr(args, "tokens", 32768))
         avail = str(getattr(args, "available_mb", 4096))
+        try:
+            preflight_delegation(ws_root, project="omlxc", command="uv")
+        except DelegationPreflightError as exc:
+            console.print(f"[red]前置检查失败: {exc}[/red]")
+            return 1
         omlxc_root = _workspace_root() / "projects" / "omlxc"
         return subprocess.call(
             ["uv", "run", "omlxc", "fabric", "compact", "--model", model, "--tokens", tokens, "--available-mb", avail],

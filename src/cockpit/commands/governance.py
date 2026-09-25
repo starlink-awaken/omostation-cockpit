@@ -9,11 +9,17 @@ from pathlib import Path
 
 from ..data_index import resolve_workspace_root
 from .base import _get_console
+from .delegation_guard import DelegationPreflightError, preflight_delegation
 
 _OMO_GOVERNANCE_SUBCOMMANDS = {"surfaces", "ingress-goal", "ingress-task", "ingress-debt"}
 
 
 def _run_omo_governance(args: list[str], workspace_root: Path) -> int:
+    try:
+        preflight_delegation(workspace_root, project="omo", command="uv")
+    except DelegationPreflightError as exc:
+        _get_console().print(f"[red]❌ 前置检查失败: {exc}[/red]")
+        return 1
     omo_project = workspace_root / "projects" / "omo"
     cmd = [
         "uv",
@@ -32,6 +38,11 @@ def _run_omo_governance(args: list[str], workspace_root: Path) -> int:
 
 
 def _run_omo_verify(workspace_root: Path) -> int:
+    try:
+        preflight_delegation(workspace_root, project="omo", command="uv")
+    except DelegationPreflightError as exc:
+        _get_console().print(f"[red]❌ 前置检查失败: {exc}[/red]")
+        return 1
     omo_project = workspace_root / "projects" / "omo"
     verify_steps = [
         [
@@ -103,6 +114,11 @@ def _run_omo_verify(workspace_root: Path) -> int:
 
 
 def _run_governance_evolution(args: list[str], workspace_root: Path) -> int:
+    try:
+        preflight_delegation(workspace_root, command="uv")
+    except DelegationPreflightError as exc:
+        _get_console().print(f"[red]❌ 前置检查失败: {exc}[/red]")
+        return 1
     forwarded = args or ["status"]
     cmd = [
         "uv",
