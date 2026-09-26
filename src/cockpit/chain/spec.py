@@ -252,7 +252,7 @@ SKELETON_TEMPLATE = """\
 id: {chain_id}
 version: 1
 name: {chain_id}
-description: TODO: 链路用途
+description: 简短描述该链路的用途与触发条件
 owner: cockpit
 tags: []
 params: {{}}
