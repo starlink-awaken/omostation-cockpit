@@ -7,6 +7,9 @@ from cockpit.commands import governance
 
 
 def test_cmd_governance_surfaces_routes_to_omo_governance(monkeypatch, tmp_path: Path) -> None:
+    omo_dir = tmp_path / "projects" / "omo"
+    omo_dir.mkdir(parents=True)
+    (omo_dir / "pyproject.toml").write_text("[project]\nname = \"omo\"\n")
     recorded: dict[str, object] = {}
 
     def fake_run(cmd, cwd):
@@ -43,6 +46,9 @@ def test_cmd_governance_surfaces_routes_to_omo_governance(monkeypatch, tmp_path:
 
 
 def test_cmd_governance_ingress_task_routes_to_omo_governance(monkeypatch, tmp_path: Path) -> None:
+    omo_dir = tmp_path / "projects" / "omo"
+    omo_dir.mkdir(parents=True)
+    (omo_dir / "pyproject.toml").write_text("[project]\nname = \"omo\"\n")
     recorded: dict[str, object] = {}
 
     def fake_run(cmd, cwd):
@@ -76,6 +82,9 @@ def test_cmd_governance_ingress_task_routes_to_omo_governance(monkeypatch, tmp_p
 
 
 def test_cmd_governance_ingress_debt_routes_to_omo_governance(monkeypatch, tmp_path: Path) -> None:
+    omo_dir = tmp_path / "projects" / "omo"
+    omo_dir.mkdir(parents=True)
+    (omo_dir / "pyproject.toml").write_text("[project]\nname = \"omo\"\n")
     recorded: dict[str, object] = {}
 
     def fake_run(cmd, cwd):
@@ -109,6 +118,9 @@ def test_cmd_governance_ingress_debt_routes_to_omo_governance(monkeypatch, tmp_p
 
 
 def test_cmd_governance_verify_runs_governance_and_task_policy_chain(monkeypatch, tmp_path: Path) -> None:
+    omo_dir = tmp_path / "projects" / "omo"
+    omo_dir.mkdir(parents=True)
+    (omo_dir / "pyproject.toml").write_text("[project]\nname = \"omo\"\n")
     recorded: list[list[str]] = []
 
     def fake_run(cmd, cwd):

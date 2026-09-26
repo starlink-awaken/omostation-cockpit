@@ -113,6 +113,9 @@ def test_spine_draft_with_adapter(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     adapter_dir.mkdir(parents=True, exist_ok=True)
     (adapter_dir / "adapter_config.json").write_text('{"base_model_name_or_path": "qwen3.8-27b"}', encoding="utf-8")
     (adapter_dir / "adapters.safetensors").write_bytes(b"mock_weights")
+    omlxc_dir = tmp_path / "projects" / "omlxc"
+    omlxc_dir.mkdir(parents=True, exist_ok=True)
+    (omlxc_dir / "pyproject.toml").write_text("[project]\nname = \"omlxc\"\n", encoding="utf-8")
 
     monkeypatch.setattr("cockpit.commands.spine._ws", lambda: tmp_path)
     monkeypatch.setattr(
