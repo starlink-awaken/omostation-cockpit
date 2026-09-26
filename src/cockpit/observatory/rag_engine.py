@@ -11,12 +11,13 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from pathlib import Path
+import os
 import re
 import time
-from typing import Any, Dict, List, Optional, Tuple
-import urllib.request
 import urllib.error
+import urllib.request
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 APP_DIR = Path(__file__).resolve().parent
 CACHE_DIR = APP_DIR / "cache"
@@ -24,12 +25,21 @@ CACHE_DIR = APP_DIR / "cache"
 LIVE_SNAPSHOT = Path.home() / ".local/share/zhixing-dashboard/current.json"
 CACHE_FILE = CACHE_DIR / "embeddings.json"
 
-AETHERFORGE_BASE = "http://127.0.0.1:8000"
-EMBEDDING_MODEL = "embed-bge-m3"
-RERANK_MODEL = "baai-bge-reranker-v2-m3-mlx-fp16"
+# 2026-09-26: 经 aetherforge 门面(原直连 oMLX :8000, 无鉴权)。embed-bge 与原 embed-bge-m3 同一模型(1024 维)。
+AETHERFORGE_BASE = (os.environ.get("LLM_GATEWAY_URL") or "http://127.0.0.1:4000").rstrip("/")
+EMBEDDING_MODEL = "embed-bge"
+RERANK_MODEL = "rerank"
 
 
-def _tokenize(text: str) -> List[str]:
+def _gateway_headers() -> dict[str, str]:
+    try:
+        from cockpit.llm_router import _headers
+    except ImportError:  # standalone (43191) 宿主副本另有实现
+        return {"Content-Type": "application/json"}
+    return _headers()
+
+
+def _tokenize(text: str) -> list[str]:
     """Tokenize English words/identifiers and Chinese character n-grams."""
     if not text:
         return []
@@ -48,14 +58,14 @@ class BM25Index:
     def __init__(self, k1: float = 1.5, b: float = 0.75):
         self.k1 = k1
         self.b = b
-        self.corpus: List[Dict[str, Any]] = []
-        self.doc_lens: List[int] = []
+        self.corpus: list[dict[str, Any]] = []
+        self.doc_lens: list[int] = []
         self.avgdl: float = 0.0
-        self.df: Dict[str, int] = {}
-        self.idf: Dict[str, float] = {}
-        self.doc_tfs: List[Dict[str, int]] = []
+        self.df: dict[str, int] = {}
+        self.idf: dict[str, float] = {}
+        self.doc_tfs: list[dict[str, int]] = []
 
-    def build(self, documents: List[Dict[str, Any]]):
+    def build(self, documents: list[dict[str, Any]]):
         """Index list of document dicts with 'id', 'text', 'title', 'kind', 'plane'."""
         self.corpus = documents
         self.doc_lens = []
@@ -72,8 +82,8 @@ class BM25Index:
             doc_len = len(tokens)
             self.doc_lens.append(doc_len)
             total_len += doc_len
-            
-            tf: Dict[str, int] = {}
+
+            tf: dict[str, int] = {}
             for t in tokens:
                 tf[t] = tf.get(t, 0) + 1
             self.doc_tfs.append(tf)
@@ -86,13 +96,13 @@ class BM25Index:
         for term, freq in self.df.items():
             self.idf[term] = math.log(1.0 + (n_docs - freq + 0.5) / (freq + 0.5))
 
-    def score(self, query: str, top_k: int = 30) -> List[Tuple[int, float]]:
+    def score(self, query: str, top_k: int = 30) -> list[tuple[int, float]]:
         """Score all documents against query, returns list of (doc_index, score)."""
         tokens = _tokenize(query)
         if not tokens or not self.corpus:
             return []
 
-        scores: List[float] = [0.0] * len(self.corpus)
+        scores: list[float] = [0.0] * len(self.corpus)
         for t in tokens:
             if t not in self.idf:
                 continue
@@ -116,12 +126,12 @@ class BM25Index:
 class HybridRAGEngine:
     """Hybrid RAG orchestrator with AetherForge embedding, reranking and caching."""
 
-    def __init__(self, data_path: Optional[Path] = None):
+    def __init__(self, data_path: Path | None = None):
         self.data_path = data_path or LIVE_SNAPSHOT
         self.bm25 = BM25Index()
-        self.entities: List[Dict[str, Any]] = []
-        self.entities_by_id: Dict[str, Dict[str, Any]] = {}
-        self.embeddings_cache: Dict[str, List[float]] = {}
+        self.entities: list[dict[str, Any]] = []
+        self.entities_by_id: dict[str, dict[str, Any]] = {}
+        self.embeddings_cache: dict[str, list[float]] = {}
         self._load_cache()
         self.refresh_index()
 
@@ -153,7 +163,7 @@ class HybridRAGEngine:
         nodes = trace.get("nodes", [])
         documents = data.get("strategic", {}).get("documents", [])
 
-        extracted: List[Dict[str, Any]] = []
+        extracted: list[dict[str, Any]] = []
         for n in nodes:
             if not isinstance(n, dict):
                 continue
@@ -163,7 +173,7 @@ class HybridRAGEngine:
             plane = n.get("plane", "delivery")
             status = n.get("status", "")
             facts = n.get("facts", {}) or {}
-            
+
             parts = [
                 f"[{plane.upper()}:{kind.upper()}]",
                 title,
@@ -175,7 +185,7 @@ class HybridRAGEngine:
                 str(facts.get("track", ""))
             ]
             search_text = " ".join(p for p in parts if p.strip())
-            
+
             item = {
                 "id": nid,
                 "title": title,
@@ -212,13 +222,13 @@ class HybridRAGEngine:
         self.entities_by_id = {e["id"]: e for e in extracted}
         self.bm25.build(extracted)
 
-    def _call_aetherforge_embeddings(self, texts: List[str]) -> Optional[List[List[float]]]:
+    def _call_aetherforge_embeddings(self, texts: list[str]) -> list[list[float]] | None:
         """Request vector embeddings from local AetherForge 8000."""
         try:
             req = urllib.request.Request(
                 f"{AETHERFORGE_BASE}/v1/embeddings",
                 data=json.dumps({"model": EMBEDDING_MODEL, "input": texts}).encode("utf-8"),
-                headers={"Content-Type": "application/json"}
+                headers=_gateway_headers()
             )
             with urllib.request.urlopen(req, timeout=4) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
@@ -226,7 +236,7 @@ class HybridRAGEngine:
         except Exception:
             return None
 
-    def _call_aetherforge_rerank(self, query: str, candidate_texts: List[str]) -> Optional[List[Dict[str, Any]]]:
+    def _call_aetherforge_rerank(self, query: str, candidate_texts: list[str]) -> list[dict[str, Any]] | None:
         """Request cross-attention reranking from local AetherForge 8000."""
         if not candidate_texts:
             return []
@@ -238,7 +248,7 @@ class HybridRAGEngine:
                     "query": query,
                     "documents": candidate_texts[:30]
                 }).encode("utf-8"),
-                headers={"Content-Type": "application/json"}
+                headers=_gateway_headers()
             )
             with urllib.request.urlopen(req, timeout=4) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
@@ -246,7 +256,7 @@ class HybridRAGEngine:
         except Exception:
             return None
 
-    def search(self, query: str, mode: str = "hybrid", limit: int = 15) -> List[Dict[str, Any]]:
+    def search(self, query: str, mode: str = "hybrid", limit: int = 15) -> list[dict[str, Any]]:
         """Multi-stage retrieval over the entire sovereign ontology."""
         query = (query or "").strip()
         if not query or not self.entities:
@@ -257,7 +267,7 @@ class HybridRAGEngine:
 
         # Step 1: BM25 Lexical Scoring (0ms)
         bm25_matches = self.bm25.score(query, top_k=max(limit * 3, 30))
-        
+
         if mode == "lexical" or not bm25_matches:
             results = []
             for idx, score in bm25_matches[:limit]:
@@ -270,7 +280,7 @@ class HybridRAGEngine:
         # Step 2: Try AetherForge Rerank on top lexical candidates
         candidate_indices = [idx for idx, _ in bm25_matches[:25]]
         candidate_texts = [f"{self.entities[idx]['title']}: {self.entities[idx]['text']}" for idx in candidate_indices]
-        
+
         rerank_results = self._call_aetherforge_rerank(query, candidate_texts)
         if rerank_results:
             results = []
@@ -294,7 +304,7 @@ class HybridRAGEngine:
             results.append(doc)
         return results
 
-    def get_context_pack(self, entity_id: str) -> Dict[str, Any]:
+    def get_context_pack(self, entity_id: str) -> dict[str, Any]:
         """Synthesize a complete 360-degree context pack for an entity."""
         entity = self.entities_by_id.get(entity_id)
         if not entity:
