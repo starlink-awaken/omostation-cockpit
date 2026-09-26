@@ -15,6 +15,7 @@ Routes:
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from datetime import UTC, datetime
@@ -343,8 +344,10 @@ class TriageResponse(BaseModel):
     error: str | None = Field(None, description="错误信息")
 
 
-GATEWAY_URL = "http://127.0.0.1:9000/coding/v1/chat/completions"
-GATEWAY_KEY = "sk-omlx-admin"
+# 2026-09-26: 经 aetherforge 门面(原 :9000 omlx-autostart 已下线 + 假 key sk-omlx-admin, 恒失败)
+from cockpit.llm_router import _gateway_key
+
+GATEWAY_URL = (os.environ.get("LLM_GATEWAY_URL") or "http://127.0.0.1:4000").rstrip("/") + "/v1/chat/completions"
 
 TRIAGE_PROMPT = """你是信息分诊助手。判断: 丢弃 / 沉淀 / 提醒 三选一。
 
@@ -373,12 +376,12 @@ def _call_triage_model(model: str, text: str, needs_reasoning_off: bool = True) 
         payload["extra_body"] = {"reasoning_effort": "none"}
 
     data = json.dumps(payload).encode()
-    req = _urllib_request.Request(
+    req = _urllib_request.Request(  # noqa: S310 — 内部门面地址
         GATEWAY_URL,
         data=data,
         headers={
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {GATEWAY_KEY}",
+            "Authorization": f"Bearer {_gateway_key()}",
         },
     )
 

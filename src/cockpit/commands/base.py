@@ -254,6 +254,7 @@ def _render_publish_content(result: dict[str, Any], style: str) -> str:
 
 def _workspace_root() -> Path:
     from ..env_resolver import get_workspace_root
+
     return get_workspace_root()
 
 
@@ -361,56 +362,10 @@ def _strip_thinking(text: str) -> str:
     return "\n".join(cleaned).strip()
 
 
-# 默认 Ollama 模型名，可通过环境变量 WKS_OLLAMA_MODEL 覆盖
-_OLLAMA_BASE = os.environ.get("OLLAMA_ENDPOINT", "")
-_OLLAMA_TAGS_URL = os.environ.get("OLLAMA_TAGS_ENDPOINT", "")
-
-
-def _ollama_endpoints() -> tuple[str, str]:
-    from cockpit.llm_router import OLLAMA_API
-
-    base = _OLLAMA_BASE or f"{OLLAMA_API}/api/generate"
-    tags = _OLLAMA_TAGS_URL or f"{OLLAMA_API}/api/tags"
-    return base, tags
-
-
-def _discover_ollama_model(fallback: str = "gemma4:31b-mlx") -> str:
-    try:
-        import json as _json
-        from urllib import request as urlrequest
-
-        _base, _tags = _ollama_endpoints()
-        req = urlrequest.Request(_tags)  # noqa: S310
-        with urlrequest.urlopen(req, timeout=3) as resp:  # noqa: S310
-            data = _json.loads(resp.read())
-        models = data.get("models") or []
-        for m in models:
-            name = (m.get("name") or "").strip()
-            if name:
-                return name
-    except Exception:
-        pass
-    return fallback
-
-
-OLLAMA_MODEL = os.environ.get("WKS_OLLAMA_MODEL") or _discover_ollama_model()
-
-
-def _ollama_request(prompt: str, *, stream: bool, timeout: int) -> bytes:
-    """构建 ollama API 请求，发送 HTTP POST，返回原始响应体。"""
-    body = json.dumps(
-        {
-            "model": OLLAMA_MODEL,
-            "prompt": prompt,
-            "stream": stream,
-            "raw": True,
-            "options": {"num_predict": 500, "temperature": 0.3},
-        }
-    ).encode()
-    _base, _tags = _ollama_endpoints()
-    req = urlrequest.Request(_base, data=body, headers={"Content-Type": "application/json"})  # noqa: S310
-    with urlrequest.urlopen(req, timeout=timeout) as resp:  # noqa: S310
-        return resp.read()
+# 历史函数名保留(research/status/demo 都从这里 import)。旧实现直连本机 Ollama /api/generate,
+# 并在导入模块时就探测 /api/tags; 2026-09-26 收口到 aetherforge 门面(llm_router: 主门面 → 备用门面)。
+# WKS_OLLAMA_MODEL 仍可指定模型(门面别名或模型 ID), 为空则用 llm_router 的默认别名。
+OLLAMA_MODEL = os.environ.get("WKS_OLLAMA_MODEL", "")
 
 
 def _ollama_timeout(default: int = 60) -> int:
@@ -422,47 +377,21 @@ def _ollama_timeout(default: int = 60) -> int:
 
 
 def _run_ollama(prompt: str, *, timeout: int = 60) -> str | None:
-    """调用本地 ollama 模型生成文本（非流式）。"""
-    try:
-        raw = _ollama_request(prompt, stream=False, timeout=timeout)
-        data = json.loads(raw)
-        text = (data.get("response") or "").strip()
-        if text:
-            return _strip_thinking(text)
-    except Exception:  # defensive fallback
-        pass
-    return None
+    """经门面生成文本(非流式)。失败返回 None(llm_router 已逐层打印原因)。"""
+    del timeout  # 超时由 llm_router 的门面调用统一控制
+    from cockpit.llm_router import complete
+
+    content, _source = complete(prompt, model=OLLAMA_MODEL or None, temperature=0.3, max_tokens=500)
+    text = (content or "").strip()
+    return _strip_thinking(text) or None if text else None
 
 
 def _run_ollama_stream(prompt: str, *, timeout: int = 120) -> str | None:
-    """流式调用 ollama — 逐 token 打印到 stdout，同时累积完整文本。
-
-    Returns:
-        成功时返回完整累积文本，失败返回 None。
-    """
-    try:
-        raw = _ollama_request(prompt, stream=True, timeout=timeout)
-        full_text = ""
-        for line in raw.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                chunk = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            token = chunk.get("response") or ""
-            done = chunk.get("done", False)
-            if done and not token:
-                break
-            if token:
-                print(token, end="", flush=True)
-                full_text += token
-        print()
-        return full_text.strip() or None
-    except Exception:  # defensive fallback
-        pass
-    return None
+    """兼容旧的流式接口: 门面整段返回后一次性打印。"""
+    text = _run_ollama(prompt, timeout=timeout)
+    if text:
+        print(text)
+    return text
 
 
 def _status_services() -> list[tuple[str, str, str | None, str, str]]:

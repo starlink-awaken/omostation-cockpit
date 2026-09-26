@@ -36,6 +36,7 @@ from cockpit.commands.base import (
     _render_markdown_block,
     _render_publish_content,
     _run_ollama,
+    _run_ollama_stream,
     _short,
     _status_services,
     _strip_html,
@@ -150,78 +151,45 @@ class TestStripThinking:
 
 
 class TestRunOllama:
-    """6 种 HTTP 响应场景，验证降级链入口。"""
+    """_run_ollama 已收口到门面(llm_router.complete): 验证文本清洗与失败语义。"""
+
+    def _patch_complete(self, result):
+        return mock.patch("cockpit.llm_router.complete", return_value=result)
 
     def test_success_returns_stripped_text(self):
-        """场景 1：API 成功返回有效 response→返回剥离后文本"""
-        raw_response = json.dumps({"response": "<think>\n\n</think>\n\nTransformer 的核心创新。"})
-        mock_resp = mock.MagicMock()
-        mock_resp.__enter__.return_value = mock_resp
-        mock_resp.read.return_value = raw_response.encode()
+        """门面返回带 think 块的文本 → 剥离后返回"""
+        with self._patch_complete(("<think>\n\n</think>\n\nTransformer 的核心创新。", "gateway")):
+            assert _run_ollama("test prompt", timeout=10) == "Transformer 的核心创新。"
 
-        with mock.patch("cockpit.commands.base.urlrequest.urlopen", return_value=mock_resp):
-            result = _run_ollama("test prompt", timeout=10)
+    def test_empty_content_returns_none(self):
+        """门面返回空内容 → None"""
+        with self._patch_complete(("", "gateway")):
+            assert _run_ollama("test prompt", timeout=10) is None
 
-        assert result == "Transformer 的核心创新。"
+    def test_all_tiers_failed_returns_none(self):
+        """主门面与备用门面都失败 → None"""
+        with self._patch_complete((None, "none")):
+            assert _run_ollama("test prompt", timeout=10) is None
 
-    def test_empty_response_field(self):
-        """场景 2：API 返回空 response→返回 None"""
-        raw_response = json.dumps({"response": ""})
-        mock_resp = mock.MagicMock()
-        mock_resp.__enter__.return_value = mock_resp
-        mock_resp.read.return_value = raw_response.encode()
+    def test_whitespace_only_returns_none(self):
+        """只有空白 → None"""
+        with self._patch_complete(("   \n  ", "standby")):
+            assert _run_ollama("test prompt", timeout=10) is None
 
-        with mock.patch("cockpit.commands.base.urlrequest.urlopen", return_value=mock_resp):
-            result = _run_ollama("test prompt", timeout=10)
+    def test_uses_configured_model(self, monkeypatch):
+        """WKS_OLLAMA_MODEL 透传为门面模型名"""
+        import cockpit.commands.base as base_mod
 
-        assert result is None
+        monkeypatch.setattr(base_mod, "OLLAMA_MODEL", "coder")
+        with self._patch_complete(("ok", "gateway")) as complete:
+            _run_ollama("p")
+        assert complete.call_args.kwargs["model"] == "coder"
 
-    def test_missing_response_key(self):
-        """场景 3：API 返回缺少 response 键→返回 None"""
-        raw_response = json.dumps({"error": "model not found"})
-        mock_resp = mock.MagicMock()
-        mock_resp.__enter__.return_value = mock_resp
-        mock_resp.read.return_value = raw_response.encode()
-
-        with mock.patch("cockpit.commands.base.urlrequest.urlopen", return_value=mock_resp):
-            result = _run_ollama("test prompt", timeout=10)
-
-        assert result is None
-
-    def test_http_error(self):
-        """场景 4：HTTP 错误（模型不存在/服务关闭）→返回 None"""
-        with mock.patch(
-            "cockpit.commands.base.urlrequest.urlopen",
-            side_effect=urlerror.URLError("Connection refused"),
-        ):
-            result = _run_ollama("test prompt", timeout=10)
-
-        assert result is None
-
-    def test_timeout(self):
-        """场景 5：请求超时→返回 None"""
-        with mock.patch(
-            "cockpit.commands.base.urlrequest.urlopen",
-            side_effect=TimeoutError(),
-        ):
-            result = _run_ollama("test prompt", timeout=10)
-
-        assert result is None
-
-    def test_non_json_response(self):
-        """场景 6：非 JSON 响应→返回 None"""
-        mock_resp = mock.MagicMock()
-        mock_resp.read.return_value = b"<html>Internal Server Error</html>"
-
-        with mock.patch("cockpit.commands.base.urlrequest.urlopen", return_value=mock_resp):
-            result = _run_ollama("test prompt", timeout=10)
-
-        assert result is None
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# 三、_summarize_research_failure — 失败摘要场景
-# ═══════════════════════════════════════════════════════════════════════════════
+    def test_stream_prints_and_returns_text(self, capsys):
+        """流式兼容接口: 一次性打印并返回"""
+        with self._patch_complete(("答案", "gateway")):
+            assert _run_ollama_stream("p") == "答案"
+        assert "答案" in capsys.readouterr().out
 
 
 class TestSummarizeResearchFailure:
@@ -635,10 +603,7 @@ class TestWorkspaceRoot:
         """返回 cockpit 可用的 root：workspace checkout 或 standalone repo checkout"""
         root = _workspace_root()
         assert root.is_dir()
-        assert (
-            (root / "projects" / "cockpit").is_dir()
-            or (root / "src" / "cockpit").is_dir()
-        )
+        assert (root / "projects" / "cockpit").is_dir() or (root / "src" / "cockpit").is_dir()
 
 
 class TestLoadJsonFile:
