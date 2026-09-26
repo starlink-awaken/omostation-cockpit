@@ -86,6 +86,7 @@ def router_health_snapshot() -> dict[str, object]:
             "total": len(ROUTER_LOAD_REPORT),
             "loaded": loaded,
             "critical_failed": len(critical_failed),
+            "unavailable": len(critical_failed),
             "degraded": len(degraded),
         },
         "critical_failed": [dict(item) for item in critical_failed],
