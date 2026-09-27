@@ -364,6 +364,12 @@ TRIAGE_PROMPT = """你是信息分诊助手。判断: 丢弃 / 沉淀 / 提醒 �
 只输出一个词:"""
 
 
+# 分诊单模型超时: 原 15s 遇冷加载即静默返回"错误"
+TRIAGE_TIMEOUT = float(os.environ.get("COCKPIT_TRIAGE_TIMEOUT", "60"))
+# 分歧仲裁档: 原 deepseek-chat(云端) —— 告警原文被发往云端; 默认改本地重推理档
+TRIAGE_TIEBREAK = os.environ.get("COCKPIT_TRIAGE_TIEBREAK", "reasoning")
+
+
 def _call_triage_model(model: str, text: str, needs_reasoning_off: bool = True) -> tuple[str, float]:
     """调用单个分诊模型."""
     payload = {
@@ -389,7 +395,7 @@ def _call_triage_model(model: str, text: str, needs_reasoning_off: bool = True) 
 
     t0 = _time.time()
     try:
-        with _urllib_request.urlopen(req, timeout=15) as resp:  # noqa: S310
+        with _urllib_request.urlopen(req, timeout=TRIAGE_TIMEOUT) as resp:  # noqa: S310
             d = json.loads(resp.read())
         latency = _time.time() - t0
         content = d["choices"][0]["message"]["content"].strip()
@@ -426,7 +432,7 @@ async def triage_notification(request: TriageRequest):
 
     # 共识模式: stage1 双模型并行
     stage1_models = [("mid-local", True), ("mini-9b", True)]
-    stage2_model = ("deepseek-chat", False)
+    stage2_model = (TRIAGE_TIEBREAK, True)
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         futures = [pool.submit(_call_triage_model, m, request.text, off) for m, off in stage1_models]

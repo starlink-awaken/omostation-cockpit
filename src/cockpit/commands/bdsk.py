@@ -3,7 +3,8 @@
 Business / Developer / Security / Knowledge 四角规则启发式审议：
 读取方案文本 → 信号词推导各角关注点与风险评分 → 输出 MADR 决策报告
 （4 角评语 + 风险雷达表 + 折中方案）。确定性实现，零模型调用；
-LLM 增强由 bdsk_engine 的 BOS persona 面另行提供。
+--llm 时追加 LLM 四角董事会(bdsk_engine → bos://persona/bdsk/evaluate → 本地算力),
+失败如实标 NOT_PROVEN, 规则结果照常输出。
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 console = Console()
+err_console = Console(stderr=True)
 
 ROLES = ("business", "developer", "security", "knowledge")
 ROLE_LABELS = {
@@ -205,6 +207,21 @@ DEMO_SPEC = """# 示例方案：区域全民健康信息平台互联互通升级
 """
 
 
+def _render_llm_board(board: dict) -> str:
+    """LLM 四角董事会段落(追加到 MADR)。"""
+    if board.get("proof_state") != "proven":
+        return f"\n## LLM 四角董事会\n\n**NOT_PROVEN** — {board.get('error_code', 'unknown')}(规则评审结果不受影响)\n"
+    lines = [
+        "\n## LLM 四角董事会(本地算力)\n",
+        f"- 结论: **{board['verdict']}** · 风险分 {board['risk_score']}",
+        f"- 建议: {board['conclusion']}",
+        f"- 来源: {board['persona_uri']} → {board['compute_uri']}\n",
+    ]
+    for role, name in (("builder", "建设者"), ("devil", "反方"), ("sage", "智者"), ("keeper", "守门人")):
+        lines.append(f"### {name}({role})\n\n{board.get(role, '')}\n")
+    return "\n".join(lines)
+
+
 def cmd_bdsk(args: argparse.Namespace) -> int:
     """Dispatch bdsk subcommand."""
     sub = getattr(args, "bdsk_subcmd", None) or "evaluate"
@@ -230,11 +247,23 @@ def cmd_bdsk_evaluate(args: argparse.Namespace) -> int:
 
     result = evaluate_spec(spec_text)
     report = render_madr(result, label)
+    if getattr(args, "llm", False):
+        from cockpit.commands.bdsk_engine import DynamicBDSKAdjudicator
+
+        lines = [ln.lstrip("#-* ").strip() for ln in spec_text.splitlines() if ln.strip()]
+        topic = lines[0] if lines else label
+        # persona 隐私闸拒绝控制字符(含换行)与路径样式 → 多行方案压成单行, 否则恒 privacy_rejected
+        context = "；".join(lines[1:])[:4000]  # 不用 " / ": 空格后的斜杠会被判成绝对路径
+        board = DynamicBDSKAdjudicator.adjudicate(topic, context=context)
+        result["llm_board"] = board
+        report += _render_llm_board(board)
     out = getattr(args, "out", None)
+    as_json = getattr(args, "json", False)
     if out:
         Path(out).write_text(report, encoding="utf-8")
-        console.print(f"[green]✅ MADR 报告已写入 {out}[/green]")
-    if getattr(args, "json", False):
+        # --json 时状态提示走 stderr, 否则会污染 stdout 上的 JSON
+        (err_console if as_json else console).print(f"[green]✅ MADR 报告已写入 {out}[/green]")
+    if as_json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
         console.print(
