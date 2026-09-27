@@ -959,6 +959,9 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     bdsk_p.add_argument("--demo", action="store_true", help="evaluate: 内置样例方案")
     bdsk_p.add_argument("--out", default=None, help="evaluate: MADR Markdown 输出路径")
     bdsk_p.add_argument("--json", action="store_true", help="evaluate: 机器可读结果")
+    bdsk_p.add_argument(
+        "--llm", action="store_true", help="evaluate: 追加 LLM 四角董事会(BOS persona → 本地算力 coding 档)"
+    )
     # ── T7-02: calendar 感知与督办 ──
     cal_p = sub.add_parser("calendar", help="多维日历感知与督办闭环 (T7-02)")
     cal_sub = cal_p.add_subparsers(dest="calendar_command", parser_class=workspace_parser)
