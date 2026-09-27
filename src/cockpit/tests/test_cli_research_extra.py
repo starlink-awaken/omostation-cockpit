@@ -84,7 +84,7 @@ class TestCmdResearchList:
         # 不 mock sys.argv，只确认符号存在
         assert hasattr(cli, "cmd_research_list")
 
-    def test_list_json(self, monkeypatch):
+    def test_list_json(self, monkeypatch, capsys):
         """--list --json 输出 JSON"""
         capture = Console(record=True, force_terminal=True, width=140)
         monkeypatch.setattr(cli, "console", capture)
@@ -105,12 +105,13 @@ class TestCmdResearchList:
 
         code = cli.cmd_research_list(argparse.Namespace(limit=10, json=True, status="all"))
 
-        output = capture.export_text()
+        # --json 走裸 stdout(rich 折行会破坏 JSON), 同时兼容旧的 console 输出
+        output = capture.export_text() + capsys.readouterr().out
         assert code == 0
         assert '"id": 1' in output
         assert '"topic": "AI Safety"' in output
 
-    def test_list_status_active(self, monkeypatch):
+    def test_list_status_active(self, monkeypatch, capsys):
         """--status active 仅显示未归档"""
         capture = Console(record=True, force_terminal=True, width=140)
         monkeypatch.setattr(cli, "console", capture)
@@ -142,12 +143,13 @@ class TestCmdResearchList:
         }
         monkeypatch.setattr(cli, "get_data_access", lambda: mock_da)
         code = cli.cmd_research_list(argparse.Namespace(limit=10, status="active", json=True))
-        output = capture.export_text()
+        # --json 走裸 stdout(rich 折行会破坏 JSON), 同时兼容旧的 console 输出
+        output = capture.export_text() + capsys.readouterr().out
         assert code == 0
         assert '"Active"' in output
         assert '"Archived"' not in output
 
-    def test_list_status_archived(self, monkeypatch):
+    def test_list_status_archived(self, monkeypatch, capsys):
         """--status archived 仅显示已归档"""
         capture = Console(record=True, force_terminal=True, width=140)
         monkeypatch.setattr(cli, "console", capture)
@@ -179,7 +181,8 @@ class TestCmdResearchList:
         }
         monkeypatch.setattr(cli, "get_data_access", lambda: mock_da)
         code = cli.cmd_research_list(argparse.Namespace(limit=10, status="archived", json=True))
-        output = capture.export_text()
+        # --json 走裸 stdout(rich 折行会破坏 JSON), 同时兼容旧的 console 输出
+        output = capture.export_text() + capsys.readouterr().out
         assert code == 0
         assert '"Archived"' in output
         assert '"Active"' not in output

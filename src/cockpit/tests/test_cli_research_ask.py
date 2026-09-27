@@ -394,7 +394,7 @@ class TestCmdResearchOpen:
         assert "为什么重要" in output
         assert "NLP, CV" in output
 
-    def test_open_json(self, monkeypatch):
+    def test_open_json(self, monkeypatch, capsys):
         """--open --json 输出 JSON"""
         capture = Console(record=True, force_terminal=True, width=140)
         monkeypatch.setattr(cli, "console", capture)
@@ -402,7 +402,8 @@ class TestCmdResearchOpen:
         mock.get_research = lambda rid: _make_research()
         monkeypatch.setattr(cli, "get_data_access", lambda: mock)
         code = cli.cmd_research_open(argparse.Namespace(research_id=42, json=True))
-        output = capture.export_text()
+        # --json 走裸 stdout(rich 折行会破坏 JSON), 同时兼容旧的 console 输出
+        output = capture.export_text() + capsys.readouterr().out
         assert code == 0
         assert '"id": 42' in output
         assert '"topic": "test topic"' in output

@@ -292,7 +292,7 @@ def cmd_research_list(args: argparse.Namespace) -> int:
     if output_json:
         import json as _json
 
-        _get_console().print(_json.dumps(results, ensure_ascii=False, indent=2, default=str))
+        print(_json.dumps(results, ensure_ascii=False, indent=2, default=str))
         return 0
     table = Table(title="研究历史", box=box.ROUNDED, header_style="bold cyan", show_lines=False)
     table.add_column("ID", style="cyan", no_wrap=True)
@@ -335,7 +335,7 @@ def cmd_research_open(args: argparse.Namespace) -> int:
     if output_json:
         import json as _json
 
-        _get_console().print(_json.dumps(result, ensure_ascii=False, indent=2, default=str))
+        print(_json.dumps(result, ensure_ascii=False, indent=2, default=str))
         return 0
     header = (
         f"[bold]{result['topic']}[/bold]\n[dim]{_fmt_time(result['created_at'])} · {result['source_count']} 来源[/dim]"
