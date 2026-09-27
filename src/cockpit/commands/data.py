@@ -18,7 +18,7 @@ def cmd_data_index(args: argparse.Namespace) -> int:
         _get_err().print(f"[red]❌ {exc}[/red]")
         return 1
     if getattr(args, "json", False):
-        _get_console().print(json.dumps(result, ensure_ascii=False, indent=2))
+        print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
     table = Table(title="Workspace Data Index", box=box.ROUNDED, header_style="bold cyan")
     table.add_column("目录", style="cyan")
@@ -36,7 +36,7 @@ def cmd_data_types(args: argparse.Namespace) -> int:
         _get_err().print(f"[red]❌ {exc}[/red]")
         return 1
     if getattr(args, "json", False):
-        _get_console().print(json.dumps({"types": types}, ensure_ascii=False, indent=2))
+        print(json.dumps({"types": types}, ensure_ascii=False, indent=2))
         return 0
     table = Table(title="Workspace Data Types", box=box.ROUNDED, header_style="bold cyan")
     table.add_column("ID", style="cyan", no_wrap=True)
