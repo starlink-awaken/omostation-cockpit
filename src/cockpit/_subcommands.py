@@ -456,6 +456,7 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     )
     brain_sub = brain_p.add_subparsers(dest="brain_subcommand", parser_class=workspace_parser)
     brain_ask_p = brain_sub.add_parser("ask", help="向大脑提问（知识检索 + LLM 回答）")
+    brain_ask_p.add_argument("--cloud", action="store_true", help="改用云端模型(默认本地 reasoning 档)")
     brain_ask_p.add_argument("question", nargs=argparse.REMAINDER, help="你的问题")
     brain_sub.add_parser("context", help="查看当前记忆摘要")
     brain_remember_p = brain_sub.add_parser("remember", help="手动存入偏好/事实")
@@ -1067,6 +1068,31 @@ def register_subcommands(sub: argparse._SubParsersAction, workspace_parser: type
     ask_p.add_argument("--model", "-m", help="指定模型 ID (例如 omlxc/coding-next)")
 
     sub.add_parser("proxy-env", help="输出兼容外部客户端的本地环境变量 (OPENAI_API_BASE)")
+
+    # ── 本地算力: rag / see / speak (经 aetherforge 门面) ─────────────
+    rag_p = sub.add_parser("rag", help="🔎 本地文档问答 (向量召回 embed-bge → 重排 rerank → 作答)")
+    rag_sub = rag_p.add_subparsers(dest="rag_command")
+    rag_ask_p = rag_sub.add_parser("ask", help='cockpit rag ask "问题" --docs DIR|FILE...')
+    rag_ask_p.add_argument("question", nargs="+", help="问题")
+    rag_ask_p.add_argument("--docs", nargs="+", default=[], help="文档目录或文件(.md/.txt/.py/.yaml)")
+    rag_ask_p.add_argument("--kos", action="store_true", help="同时并入 KOS 检索命中")
+    rag_ask_p.add_argument("--top-k", type=int, default=5, help="重排后取前 K 块作答")
+    rag_ask_p.add_argument("--json", action="store_true", help="JSON 输出(含各阶段用到的门面档)")
+
+    see_p = sub.add_parser("see", help="👁 看图理解 / 文字识别 (vision / ocr)")
+    see_p.add_argument("image", help="图片路径")
+    see_p.add_argument("question", nargs="*", help="针对图片的问题(可选)")
+    see_p.add_argument("--ocr", action="store_true", help="文字识别模式(ocr 档)")
+    see_p.add_argument("--model", "-m", help="指定门面档(默认 vision)")
+    see_p.add_argument("--json", action="store_true")
+
+    speak_p = sub.add_parser("speak", help="🔊 语音合成 (tts-zh / tts-en)")
+    speak_p.add_argument("text", nargs="*", help="要朗读的文本(也可从 stdin 读)")
+    speak_p.add_argument("--out", "-o", help="输出 wav 路径")
+    speak_p.add_argument("--voice", help="音色(默认中文 vivian / 英文 af_heart)")
+    speak_p.add_argument("--model", "-m", help="指定门面档")
+    speak_p.add_argument("--play", action="store_true", help="合成后立即播放")
+    speak_p.add_argument("--json", action="store_true")
 
     # ── knowledge / memory / kems / c2g ───────────────────────
     knowledge_p = sub.add_parser("knowledge", help="📚 KOS 知识检索 (search/status/stats)")

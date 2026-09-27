@@ -1005,6 +1005,9 @@ def main(argv: list[str] | None = None) -> int:
             "cockpit.commands.bos", fromlist=["cmd_bos_capability"]
         ).cmd_bos_capability(a),
         "ask": lambda a: __import__("cockpit.commands.ask", fromlist=["cmd_ask"]).cmd_ask(a),
+        "rag": lambda a: __import__("cockpit.commands.local_ai", fromlist=["cmd_rag"]).cmd_rag(a),
+        "see": lambda a: __import__("cockpit.commands.local_ai", fromlist=["cmd_see"]).cmd_see(a),
+        "speak": lambda a: __import__("cockpit.commands.local_ai", fromlist=["cmd_speak"]).cmd_speak(a),
         "proxy-env": lambda a: __import__("cockpit.commands.ask", fromlist=["cmd_proxy_env"]).cmd_proxy_env(a),
         "bos-inbox": lambda a: __import__("cockpit.commands.bos_inbox", fromlist=["cmd_bos_inbox"]).cmd_bos_inbox(a),
         "ops": lambda a: __import__("cockpit.commands.ops", fromlist=["cmd_ops"]).cmd_ops(a),
