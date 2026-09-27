@@ -42,22 +42,22 @@ def cmd_ask(args) -> int:
     try:
         from cockpit.llm_router import complete
 
-        with console.status("[cyan]llm-router 推理中 (omlxc → ollama)...[/cyan]"):
+        with console.status("[cyan]llm-router 推理中 (本机门面 → macmini 备用门面)...[/cyan]"):
             content, source = complete(prompt, model=model)
     except Exception as e:  # noqa: BLE001 — CLI 边界兜底, 保持与旧行为一致的错误呈现
         console.print(f"[red]Error: {e}[/red]")
         return 1
 
     if not content:
-        console.print("[red]所有推理后端均不可用 (omlxc 网关 + ollama)。[/red]")
-        console.print("[yellow]排查: 1) 启动 omlxc 网关  2) `ollama pull <model>` 拉取本地模型[/yellow]")
+        console.print("[red]主备门面均不可用。[/red]")
+        console.print("[yellow]排查: aictl status / aictl heal / aictl site[/yellow]")
         return 1
 
     console.print()
     console.print(Markdown(content))
     console.print()
-    if source == "ollama":
-        console.print("[dim]⚠️ 此为 ollama 降级回复 (omlxc 网关不可用)。[/dim]")
+    if source == "standby":
+        console.print("[dim]⚠️ 本机门面不可用, 此回复来自 macmini 备用门面。[/dim]")
     return 0
 
 

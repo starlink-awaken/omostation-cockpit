@@ -197,8 +197,15 @@ def kos_context_sync(query: str) -> dict:
 # ── LLM Gateway (best-effort) ─────────────────────────────────────
 
 
-def llm_complete(prompt: str, model: str = "deepseek-v4-flash") -> str:
+# 默认走本地重推理档(门面别名); 原默认 deepseek-v4-flash 是云端模型 —— 知识问答把私有知识发往云端,
+# 且"本地算力"从未参与。需要云端时设 COCKPIT_BRAIN_MODEL 或 brain ask --cloud。
+BRAIN_MODEL = os.environ.get("COCKPIT_BRAIN_MODEL", "reasoning")
+BRAIN_CLOUD_MODEL = os.environ.get("COCKPIT_BRAIN_CLOUD_MODEL", "deepseek-v4-flash")
+
+
+def llm_complete(prompt: str, model: str | None = None) -> str:
     """调用统一推理接入层 (llm-router) 生成回答。失败时返回空字符串。"""
+    model = model or BRAIN_MODEL
     from cockpit.llm_router import complete as llm_router_complete
 
     content, _source = llm_router_complete(prompt, model=model, temperature=0.7, max_tokens=2048)
@@ -273,7 +280,7 @@ def cmd_brain_ask(args: argparse.Namespace) -> int:
 
     # 4. 调用 LLM
     print("🧠 生成回答...")
-    answer = llm_complete(prompt)
+    answer = llm_complete(prompt, BRAIN_CLOUD_MODEL if getattr(args, "cloud", False) else None)
 
     if answer:
         print(f"\n{'=' * 60}")

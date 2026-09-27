@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import math
 import os
 import re
@@ -18,6 +19,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 APP_DIR = Path(__file__).resolve().parent
 CACHE_DIR = APP_DIR / "cache"
@@ -29,6 +32,8 @@ CACHE_FILE = CACHE_DIR / "embeddings.json"
 AETHERFORGE_BASE = (os.environ.get("LLM_GATEWAY_URL") or "http://127.0.0.1:4000").rstrip("/")
 EMBEDDING_MODEL = "embed-bge"
 RERANK_MODEL = "rerank"
+# 冷加载(embed-bge / reranker 首次拉起)可达数十秒; 原 4s 超时让语义检索在冷态下恒静默退化为 BM25
+GATEWAY_TIMEOUT = float(os.environ.get("COCKPIT_RAG_GATEWAY_TIMEOUT", "60"))
 
 
 def _gateway_headers() -> dict[str, str]:
@@ -132,6 +137,7 @@ class HybridRAGEngine:
         self.entities: list[dict[str, Any]] = []
         self.entities_by_id: dict[str, dict[str, Any]] = {}
         self.embeddings_cache: dict[str, list[float]] = {}
+        self.last_degraded: str | None = None  # 最近一次向量/重排降级原因(调用方可据此标注 retrieval_mode)
         self._load_cache()
         self.refresh_index()
 
@@ -230,10 +236,12 @@ class HybridRAGEngine:
                 data=json.dumps({"model": EMBEDDING_MODEL, "input": texts}).encode("utf-8"),
                 headers=_gateway_headers()
             )
-            with urllib.request.urlopen(req, timeout=4) as resp:
+            with urllib.request.urlopen(req, timeout=GATEWAY_TIMEOUT) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 return [row["embedding"] for row in data.get("data", [])]
-        except Exception:
+        except Exception as exc:  # 降级到 BM25 必须留痕(此前 4s 超时 + 静默 None, 冷加载时恒退化为关键词检索)
+            logger.warning("rag embeddings unavailable, falling back to BM25: %s", exc)
+            self.last_degraded = f"embeddings: {exc}"
             return None
 
     def _call_aetherforge_rerank(self, query: str, candidate_texts: list[str]) -> list[dict[str, Any]] | None:
@@ -250,10 +258,12 @@ class HybridRAGEngine:
                 }).encode("utf-8"),
                 headers=_gateway_headers()
             )
-            with urllib.request.urlopen(req, timeout=4) as resp:
+            with urllib.request.urlopen(req, timeout=GATEWAY_TIMEOUT) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 return data.get("results", [])
-        except Exception:
+        except Exception as exc:
+            logger.warning("rag rerank unavailable, keeping fused order: %s", exc)
+            self.last_degraded = f"rerank: {exc}"
             return None
 
     def search(self, query: str, mode: str = "hybrid", limit: int = 15) -> list[dict[str, Any]]:
