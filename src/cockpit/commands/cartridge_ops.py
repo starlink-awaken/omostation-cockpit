@@ -4,7 +4,6 @@ import os
 import subprocess
 import sys
 import tempfile
-import time
 import zipfile
 from pathlib import Path
 
@@ -86,17 +85,14 @@ def run_cartridge(cartridge_file: str, intent: str, workspace_root: Path) -> int
 
         console.print("[green]✅ 密码学完整性校验通过[/]")
 
-        console.print("[bold blue]🧠 路由至 AetherForge (0ms TTFT KV Pre-warming...)[/]")
-        time.sleep(1)
-
-        console.print("[green]✅ 领域事实与合规策略已装载至模型上下文[/]")
-        console.print(f"[bold magenta]⚡ 执行流启动: {intent}[/]")
-
         entrypoint = sandbox / "scripts" / "run.py"
         if entrypoint.exists():
+            console.print(f"[bold magenta]⚡ 执行卡带入口 scripts/run.py: {intent}[/]")
             res = subprocess.run(["python3", str(entrypoint), "--intent", intent], cwd=str(sandbox))
             return res.returncode
-        else:
-            console.print("[yellow]⚠️ 缺省意图拦截器: 卡带内未找到 scripts/run.py，已通过通用模型路由生成策略证明。[/]")
-            console.print("[green]📝 审计凭证 (Merkle Inclusion Proof) 已生成。[/]")
-            return 0
+        # 此前这里 sleep(1) 后打印「已装载至模型上下文 / 已通过通用模型路由生成策略证明 /
+        # 审计凭证已生成」, 实际什么都没执行(全链路场景实测)。只如实报告做了什么。
+        console.print(
+            "[yellow]⚠️ 卡带内没有 scripts/run.py: 只完成了完整性校验, 未执行任何策略评估或模型生成。[/]"
+        )
+        return 2
