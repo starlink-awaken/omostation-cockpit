@@ -87,3 +87,25 @@ def test_cli_minutes_json(tmp_path: Path):
     data = json.loads(buf.getvalue())
     assert data["schema"] == "cockpit.calendar.minutes.v1"
     assert data["action_items"] and data["decisions"]
+
+
+def test_extract_action_items_single_line_asr_transcript():
+    """ASR 转写常是一整行、以分号分隔: 每条事项的责任人/时限必须取自本条, 不能串到别条。"""
+    asr = (
+        "今天处务会议定五件事：第一，数据安全专项检查由张磊牵头，十月十日前完成自查报告；"
+        "第二，电子病历升级项目验收材料由李娜负责，本周五前报规划信息处；"
+        "第三，传染病直报质量核查由王强负责，十月十二日前报疾控处；"
+        "第四，下周二上午九点召开信创适配推进会，赵敏负责会务；"
+        "第五，十月底前完成第三季度信息化工作总结，由我本人审定。"
+    )
+    items = extract_action_items(asr)
+    got = [(a["owner"], a["deadline"]) for a in items["action_items"]]
+    assert got == [
+        ("张磊", "十月十日前"),
+        ("李娜", "本周五前"),
+        ("王强", "十月十二日前"),
+        ("赵敏", "下周二上午九点"),
+        ("本人", "十月底前"),
+    ]
+    assert items["action_items"][0]["task"].startswith("数据安全专项检查")
+    assert items["decisions"]

@@ -112,39 +112,65 @@ def prebrief(event: dict[str, str]) -> dict[str, Any]:
 
 # ── 转写文本 → 交办事项与决策要点 ────────────────────────────────────
 
-_ACTION_VERBS = r"(?:落实|跟进|牵头|负责|完成|提交|梳理|输出|反馈|组织|协调|编制|推动|复审)"
+_ACTION_VERBS = r"(?:落实|跟进|牵头|负责|完成|提交|梳理|输出|反馈|组织|协调|编制|推动|复审|报送|上报|召开|审定)"
 _RESPONSIBLE = r"([\u4e00-\u9fff]{2,4}(?:处|科|室|中心|组|团队|部门)|夏明星|[A-Z][a-z]+)"
+_CN = "[一二三四五六七八九十〇两]"
 _TIME_HINT = (
-    r"(?:(本周|下周|本月|月底|周五|下周一|[一二三四五六日]月底?)[之]?前|\d{1,2}月\d{1,2}日前|(\d+) 个?工作日[之]?内)"
+    r"(?:(?:[本下]周[一二三四五六日]|本周|下周|本月|月底|周[一二三四五六日]|[一二三四五六七八九十]+月底|\d{1,2}月底)[之]?前"
+    rf"|(?:\d{{1,2}}|{_CN}{{1,3}})月(?:\d{{1,2}}|{_CN}{{1,3}})[日号][之]?前"
+    r"|(\d+) 个?工作日[之]?内"
+    rf"|下周[一二三四五六日](?:上午|下午)?(?:\d{{1,2}}|{_CN}{{1,3}})点"
+    r")"
 )
 
-_ACTION_LINE = re.compile(rf"{_ACTION_VERBS}[^。；\n]*")
-_RESP_IN_LINE = re.compile(_RESPONSIBLE + r"\s*(?:负责|牵头|落实|跟进)")
+_CLAUSE_SPLIT = re.compile(r"[。；;\n]|[：:](?=第[一二三四五六七八九十]+[，,、])")
+_ORDINAL = re.compile(r"^(?:第[一二三四五六七八九十]+|[0-9]+)[，,、.．\s]*")
+_ACTION = re.compile(_ACTION_VERBS)
+# 责任人按可信度依次尝试: 「由X牵头/负责」→ 句首或标点后的「X负责」→ 部门+动词 → 「我本人」
+_OWNER_PATTERNS = (
+    re.compile(r"由\s*([\u4e00-\u9fff]{2,3}?)\s*(?:牵头|负责)"),
+    re.compile(r"(?:^|[，,、：:\s])([\u4e00-\u9fff]{2,3}?)\s*(?:牵头|负责)"),
+    re.compile(_RESPONSIBLE + r"\s*(?:负责|牵头|落实|跟进)"),
+)
 _TIME_IN_LINE = re.compile(_TIME_HINT)
 
 
+def _owner_of(clause: str) -> str:
+    for pat in _OWNER_PATTERNS:
+        m = pat.search(clause)
+        if m and m.group(1) not in ("我本人", "本人"):
+            return m.group(1)
+    if re.search(r"我本人|由我", clause):
+        return "本人"
+    m = re.search(_RESPONSIBLE, clause)
+    return m.group(1) if m else "待指定"
+
+
 def extract_action_items(transcript: str) -> dict[str, Any]:
-    """转写文本 → 决策要点 + 交办事项（任务句式规则匹配，含责任人/时间）。"""
+    """转写文本 → 决策要点 + 交办事项。
+
+    按句读和「第X，」切成子句, 责任人与时限只在本子句内找 —— 此前在整行里找,
+    ASR 转写只有一行时每条事项都拿到全行第一个匹配(实测 5 条负责人全错)。
+    """
     decisions: list[str] = []
     actions: list[dict[str, str]] = []
-    for line in transcript.splitlines():
-        s = line.strip().lstrip("-•0123456789.、 ")
-        if not s:
+    for raw in _CLAUSE_SPLIT.split(transcript):
+        clause = _ORDINAL.sub("", raw.strip().lstrip("-•、 "))
+        if not clause:
             continue
-        if re.search(r"决定|同意|原则通过|明确", s) and len(s) >= 8:
-            decisions.append(s[:80])
-        for m in _ACTION_LINE.finditer(s):
-            seg = m.group(0)
-            resp_m = _RESP_IN_LINE.search(seg) or re.search(_RESPONSIBLE, s)
-            time_m = _TIME_IN_LINE.search(s)
-            actions.append(
-                {
-                    "task": seg[:70],
-                    "owner": resp_m.group(1) if resp_m else "待指定",
-                    "deadline": time_m.group(0) if time_m else "待排期",
-                    "source_line": s[:60],
-                }
-            )
+        if re.search(r"决定|同意|原则通过|明确|议定|决议", clause) and len(clause) >= 6:  # 已去句末标点
+            decisions.append(clause[:80])
+        if not _ACTION.search(clause):
+            continue
+        time_m = _TIME_IN_LINE.search(clause)
+        actions.append(
+            {
+                "task": clause[:70],
+                "owner": _owner_of(clause),
+                "deadline": time_m.group(0) if time_m else "待排期",
+                "source_line": clause[:60],
+            }
+        )
     return {
         "schema": "cockpit.calendar.minutes.v1",
         "decisions": decisions[:5],
