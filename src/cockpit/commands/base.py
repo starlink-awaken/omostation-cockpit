@@ -244,12 +244,12 @@ def _render_publish_content(result: dict[str, Any], style: str) -> str:
     source_count = int(result.get("source_count") or 0)
     if style == "brief":
         section_title = "## One-Page Brief"
-        content_body = f"{section_title}\\n{summary or '暂无摘要'}\\n\\n## Key Details\\n- Source Count: {source_count}\\n- Research ID: {result['id']}\\n\\n## Full Context\\n{body}"
+        content_body = f"{section_title}\n{summary or '暂无摘要'}\n\n## Key Details\n- Source Count: {source_count}\n- Research ID: {result['id']}\n\n## Full Context\n{body}"
     elif style == "memo":
-        content_body = f"## Internal Memo\\n{summary or '暂无摘要'}\\n\\n## Notes\\n{body}"
+        content_body = f"## Internal Memo\n{summary or '暂无摘要'}\n\n## Notes\n{body}"
     else:
-        content_body = f"## Executive Summary\\n{summary or '暂无摘要'}\\n\\n## Full Report\\n{body}"
-    return f"# {result['topic']}\\n\\nPublished: {created_at}\\nSource Count: {source_count}\\nResearch ID: {result['id']}\\n\\n{content_body}\\n\\n---\\nPublished by Workspace CLI\\n"
+        content_body = f"## Executive Summary\n{summary or '暂无摘要'}\n\n## Full Report\n{body}"
+    return f"# {result['topic']}\n\nPublished: {created_at}\nSource Count: {source_count}\nResearch ID: {result['id']}\n\n{content_body}\n\n---\nPublished by Workspace CLI\n"
 
 
 def _workspace_root() -> Path:
