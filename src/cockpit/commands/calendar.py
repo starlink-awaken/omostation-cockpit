@@ -123,6 +123,59 @@ _TIME_HINT = (
     r")"
 )
 
+def _resolve_deadline(raw: str) -> str:
+    """时限文本 → YYYY-MM-DD; 解析不了返回空串(留人工确认)。
+
+    支持 YYYY年M月D日 / M月D日(缺年: 今年, 已过顺延明年) / 本周X / 下周X /
+    N 个工作日内(粗略 N+2 天)。会议口述里中文数字与周几最常见(全链路实测:
+    「十月十日前」「本周五」此前都落不了账)。
+    """
+    import datetime as _dt
+
+    today = _dt.date.today()
+
+    def _num(x: str) -> int:
+        if x.isdigit():
+            return int(x)
+        total = 0
+        for ch in x:
+            if ch == "十":
+                total = total * 10 if total else 10
+            elif ch in "一二三四五六七八九":
+                total = total * 10 + "一二三四五六七八九".index(ch) + 1
+        return total
+
+    m = re.search(r"(\d{4})年([\d一二三四五六七八九十]{1,3})月([\d一二三四五六七八九十]{1,3})日", raw or "")
+    if m:
+        try:
+            return _dt.date(int(m.group(1)), _num(m.group(2)), _num(m.group(3))).isoformat()
+        except ValueError:
+            return ""
+    m = re.search(r"([\d一二三四五六七八九十]{1,3})月([\d一二三四五六七八九十]{1,3})日", raw or "")
+    if m:
+        try:
+            d = _dt.date(today.year, _num(m.group(1)), _num(m.group(2)))
+        except ValueError:
+            return ""
+        if d < today:
+            d = d.replace(year=d.year + 1)
+        return d.isoformat()
+    m = re.search(r"([本下])周([一二三四五六日天])", raw or "")
+    if m:
+        cn = "一二三四五六日"
+        target = cn.index("日" if m.group(2) == "天" else m.group(2)) + 1
+        ahead = (target - today.isoweekday()) % 7
+        if m.group(1) == "下":
+            ahead += 7
+        elif ahead == 0:
+            ahead = 7
+        return (today + _dt.timedelta(days=ahead)).isoformat()
+    m = re.search(r"(\d+)\s*个?工作日", raw or "")
+    if m:
+        return (today + _dt.timedelta(days=int(m.group(1)) + 2)).isoformat()
+    return ""
+
+
 _CLAUSE_SPLIT = re.compile(r"[。；;\n]|[：:](?=第[一二三四五六七八九十]+[，,、])")
 _ORDINAL = re.compile(r"^(?:第[一二三四五六七八九十]+|[0-9]+)[，,、.．\s]*")
 _ACTION = re.compile(_ACTION_VERBS)
@@ -203,17 +256,11 @@ def _route_to_signal(items: dict[str, Any], source: str = "calendar-minutes") ->
             # 路由之外还要落账: deadline-tracker 是唯一有周期检查与到期告警的督办台账,
             # 此前 --route 只算路由结果不落盘, 督办事项没有任何持久面(全链路实测 2026-09-29)
             "from deadline_tracker import register_task\n"
-            "import re as _re\n"
-            "_m = _re.search(r'(\\d{4})年(\\d{1,2})月(\\d{1,2})日|\\d{4}-\\d{1,2}-\\d{1,2}', %r)\n"
-            "_dl = ''\n"
-            "if _m:\n"
-            "    _d = _re.sub(r'[年月]', '-', _m.group(0)).replace('日', '')\n"
-            "    _p = [int(x) for x in _d.split('-')]\n"
-            "    _dl = '%%d-%%02d-%%02d' %% (_p[0], _p[1], _p[2])\n"
+            "_dl = %r\n"
             "register_task(%r, _dl, %r, 'meeting-supervision', owner=%r)\n"
             "print(json.dumps(r, ensure_ascii=False))\n"
             % (str(router.parent), str(router), str(router), title, a.get("source_line", ""),
-               a.get("deadline", ""), title, a.get("owner", ""), a.get("owner", ""))
+               _resolve_deadline(a.get("deadline", "")), title, a.get("owner", ""), a.get("owner", ""))
         )
         res = subprocess.run(
             [sys.executable, "-c", snippet],
