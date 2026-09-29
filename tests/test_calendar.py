@@ -131,3 +131,18 @@ def test_route_persists_to_ledger(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     assert out["routed_count"] == 1 and out["persisted_count"] == 1
     snippet = calls[0][-1]
     assert "register_task" in snippet and "meeting-supervision" in snippet and "owner" in snippet
+
+
+def test_resolve_deadline_chinese_relative():
+    """中文相对期限解析: 「十月十日前」「本周五」此前落不了账(全链路实测)。"""
+    import datetime
+
+    from cockpit.commands.calendar import _resolve_deadline as r
+
+    assert r("2026年10月12日前") == "2026-10-12"
+    assert r("十月十日前") == "2026-10-10"
+    today = datetime.date.today()
+    friday_delta = (5 - today.isoweekday()) % 7 or 7
+    assert r("本周五") == (today + datetime.timedelta(days=friday_delta)).isoformat()
+    assert r("下周三") == (today + datetime.timedelta(days=((3 - today.isoweekday()) % 7) + 7)).isoformat()
+    assert r("待排期") == ""
