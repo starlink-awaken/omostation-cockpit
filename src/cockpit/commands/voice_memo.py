@@ -81,7 +81,9 @@ def cmd_voice_memo(args: argparse.Namespace) -> int:
         return 1
 
     if getattr(args, "to_spine", False):
-        pool = _ws() / ".omo" / "state" / "spine-draft-pool.jsonl"
+        # 写入走 OMOSTATION_STATE_ROOT(ADR-0456), 未声明时落当前检出
+        state_root = Path(os.environ["OMOSTATION_STATE_ROOT"]) if os.environ.get("OMOSTATION_STATE_ROOT") else _ws()
+        pool = state_root / SPINE_POOL_REL
         # CR-L2-DIRECT-IO 合规: 经 omo_io.ensure_parent_dir 授权助手创建父目录
         # (替代裸 .mkdir()); tmp 落盘 + 原子 append, 单条不丢
         import omo.omo_io as _omo_io

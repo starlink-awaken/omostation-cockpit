@@ -53,3 +53,18 @@ def test_voice_memo_honest_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPat
 def test_voice_memo_requires_audio():
     args = argparse.Namespace(spine_command="voice-memo", audio="", engine=None, to_spine=False, json=False)
     assert cmd_voice_memo(args) == 1
+
+
+def test_voice_memo_pool_follows_state_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """备选池写入走 OMOSTATION_STATE_ROOT(ADR-0456), 沙箱/测试不落进真实检出。"""
+    import cockpit.commands.voice_memo as vm
+
+    monkeypatch.setattr(vm, "_agora_python", lambda code, timeout=180.0: (0, json.dumps(_fake_payload(), ensure_ascii=False)))
+    monkeypatch.setattr(vm, "_ws", lambda: tmp_path / "checkout")
+    monkeypatch.setenv("OMOSTATION_STATE_ROOT", str(tmp_path / "state"))
+    audio = tmp_path / "a.wav"
+    audio.write_bytes(b"x")
+    args = argparse.Namespace(spine_command="voice-memo", audio=str(audio), engine=None, to_spine=True, json=False)
+    assert cmd_voice_memo(args) == 0
+    assert (tmp_path / "state" / ".omo" / "state" / "spine-draft-pool.jsonl").exists()
+    assert not (tmp_path / "checkout" / ".omo").exists()
