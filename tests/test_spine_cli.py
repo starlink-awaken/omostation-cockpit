@@ -157,3 +157,33 @@ def test_spine_distill_routed_success(tmp_path: Path, monkeypatch: pytest.Monkey
     assert cmd_spine(args) == 0
     assert (tmp_path / ".omo" / "state" / "lora-adapters" / "adapter-xiamingxing-v1" / "adapter_config.json").exists()
 
+
+
+def test_spine_sign_does_not_add_second_replay_sample(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """连接器已写入脱敏样本; cockpit 只读统计, 不能再 add_sample(重复且未脱敏)。"""
+    (tmp_path / "bin" / "gac").mkdir(parents=True)
+    (tmp_path / "bin" / "gac" / "value-evolution-connector.py").touch()
+    snippets: list[str] = []
+    monkeypatch.setattr("cockpit.commands.spine._ws", lambda: tmp_path)
+    monkeypatch.setattr(
+        "cockpit.commands.spine.subprocess.run",
+        lambda cmd, *a, **k: subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr=""),
+    )
+    monkeypatch.setattr(
+        "cockpit.commands.spine._omlxc_python",
+        lambda code, timeout=0: (snippets.append(code), (0, '{"persisted": 1, "stats": {}}'))[1],
+    )
+    args = argparse.Namespace(spine_command="sign", original="原稿", signed="改稿", domain="gov")
+    assert cmd_spine_sign(args) == 0
+    assert snippets and not any("add_sample" in s or "persist()" in s for s in snippets)
+
+
+def test_spine_outbox_follows_state_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """写入走 OMOSTATION_STATE_ROOT(ADR-0456), 未声明时回落到检出目录。"""
+    from cockpit.commands import spine
+
+    monkeypatch.setattr(spine, "_ws", lambda: tmp_path / "checkout")
+    monkeypatch.delenv("OMOSTATION_STATE_ROOT", raising=False)
+    assert spine._spool_dir() == tmp_path / "checkout" / spine.SPOOL_DIR_REL
+    monkeypatch.setenv("OMOSTATION_STATE_ROOT", str(tmp_path / "state"))
+    assert spine._spool_dir() == tmp_path / "state" / spine.SPOOL_DIR_REL
