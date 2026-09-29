@@ -151,6 +151,16 @@ def _resolve_deadline(raw: str) -> str:
             return _dt.date(int(m.group(1)), _num(m.group(2)), _num(m.group(3))).isoformat()
         except ValueError:
             return ""
+    m = re.search(r"([\d一二三四五六七八九十]{1,3})月底", raw or "")
+    if m:  # 「十月底前」: 口述最常见的模糊期限, 取当月最后一天
+        try:
+            mo = _num(m.group(1))
+            year = today.year if mo >= today.month else today.year + 1
+            import calendar as _cal
+
+            return _dt.date(year, mo, _cal.monthrange(year, mo)[1]).isoformat()
+        except ValueError:
+            return ""
     m = re.search(r"([\d一二三四五六七八九十]{1,3})月([\d一二三四五六七八九十]{1,3})日", raw or "")
     if m:
         try:

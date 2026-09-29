@@ -146,3 +146,12 @@ def test_resolve_deadline_chinese_relative():
     assert r("本周五") == (today + datetime.timedelta(days=friday_delta)).isoformat()
     assert r("下周三") == (today + datetime.timedelta(days=((3 - today.isoweekday()) % 7) + 7)).isoformat()
     assert r("待排期") == ""
+
+
+def test_resolve_deadline_month_end():
+    """「十月底前」取当月最后一天 —— 口述最常见的模糊期限。"""
+    from cockpit.commands.calendar import _resolve_deadline as r
+
+    assert r("十月底前") == "2026-10-31"
+    assert r("12月底") == "2026-12-31"
+    assert r("月底前") == ""  # 无月份语境留空待人工
