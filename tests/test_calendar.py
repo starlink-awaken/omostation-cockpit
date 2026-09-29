@@ -116,11 +116,15 @@ def test_route_persists_to_ledger(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     import cockpit.commands.calendar as cal
 
     calls = []
+    fake_ws = tmp_path / "ws"
+    (fake_ws / "bin" / "bc-os").mkdir(parents=True)
+    (fake_ws / "bin" / "bc-os" / "signal_router.py").touch()
 
     class R:
         returncode = 0
         stdout = '{"signal_id": "cal-x", "source": "calendar"}'
 
+    monkeypatch.setattr(cal, "_ws", lambda: fake_ws)
     monkeypatch.setattr(cal.subprocess, "run", lambda cmd, **kw: calls.append(cmd) or R())
     items = {"action_items": [{"task": "牵头自查", "owner": "张磊", "deadline": "十月十日前", "source_line": "s"}]}
     out = cal._route_to_signal(items)
