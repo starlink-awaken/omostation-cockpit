@@ -35,6 +35,11 @@ def _ws() -> Path:
     return Path.cwd()
 
 
+def _state_root() -> Path:
+    """写入根目录(ADR-0456): OMOSTATION_STATE_ROOT 声明时写那里, 否则写当前检出。"""
+    return Path(os.environ["OMOSTATION_STATE_ROOT"]) if os.environ.get("OMOSTATION_STATE_ROOT") else _ws()
+
+
 def _telemetry() -> dict:
     path = _ws() / ".omo" / "state" / "mesh-telemetry.json"
     if not path.exists():
@@ -193,14 +198,13 @@ def cmd_spine_sign(args: argparse.Namespace) -> int:
         ]
         res = subprocess.run(cmd, capture_output=True, text=True, check=False)
         if res.returncode == 0:
-            # Persist into the experience replay buffer (BET-Y1Q3-T10-105).
+            # 连接器已把脱敏后的样本写入 replay buffer, 这里只读统计。此前再
+            # add_sample 一次: 每次署名产出两条相同样本, 且第二条未经脱敏。
             snippet = (
                 "import json\n"
                 "from omlxc.dataplane.experience_replay import ExperienceReplayManager\n"
-                "mgr = ExperienceReplayManager()\n"
-                f"mgr.add_sample(instruction={original!r}, output={signed!r}, domain={domain!r})\n"
-                "n = mgr.persist()\n"
-                "print(json.dumps({'persisted': n, 'stats': mgr.stats()}))\n"
+                "st = ExperienceReplayManager().stats()\n"
+                "print(json.dumps({'persisted': sum(v.get('size', 0) for v in st.values()), 'stats': st}))\n"
             )
             rc, out = _omlxc_python(snippet, timeout=60.0)
             buffer_line = "[yellow]replay buffer 未落盘 (omlxc env 不可用)[/yellow]"
@@ -571,7 +575,7 @@ def cmd_spine_review(args: argparse.Namespace) -> int:
 
 
 def _spool_dir() -> Path:
-    return _ws() / SPOOL_DIR_REL
+    return _state_root() / SPOOL_DIR_REL
 
 
 # ── T4-06: 外发网关风控 / 重放拦截 / 频次熔断 / 回执 / 真实通道 ──────────
@@ -837,7 +841,7 @@ def cmd_spine_send(args: argparse.Namespace) -> int:
     if ok:
         _write_receipt(msg_dir, env, status="sent", provider_ref=provider_ref)
         # 价值台账原子追加: 临时文件 fsync 后 os.replace
-        ledger = _ws() / VALUE_LEDGER_REL
+        ledger = _state_root() / VALUE_LEDGER_REL
         entry = {
             "ts": time.time(),
             "msg_id": msg_id,
