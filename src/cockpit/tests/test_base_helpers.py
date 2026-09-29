@@ -588,6 +588,13 @@ class TestRenderPublishContent:
         assert "Executive Summary" in content
         assert "Full Report" in content
 
+    def test_publish_uses_real_newlines(self):
+        """发布的 Markdown 必须是真换行(此前换行被转义成字面的反斜杠 n, 整篇挤成一行)。"""
+        for style in ("brief", "memo", "report"):
+            content = _render_publish_content(self._make_result(), style)
+            assert "\\n" not in content, style
+            assert content.splitlines()[0] == "# AI Research"
+
     def test_empty_summary_fallback(self):
         """summary 为空→使用 '暂无摘要'"""
         result = self._make_result(summary="", full_text="body only")
