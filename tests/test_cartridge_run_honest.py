@@ -23,3 +23,21 @@ def test_run_without_entrypoint_reports_honestly(tmp_path: Path, capsys) -> None
     assert "未执行" in text
     for claim in ("已生成", "已装载至模型上下文", "策略证明"):
         assert claim not in text
+
+
+def test_pack_does_not_modify_source_manifest(tmp_path: Path) -> None:
+    """打包只把签名写进产物, 源目录 manifest.json 原样保留(此前被整体覆盖, 策略规则丢失)。"""
+    import zipfile
+
+    src = tmp_path / "domain"
+    src.mkdir()
+    original = {"cartridge_id": "c1", "policy_rules": ["RULE-1: 预算超 50 万须专家论证"]}
+    (src / "manifest.json").write_text(json.dumps(original, ensure_ascii=False), encoding="utf-8")
+    (src / "rule.md").write_text("x", encoding="utf-8")
+    out = tmp_path / "c.cartridge"
+    assert pack_cartridge(str(src), str(out)) == 0
+
+    assert json.loads((src / "manifest.json").read_text(encoding="utf-8")) == original
+    packed = json.loads(zipfile.ZipFile(out).read("manifest.json"))
+    assert packed["cartridge_id"] == "c1" and packed["policy_rules"] == original["policy_rules"]
+    assert packed["signature"]
