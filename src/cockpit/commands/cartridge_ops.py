@@ -36,10 +36,16 @@ def pack_cartridge(source_dir: str, output: str) -> int:
     sig = sha256_dir(source)
     console.print(f"🔒 生成密码学签名: [green]{sig}[/]")
 
-    manifest = {"domain": source.name, "signature": sig, "version": "1.0", "description": f"Packed from {source_dir}"}
-
-    manifest_path = source / "manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
+    # 签名清单只写进产物: 此前直接覆盖源目录的 manifest.json, 卡带 ID/策略规则/意图模式全被抹掉
+    # (全链路场景实测打包 domains/weijian-governance 时发现)。保留原清单字段, 叠加签名。
+    src_manifest = source / "manifest.json"
+    try:
+        manifest = json.loads(src_manifest.read_text(encoding="utf-8")) if src_manifest.is_file() else {}
+    except ValueError:
+        manifest = {}
+    manifest.setdefault("domain", source.name)
+    manifest.setdefault("version", "1.0")
+    manifest.update(signature=sig, packed_from=str(source_dir))
 
     out.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -47,7 +53,10 @@ def pack_cartridge(source_dir: str, output: str) -> int:
             for file in files:
                 filepath = Path(root) / file
                 arcname = filepath.relative_to(source)
+                if str(arcname) == "manifest.json":
+                    continue
                 zf.write(filepath, arcname)
+        zf.writestr("manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False))
 
     console.print(f"[bold green]✅ 卡带已生成: {out} (大小: {out.stat().st_size} bytes)[/]")
     return 0
