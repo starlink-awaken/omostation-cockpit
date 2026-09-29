@@ -189,6 +189,7 @@ def _route_to_signal(items: dict[str, Any], source: str = "calendar-minutes") ->
     if not router.is_file():
         return {"ok": False, "error": "signal_router not found"}
     routed = []
+    persisted = 0
     for a in items.get("action_items", []):
         title = f"[督办] {a['task']}"
         snippet = (
@@ -196,10 +197,23 @@ def _route_to_signal(items: dict[str, Any], source: str = "calendar-minutes") ->
             "sys.path.insert(0, %r)\n"
             "from pathlib import Path\n"
             "sys.path.insert(0, str(Path(%r).resolve().parent))\n"
+            "sys.path.insert(0, str(Path(%r).resolve().parent.parent / 'ssot'))\n"
             "from signal_router import route_calendar_event\n"
             "r = route_calendar_event(%r, %r)\n"
+            # 路由之外还要落账: deadline-tracker 是唯一有周期检查与到期告警的督办台账,
+            # 此前 --route 只算路由结果不落盘, 督办事项没有任何持久面(全链路实测 2026-09-29)
+            "from deadline_tracker import register_task\n"
+            "import re as _re\n"
+            "_m = _re.search(r'(\\d{4})年(\\d{1,2})月(\\d{1,2})日|\\d{4}-\\d{1,2}-\\d{1,2}', %r)\n"
+            "_dl = ''\n"
+            "if _m:\n"
+            "    _d = _re.sub(r'[年月]', '-', _m.group(0)).replace('日', '')\n"
+            "    _p = [int(x) for x in _d.split('-')]\n"
+            "    _dl = '%%d-%%02d-%%02d' %% (_p[0], _p[1], _p[2])\n"
+            "register_task(%r, _dl, %r, 'meeting-supervision', owner=%r)\n"
             "print(json.dumps(r, ensure_ascii=False))\n"
-            % (str(router.parent), str(router), title, a.get("source_line", ""))
+            % (str(router.parent), str(router), str(router), title, a.get("source_line", ""),
+               a.get("deadline", ""), title, a.get("owner", ""), a.get("owner", ""))
         )
         res = subprocess.run(
             [sys.executable, "-c", snippet],
@@ -209,11 +223,12 @@ def _route_to_signal(items: dict[str, Any], source: str = "calendar-minutes") ->
             timeout=60,
         )
         if res.returncode == 0:
+            persisted += 1
             try:
                 routed.append(json.loads(res.stdout.strip().splitlines()[-1]))
             except Exception:
                 pass
-    return {"ok": True, "routed_count": len(routed), "routed": routed}
+    return {"ok": True, "routed_count": len(routed), "persisted_count": persisted, "routed": routed}
 
 
 # ── CLI 命令面 ────────────────────────────────────────────────────────

@@ -109,3 +109,25 @@ def test_extract_action_items_single_line_asr_transcript():
     ]
     assert items["action_items"][0]["task"].startswith("数据安全专项检查")
     assert items["decisions"]
+
+
+def test_route_persists_to_ledger(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """--route 的每条行动项除路由外还要落 deadline-tracker 台账(不再只算不存)。"""
+    import cockpit.commands.calendar as cal
+
+    calls = []
+    fake_ws = tmp_path / "ws"
+    (fake_ws / "bin" / "bc-os").mkdir(parents=True)
+    (fake_ws / "bin" / "bc-os" / "signal_router.py").touch()
+
+    class R:
+        returncode = 0
+        stdout = '{"signal_id": "cal-x", "source": "calendar"}'
+
+    monkeypatch.setattr(cal, "_ws", lambda: fake_ws)
+    monkeypatch.setattr(cal.subprocess, "run", lambda cmd, **kw: calls.append(cmd) or R())
+    items = {"action_items": [{"task": "牵头自查", "owner": "张磊", "deadline": "十月十日前", "source_line": "s"}]}
+    out = cal._route_to_signal(items)
+    assert out["routed_count"] == 1 and out["persisted_count"] == 1
+    snippet = calls[0][-1]
+    assert "register_task" in snippet and "meeting-supervision" in snippet and "owner" in snippet
