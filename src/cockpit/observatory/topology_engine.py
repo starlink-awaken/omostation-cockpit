@@ -1808,6 +1808,13 @@ class TopologyEngine:
                               "(`make gac-local-gate`) before committing.",
         }
 
+    @staticmethod
+    def _top_n(items: list, n: int) -> list:
+        """top-N 依赖, 超出部分折叠为一项计数(保持感知上下文紧凑)。"""
+        if len(items) <= n:
+            return items
+        return items[:n] + [f"...(+{len(items) - n} more)"]
+
     def get_agent_context(self, project_id: str) -> Dict[str, Any]:
         """Return compact architecture perception for a single project (< 800 tokens).
 
@@ -1851,8 +1858,9 @@ class TopologyEngine:
             "layer": proj.get("layer", "?"),
             "layer_name": proj.get("layer_name", "?"),
             "role": proj.get("role", ""),
-            "upstream_dependencies": proj.get("upstream", []),
-            "downstream_consumers": proj.get("downstream", []),
+            # 紧凑预算(测试契约 <2500 字符): 超出 top-N 的依赖折叠为计数, 全量看 topology snapshot
+            "upstream_dependencies": self._top_n(proj.get("upstream", []), 6),
+            "downstream_consumers": self._top_n(proj.get("downstream", []), 6),
             "collision_status": severity,
             "active_worktrees": heatmap.get("count", 0),
             "active_branches": active_branches,
