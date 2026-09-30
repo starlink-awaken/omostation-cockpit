@@ -92,8 +92,9 @@ def cmd_research(args: argparse.Namespace) -> int:
     source: str = ""
     minerva = _find_cli("minerva")
     if minerva and not _searxng_alive():
-        _get_err().print("[yellow]⚠️ minerva 跳过: searxng:8080 不可达 (minerva 搜索依赖) — 降级 ollama[/yellow]")
-        minerva = None
+        # searxng 只是 minerva 的后端之一(默认引擎 ddg/scholar/arxiv/exa 都不依赖它),
+        # 此前整体跳过 minerva → 每次调研都降级成"直问大模型"(全链路实测 2026-09-29)
+        _get_err().print("[yellow]⚠️ searxng:8080 不可达, minerva 将走 ddg/scholar/arxiv 等其余引擎[/yellow]")
     if minerva:
         try:
             with Progress(
