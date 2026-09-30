@@ -40,12 +40,37 @@ KNOWLEDGE_HEADER_BYTES = 16 * 1024
 BET_RE = re.compile(r"^BET-[A-Za-z0-9]+(?:-[A-Za-z0-9]+)+$")
 SENSITIVE_RE = re.compile(r"(?i)(password|secret|token|api[_-]?key|credential|prompt|command|environment|env)")
 REFERENCE_RE = re.compile(r"^(?:(?:repo|receipt|decision|evidence|github|file)://|(?:docs|tests|evidence|\.omo)/)[^\s]+$")
-EXTERNAL_DOCUMENT_NAMES = {
+_BUILTIN_EXTERNAL_DOCUMENT_NAMES = {
     "2026-09-07-织星主权智能操作系统白皮书-v2.md",
     "2026-09-07-织星主权智能操作系统全景架构蓝图-v2.md",
     "2026-09-07-织星主权智能操作系统路线图与里程碑-v2.md",
     "2026-09-07-织星主权智能操作系统文档导航与权威矩阵-v2.md",
 }
+
+
+def _external_allowlist(library_root) -> tuple[set, set]:
+    """库外白名单 = 内置 4 文件 + library/.library/external-allowlist.yaml(文档负责人维护)。
+
+    返回 (文件名集, 目录名集): 审阅包常以目录形态存在(2026-09-26-织星v2.1-执行总控
+    审阅包/), 逐文件硬编码每批都要改代码(2026-09-26 批次 19 条引用全部越界)。
+    配置化后: 新批次由所有者把目录名加进 yaml 即可, 边界仍是显式清单。
+    """
+    import yaml as _yaml
+
+    names = set(_BUILTIN_EXTERNAL_DOCUMENT_NAMES)
+    dirs: set[str] = set()
+    cfg = Path(library_root) / ".library" / "external-allowlist.yaml"
+    try:
+        doc = _yaml.safe_load(cfg.read_text(encoding="utf-8")) or {}
+        extra = doc.get("external_documents", [])
+        if isinstance(extra, list):
+            names.update(str(x) for x in extra if str(x).strip())
+        extra_dirs = doc.get("external_directories", [])
+        if isinstance(extra_dirs, list):
+            dirs.update(str(x) for x in extra_dirs if str(x).strip())
+    except (OSError, ValueError):
+        pass  # 无配置或坏配置 → 仅内置名单(向后兼容)
+    return names, dirs
 def _now():
     return datetime.now(timezone.utc).isoformat()
 
@@ -601,6 +626,7 @@ def _collect_documents(reader, model=None):
                                                "headings_truncated": 0}
         return []
     result = []
+    external_names, external_dirs = _external_allowlist(reader.roots["library"])
     registry_dir = reader.roots["library"] / ".library"
     candidates = [entry for entry in registry["documents"] if isinstance(entry, dict)]
     prioritized = candidates
@@ -633,7 +659,8 @@ def _collect_documents(reader, model=None):
         root_name = "library"
         if not absolute.is_relative_to(reader.roots["library"]):
             external_root = reader.roots["documents_root"]
-            if absolute.parent == external_root and absolute.name in EXTERNAL_DOCUMENT_NAMES:
+            in_named_dir = any(absolute.is_relative_to(external_root / d) for d in external_dirs)
+            if (absolute.parent == external_root and absolute.name in external_names) or in_named_dir:
                 root_name = "documents_root"
             else:
                 reader.unavailable("library", raw_path, "outside_allowlisted_root")

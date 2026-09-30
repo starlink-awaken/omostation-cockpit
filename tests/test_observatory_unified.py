@@ -316,3 +316,19 @@ def test_lineage_depth_keys_match_43191_contract():
     serialized = json.loads(json.dumps(result))
     s_lbd = serialized['data']['lineage_by_depth']
     assert all(isinstance(k, str) for k in s_lbd.keys())
+
+
+def test_external_allowlist_config(tmp_path, monkeypatch):
+    """库外白名单从 library/.library/external-allowlist.yaml 读(文件+目录), 不再逐批改代码。"""
+    from cockpit.observatory.strategy_sources import _external_allowlist
+
+    lib = tmp_path / "lib"
+    (lib / ".library").mkdir(parents=True)
+    names, dirs = _external_allowlist(lib)
+    assert "2026-09-07-织星主权智能操作系统白皮书-v2.md" in names  # 内置兼容
+    assert not dirs
+    (lib / ".library" / "external-allowlist.yaml").write_text(
+        "external_directories:\n  - 2026-10-01-新审阅包\nexternal_documents:\n  - 新文档.md\n", encoding="utf-8"
+    )
+    names, dirs = _external_allowlist(lib)
+    assert "新文档.md" in names and "2026-10-01-新审阅包" in dirs
