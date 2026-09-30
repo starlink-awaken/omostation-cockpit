@@ -64,10 +64,10 @@ def pack_cartridge(source_dir: str, output: str) -> int:
 
 def _extract_args_llm(intent: str, fields: list[str]) -> dict:
     """本机模型从意图文本抽取规则参数(budget_cny/mlps_grade/...); 失败返回空。"""
-    from cockpit.commands.brain import llm_complete
-
     import json as _json
     import re as _re
+
+    from cockpit.commands.brain import llm_complete
 
     if not fields:
         return {}
