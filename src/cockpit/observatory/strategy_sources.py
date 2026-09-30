@@ -10,11 +10,10 @@ import hashlib
 import json
 import math
 import re
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime, timezone
 from pathlib import Path
 
 import yaml
-
 
 try:
     from cockpit.compat import WORKSPACE_ROOT
@@ -72,7 +71,7 @@ def _external_allowlist(library_root) -> tuple[set, set]:
         pass  # 无配置或坏配置 → 仅内置名单(向后兼容)
     return names, dirs
 def _now():
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _safe_text(value, limit=480):

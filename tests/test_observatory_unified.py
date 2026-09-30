@@ -3,15 +3,16 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
 from cockpit.compat import WORKSPACE_ROOT
-from cockpit.observatory.catalog_sources import collect_catalog
-from cockpit.observatory.strategy_sources import collect_strategy_sources
-from cockpit.observatory.service import ObservatoryService, get_observatory_service
-from cockpit.observatory.query_engine import QueryError
 from cockpit.dashboard_server import app
+from cockpit.observatory.catalog_sources import collect_catalog
+from cockpit.observatory.query_engine import QueryError
+from cockpit.observatory.service import ObservatoryService, get_observatory_service
+from cockpit.observatory.strategy_sources import collect_strategy_sources
 
 
 def test_collect_catalog_smoke():
