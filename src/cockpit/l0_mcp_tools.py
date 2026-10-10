@@ -177,6 +177,7 @@ def md_validate() -> str:
         import yaml
 
         from cockpit.adapters.model_driven import tool_validate
+        from model_driven.mof.m2_lifecycle import get_schema
 
         m1_dir = Path.home() / "Workspace" / "projects" / "ecos" / "src" / "ecos" / "ssot" / "mof" / "m1"
         nodes = []
@@ -190,8 +191,32 @@ def md_validate() -> str:
                     except Exception:
                         pass
 
-        result = tool_validate(models=nodes)
-        return f"model-driven 自反验证: passed={result['passed']}, errors={result['error_count']}, warnings={result['warning_count']}, nodes={len(nodes)}"
+        # 类型覆盖分区：M2 注册表未登记的类型不进逐节点校验，
+        # 避免把「元模型覆盖缺口」误报成逐节点内容错误（2026-10-09: 54 类型/1505 节点曾全部误报）
+        known, unknown_types = [], {}
+        for m in nodes:
+            mtype = m.get("type", "")
+            if get_schema(mtype) is None:
+                unknown_types[mtype] = unknown_types.get(mtype, 0) + 1
+            else:
+                known.append(m)
+
+        result = tool_validate(models=known)
+        all_types = {m.get("type", "") for m in nodes}
+        known_types = all_types - set(unknown_types)
+        line = (
+            f"model-driven 自反验证: passed={result['passed']}, "
+            f"errors={result['error_count']}, warnings={result['warning_count']}, "
+            f"nodes={len(known)}/{len(nodes)} (类型覆盖 {len(known_types)}/{len(all_types)})"
+        )
+        if unknown_types:
+            unknown_total = sum(unknown_types.values())
+            top = sorted(unknown_types.items(), key=lambda kv: -kv[1])[:5]
+            line += (
+                f"; ⚠️ {len(unknown_types)} 种类型未注册 M2 schema（{unknown_total} 节点不在校验范围）"
+                f"· top: " + ", ".join(f"{t}×{c}" for t, c in top)
+            )
+        return line
     except ImportError:
         return "model-driven 不可用 (安装: cd ~/Workspace/projects/model-driven && uv sync)"
 
