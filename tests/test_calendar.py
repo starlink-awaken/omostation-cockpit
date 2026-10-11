@@ -139,9 +139,10 @@ def test_resolve_deadline_chinese_relative():
 
     from cockpit.commands.calendar import _resolve_deadline as r
 
-    assert r("2026年10月12日前") == "2026-10-12"
-    assert r("十月十日前") == "2026-10-10"
     today = datetime.date.today()
+    target = today + datetime.timedelta(days=30)   # 未来锚点: 硬编码日期过了当天会翻转(10-11 炸过)
+    assert r(f"{target.year}年{target.month}月{target.day}日前") == target.isoformat()
+    assert r(f"{target.month}月{target.day}日前") == target.isoformat()
     friday_delta = (5 - today.isoweekday()) % 7 or 7
     assert r("本周五") == (today + datetime.timedelta(days=friday_delta)).isoformat()
     assert r("下周三") == (today + datetime.timedelta(days=((3 - today.isoweekday()) % 7) + 7)).isoformat()
