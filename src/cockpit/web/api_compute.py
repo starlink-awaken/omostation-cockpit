@@ -188,7 +188,11 @@ async def compute_generate(req: ComputeGenerateRequest):
         raise HTTPException(status_code=500, detail=f"Compute generate error: {str(e)}")
 
 
-OMLX_BIN = "/Volumes/Model/omlx/bin/omlx"
+# OMLX_ROOT 约定与 aetherforge gateway 相同(见 gateway.py omlx 动态对接注释):
+# 默认 ~/omlx(内置盘, launchd TCC 可执行), 不再指向外接卷
+OMLX_BIN = os.path.join(
+    os.environ.get("OMLX_ROOT", os.path.expanduser("~/omlx")), "bin", "omlx"
+)
 
 
 class ModelActionRequest(BaseModel):
