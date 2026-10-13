@@ -21,11 +21,16 @@ def _app() -> FastAPI:
 def test_feedback_http_threads_optional_id_and_rejects_blank(monkeypatch):
     calls: list[tuple[str, dict[str, object]]] = []
     sequences: dict[str, int] = {}
+    service_bindings: list[tuple[object, str | None]] = []
+    provider_bindings: list[tuple[str, str]] = []
+    principal_id = "principal:xiamingxing"
+    headers = {"X-Api-Key": "test-personal-feedback-key"}
+    authority = object()
 
     class FakeService:
         def reload_execution_context(self, episode_id: str, principal_id: str) -> object:
             assert episode_id == "episode:test"
-            assert principal_id == "principal:alice"
+            assert principal_id == "principal:xiamingxing"
             return object()
 
         def record_outcome(self, _context: object, verdict: str, **kwargs: object) -> int:
@@ -34,7 +39,8 @@ def test_feedback_http_threads_optional_id_and_rejects_blank(monkeypatch):
             return sequences.setdefault(identity, len(sequences) + 1)
 
     @contextmanager
-    def fake_service():
+    def fake_service(*, principal_authority: object, default_credential_ref: str | None):
+        service_bindings.append((principal_authority, default_credential_ref))
         yield FakeService()
 
     monkeypatch.setattr(api_workflow_mesh_operations, "PersonalEpisodeService", FakeService)
@@ -42,27 +48,55 @@ def test_feedback_http_threads_optional_id_and_rejects_blank(monkeypatch):
     client = TestClient(_app())
     base = {
         "episode_id": "episode:test",
-        "principal_id": "principal:alice",
+        "principal_id": principal_id,
         "verdict": "accept",
     }
+
+    unauthenticated = client.post("/api/workflow-mesh/personal-episode/feedback", json=base)
+    assert unauthenticated.status_code == 401
+    assert calls == []
+    assert service_bindings == []
+
+    # This Cockpit-only CI checkout does not install OMO. Keep this test at the
+    # HTTP transport boundary: the native runtime suite verifies OMO authority
+    # construction, while this seam asserts every writer receives its verified
+    # provider inputs and preserves feedback-id behavior.
+    def verified_provider(headers_arg: dict[str, str], principal_id_arg: str) -> tuple[object, str]:
+        api_key = headers_arg.get("x-api-key")
+        assert api_key == "test-personal-feedback-key"
+        provider_bindings.append((api_key, principal_id_arg))
+        assert principal_id_arg == principal_id
+        return authority, "credential:key:1:sha256:" + "b" * 64
+
+    monkeypatch.setattr(api_workflow_mesh_operations, "_personal_episode_principal_binding", verified_provider)
 
     first = client.post(
         "/api/workflow-mesh/personal-episode/feedback",
         json={**base, "feedback_id": "feedback:001"},
+        headers=headers,
     )
     replay = client.post(
         "/api/workflow-mesh/personal-episode/feedback",
         json={**base, "feedback_id": "feedback:001"},
+        headers=headers,
     )
-    legacy = client.post("/api/workflow-mesh/personal-episode/feedback", json=base)
+    legacy = client.post("/api/workflow-mesh/personal-episode/feedback", json=base, headers=headers)
     invalid = client.post(
         "/api/workflow-mesh/personal-episode/feedback",
         json={**base, "feedback_id": "   "},
+        headers=headers,
     )
 
     assert first.status_code == replay.status_code == legacy.status_code == 200
     assert replay.json()["sequence"] == first.json()["sequence"]
     assert invalid.status_code == 409
+    assert len(service_bindings) == 3
+    assert all(bound_authority is authority for bound_authority, _ in service_bindings)
+    assert all(
+        credential_ref is not None and credential_ref.startswith("credential:key:1:sha256:")
+        for _, credential_ref in service_bindings
+    )
+    assert provider_bindings == [("test-personal-feedback-key", principal_id)] * 4
     assert calls == [
         (
             "accept",
