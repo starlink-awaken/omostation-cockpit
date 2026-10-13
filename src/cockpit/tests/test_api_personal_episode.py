@@ -14,6 +14,7 @@ from omo.event_ledger import LedgerBroker
 from omo.sovereignty import SovereigntyService
 
 from cockpit.web import api_workflow_mesh_operations
+from cockpit.web import auth as auth_module
 
 
 def _app() -> FastAPI:
@@ -26,7 +27,7 @@ def _seed_role(ledger_path: Path) -> None:
     broker = LedgerBroker.connect(ledger_path)
     try:
         SovereigntyService(broker).assign(
-            "principal:alice",
+            "principal:xiamingxing",
             "role:personal-steward",
             role_name="Personal Steward",
             scope="personal",
@@ -38,7 +39,7 @@ def _seed_role(ledger_path: Path) -> None:
 
 def _start_payload() -> dict[str, str]:
     return {
-        "principal_id": "principal:alice",
+        "principal_id": "principal:xiamingxing",
         "role_id": "role:personal-steward",
         "responsibility_id": "responsibility:follow-up",
         "executor_id": "agent:personal-steward",
@@ -52,12 +53,26 @@ def _start_payload() -> dict[str, str]:
 def _draft_payload(episode_id: str) -> dict[str, str]:
     return {
         "episode_id": episode_id,
-        "principal_id": "principal:alice",
+        "principal_id": "principal:xiamingxing",
         "title": "Commitment follow-up draft",
         "context": "Summarise the next step for review.",
         "deadline": "2026-08-13",
         "next_action": "Review, edit, or discard the local draft.",
     }
+
+
+def _configure_personal_confirmation_key(monkeypatch) -> None:
+    monkeypatch.setattr(
+        auth_module,
+        "_cached_keys",
+        lambda: {
+            "test-personal-confirmation-key": auth_module.ApiKeyInfo(
+                name="personal-confirmation-test",
+                scopes=["personal-confirmation"],
+                principal_id="principal:xiamingxing",
+            )
+        },
+    )
 
 
 def _configure_real_local_runtime(monkeypatch, tmp_path: Path) -> tuple[Path, Path]:
@@ -66,20 +81,25 @@ def _configure_real_local_runtime(monkeypatch, tmp_path: Path) -> tuple[Path, Pa
     monkeypatch.setenv("OMO_EVENT_LEDGER_DB", str(ledger_path))
     monkeypatch.setenv("PERSONAL_DRAFT_DIR", str(draft_dir))
     monkeypatch.setenv("AGORA_PEP_PROVIDER", "omo.sovereignty.enforcement:AgoraPepProvider")
+    _configure_personal_confirmation_key(monkeypatch)
     reset_pep_provider_cache()
     return ledger_path, draft_dir
+
+
+def _personal_client() -> TestClient:
+    return TestClient(_app(), headers={"X-Api-Key": "test-personal-confirmation-key"})
 
 
 def test_personal_episode_real_ledger_to_local_draft_to_feedback(monkeypatch, tmp_path):
     ledger_path, draft_dir = _configure_real_local_runtime(monkeypatch, tmp_path)
     _seed_role(ledger_path)
-    client = TestClient(_app())
+    client = _personal_client()
 
     started = client.post("/api/workflow-mesh/personal-episode/start", json=_start_payload())
     assert started.status_code == 200
     episode_id = started.json()["episode"]["episode_id"]
 
-    inbox = client.get("/api/workflow-mesh/episode-projections", params={"principal_id": "principal:alice"})
+    inbox = client.get("/api/workflow-mesh/episode-projections", params={"principal_id": "principal:xiamingxing"})
     assert inbox.status_code == 200
     assert inbox.json()["ok"] is True
     assert any(card["episode"] == episode_id for card in inbox.json()["projection"]["inbox"])
@@ -88,7 +108,7 @@ def test_personal_episode_real_ledger_to_local_draft_to_feedback(monkeypatch, tm
         "/api/workflow-mesh/personal-episode/confirm",
         json={
             "episode_id": episode_id,
-            "principal_id": "principal:alice",
+            "principal_id": "principal:xiamingxing",
             "executor_id": "agent:personal-steward",
             "human_confirmed": True,
         },
@@ -117,11 +137,11 @@ def test_personal_episode_real_ledger_to_local_draft_to_feedback(monkeypatch, tm
 
     feedback = client.post(
         "/api/workflow-mesh/personal-episode/feedback",
-        json={"episode_id": episode_id, "principal_id": "principal:alice", "verdict": "accept"},
+        json={"episode_id": episode_id, "principal_id": "principal:xiamingxing", "verdict": "accept"},
     )
     assert feedback.status_code == 200
 
-    projection = client.get("/api/workflow-mesh/episode-projections", params={"principal_id": "principal:alice"})
+    projection = client.get("/api/workflow-mesh/episode-projections", params={"principal_id": "principal:xiamingxing"})
     assert projection.status_code == 200
     snapshot = projection.json()["projection"]
     episode = next(item for item in snapshot["episodes"] if item["episode_id"] == episode_id)
@@ -168,7 +188,7 @@ def test_personal_episode_real_ledger_to_local_draft_to_feedback(monkeypatch, tm
 
 def test_feedback_edit_without_revision_receipt_fails_closed(monkeypatch, tmp_path):
     ledger_path, _ = _configure_real_local_runtime(monkeypatch, tmp_path)
-    client = TestClient(_app())
+    client = _personal_client()
     episode_id = _full_flow_episode(client, ledger_path)
 
     broker = LedgerBroker.connect(ledger_path)
@@ -179,7 +199,7 @@ def test_feedback_edit_without_revision_receipt_fails_closed(monkeypatch, tmp_pa
         "/api/workflow-mesh/personal-episode/feedback",
         json={
             "episode_id": episode_id,
-            "principal_id": "principal:alice",
+            "principal_id": "principal:xiamingxing",
             "verdict": "edit",
         },
     )
@@ -208,7 +228,7 @@ def _full_flow_episode(client, ledger_path) -> str:
             "/api/workflow-mesh/personal-episode/confirm",
             json={
                 "episode_id": episode_id,
-                "principal_id": "principal:alice",
+                "principal_id": "principal:xiamingxing",
                 "executor_id": "agent:personal-steward",
                 "human_confirmed": True,
             },
@@ -224,14 +244,14 @@ def _full_flow_episode(client, ledger_path) -> str:
 def test_feedback_with_optional_burden_metrics(monkeypatch, tmp_path):
     """Feedback with review_duration_seconds and estimated_time_saved_seconds persists."""
     ledger_path, _ = _configure_real_local_runtime(monkeypatch, tmp_path)
-    client = TestClient(_app())
+    client = _personal_client()
     episode_id = _full_flow_episode(client, ledger_path)
 
     feedback = client.post(
         "/api/workflow-mesh/personal-episode/feedback",
         json={
             "episode_id": episode_id,
-            "principal_id": "principal:alice",
+            "principal_id": "principal:xiamingxing",
             "verdict": "accept",
             "review_duration_seconds": 120.0,
             "estimated_time_saved_seconds": 600.0,
@@ -255,7 +275,7 @@ def test_feedback_with_optional_burden_metrics(monkeypatch, tmp_path):
 def test_feedback_id_revisions_are_idempotent_and_latest_is_effective(monkeypatch, tmp_path):
     """Stable request IDs dedupe replays while newer feedback revises the outcome."""
     ledger_path, _ = _configure_real_local_runtime(monkeypatch, tmp_path)
-    client = TestClient(_app())
+    client = _personal_client()
     episode_id = _full_flow_episode(client, ledger_path)
 
     def submit(feedback_id: str, verdict: str, **metrics):
@@ -263,7 +283,7 @@ def test_feedback_id_revisions_are_idempotent_and_latest_is_effective(monkeypatc
             "/api/workflow-mesh/personal-episode/feedback",
             json={
                 "episode_id": episode_id,
-                "principal_id": "principal:alice",
+                "principal_id": "principal:xiamingxing",
                 "feedback_id": feedback_id,
                 "verdict": verdict,
                 **metrics,
@@ -307,7 +327,7 @@ def test_feedback_id_revisions_are_idempotent_and_latest_is_effective(monkeypatc
 
     status = client.get(
         "/api/workflow-mesh/personal-episode/status",
-        params={"principal_id": "principal:alice"},
+        params={"principal_id": "principal:xiamingxing"},
     )
     observation = status.json()["observation"]
     assert observation["verdict_distribution"] == {"accept": 1}
@@ -318,7 +338,7 @@ def test_feedback_id_revisions_are_idempotent_and_latest_is_effective(monkeypatc
 
 def test_feedback_id_invalid_value_fails_closed_without_write(monkeypatch, tmp_path):
     ledger_path, _ = _configure_real_local_runtime(monkeypatch, tmp_path)
-    client = TestClient(_app())
+    client = _personal_client()
     episode_id = _full_flow_episode(client, ledger_path)
 
     broker = LedgerBroker.connect(ledger_path)
@@ -329,7 +349,7 @@ def test_feedback_id_invalid_value_fails_closed_without_write(monkeypatch, tmp_p
         "/api/workflow-mesh/personal-episode/feedback",
         json={
             "episode_id": episode_id,
-            "principal_id": "principal:alice",
+            "principal_id": "principal:xiamingxing",
             "feedback_id": "   ",
             "verdict": "accept",
         },
@@ -345,11 +365,11 @@ def test_feedback_id_invalid_value_fails_closed_without_write(monkeypatch, tmp_p
 
 def test_feedback_id_conflicting_replay_returns_409_without_write(monkeypatch, tmp_path):
     ledger_path, _ = _configure_real_local_runtime(monkeypatch, tmp_path)
-    client = TestClient(_app())
+    client = _personal_client()
     episode_id = _full_flow_episode(client, ledger_path)
     request = {
         "episode_id": episode_id,
-        "principal_id": "principal:alice",
+        "principal_id": "principal:xiamingxing",
         "feedback_id": "feedback:http-conflict",
         "verdict": "accept",
         "review_duration_seconds": 10,
@@ -377,12 +397,12 @@ def test_feedback_id_conflicting_replay_returns_409_without_write(monkeypatch, t
 def test_feedback_ignore_verdict(monkeypatch, tmp_path):
     """The 'ignore' verdict is accepted and persisted."""
     ledger_path, _ = _configure_real_local_runtime(monkeypatch, tmp_path)
-    client = TestClient(_app())
+    client = _personal_client()
     episode_id = _full_flow_episode(client, ledger_path)
 
     feedback = client.post(
         "/api/workflow-mesh/personal-episode/feedback",
-        json={"episode_id": episode_id, "principal_id": "principal:alice", "verdict": "ignore"},
+        json={"episode_id": episode_id, "principal_id": "principal:xiamingxing", "verdict": "ignore"},
     )
     assert feedback.status_code == 200
     assert feedback.json()["ok"] is True
@@ -400,12 +420,12 @@ def test_feedback_ignore_verdict(monkeypatch, tmp_path):
 def test_feedback_omitted_metrics_persisted_as_null(monkeypatch, tmp_path):
     """When metrics are omitted, the ledger payload stores null for both."""
     ledger_path, _ = _configure_real_local_runtime(monkeypatch, tmp_path)
-    client = TestClient(_app())
+    client = _personal_client()
     episode_id = _full_flow_episode(client, ledger_path)
 
     feedback = client.post(
         "/api/workflow-mesh/personal-episode/feedback",
-        json={"episode_id": episode_id, "principal_id": "principal:alice", "verdict": "accept"},
+        json={"episode_id": episode_id, "principal_id": "principal:xiamingxing", "verdict": "accept"},
     )
     assert feedback.status_code == 200
 
@@ -423,7 +443,7 @@ def test_feedback_omitted_metrics_persisted_as_null(monkeypatch, tmp_path):
 def test_feedback_invalid_metric_no_write(monkeypatch, tmp_path):
     """Negative, NaN, inf, or non-numeric burden values do not write to the ledger."""
     ledger_path, _ = _configure_real_local_runtime(monkeypatch, tmp_path)
-    client = TestClient(_app())
+    client = _personal_client()
     episode_id = _full_flow_episode(client, ledger_path)
 
     broker = LedgerBroker.connect(ledger_path)
@@ -439,7 +459,7 @@ def test_feedback_invalid_metric_no_write(monkeypatch, tmp_path):
         {"estimated_time_saved_seconds": "not-a-number"},
     ]
     for invalid in invalid_values:
-        body = {"episode_id": episode_id, "principal_id": "principal:alice", "verdict": "accept"}
+        body = {"episode_id": episode_id, "principal_id": "principal:xiamingxing", "verdict": "accept"}
         body.update(invalid)
         resp = client.post("/api/workflow-mesh/personal-episode/feedback", json=body)
         assert resp.status_code == 409
@@ -450,7 +470,7 @@ def test_feedback_invalid_metric_no_write(monkeypatch, tmp_path):
     for invalid in (float("nan"), float("inf"), float("-inf")):
         body = {
             "episode_id": episode_id,
-            "principal_id": "principal:alice",
+            "principal_id": "principal:xiamingxing",
             "verdict": "accept",
             "review_duration_seconds": invalid,
         }
@@ -475,25 +495,25 @@ def test_feedback_invalid_metric_no_write(monkeypatch, tmp_path):
 def test_status_returns_omo_observation(monkeypatch, tmp_path):
     """GET /status includes OMO read-only observation with readiness and gaps."""
     ledger_path, _ = _configure_real_local_runtime(monkeypatch, tmp_path)
-    client = TestClient(_app())
+    client = _personal_client()
     episode_id = _full_flow_episode(client, ledger_path)
 
     # Record one outcome to seed the observation
     client.post(
         "/api/workflow-mesh/personal-episode/feedback",
-        json={"episode_id": episode_id, "principal_id": "principal:alice", "verdict": "accept"},
+        json={"episode_id": episode_id, "principal_id": "principal:xiamingxing", "verdict": "accept"},
     )
 
     status = client.get(
         "/api/workflow-mesh/personal-episode/status",
-        params={"principal_id": "principal:alice"},
+        params={"principal_id": "principal:xiamingxing"},
     )
     assert status.status_code == 200
     body = status.json()
     assert body["ok"] is True
     assert "observation" in body
     obs = body["observation"]
-    assert obs["principal_id"] == "principal:alice"
+    assert obs["principal_id"] == "principal:xiamingxing"
     assert obs["readiness"] in ("not_ready", "collecting", "passed")
     assert obs["total_episodes"] >= 1
     assert isinstance(obs["verdict_distribution"], dict)
@@ -509,7 +529,7 @@ def test_status_returns_omo_observation(monkeypatch, tmp_path):
 def test_status_ledger_unchanged(monkeypatch, tmp_path):
     """GET /status must not mutate the ledger — count and tail hash stay the same."""
     ledger_path, _ = _configure_real_local_runtime(monkeypatch, tmp_path)
-    client = TestClient(_app())
+    client = _personal_client()
     _full_flow_episode(client, ledger_path)
 
     broker = LedgerBroker.connect(ledger_path)
@@ -521,7 +541,7 @@ def test_status_ledger_unchanged(monkeypatch, tmp_path):
 
     status = client.get(
         "/api/workflow-mesh/personal-episode/status",
-        params={"principal_id": "principal:alice"},
+        params={"principal_id": "principal:xiamingxing"},
     )
     assert status.status_code == 200
 
@@ -539,20 +559,20 @@ def test_status_ledger_unchanged(monkeypatch, tmp_path):
 def test_status_observation_failure_is_unavailable(monkeypatch, tmp_path):
     """OMO observation failure is never reported as a live successful status."""
     ledger_path, _ = _configure_real_local_runtime(monkeypatch, tmp_path)
-    client = TestClient(_app())
+    client = _personal_client()
     _full_flow_episode(client, ledger_path)
     monkeypatch.setattr(api_workflow_mesh_operations, "PersonalEpisodeService", None)
 
     status = client.get(
         "/api/workflow-mesh/personal-episode/status",
-        params={"principal_id": "principal:alice"},
+        params={"principal_id": "principal:xiamingxing"},
     )
     assert status.status_code == 503
     assert status.json() == {
         "ok": False,
         "status": "unavailable",
         "error": "personal_episode_observation_unavailable",
-        "principal_id": "principal:alice",
+        "principal_id": "principal:xiamingxing",
         "read_only": True,
         "workflow_state_mutation": False,
         "provider_invocation": False,
@@ -565,7 +585,7 @@ def test_status_missing_observation_builder_is_unavailable(monkeypatch, tmp_path
     from contextlib import contextmanager
 
     ledger_path, _ = _configure_real_local_runtime(monkeypatch, tmp_path)
-    client = TestClient(_app())
+    client = _personal_client()
     _full_flow_episode(client, ledger_path)
 
     @contextmanager
@@ -579,7 +599,7 @@ def test_status_missing_observation_builder_is_unavailable(monkeypatch, tmp_path
     )
     status = client.get(
         "/api/workflow-mesh/personal-episode/status",
-        params={"principal_id": "principal:alice"},
+        params={"principal_id": "principal:xiamingxing"},
     )
     assert status.status_code == 503
     assert status.json()["ok"] is False
@@ -590,16 +610,16 @@ def test_status_missing_observation_builder_is_unavailable(monkeypatch, tmp_path
 def test_status_privacy_no_raw_content(monkeypatch, tmp_path):
     """Status response must never contain raw content, paths, digests, or source URIs."""
     ledger_path, _ = _configure_real_local_runtime(monkeypatch, tmp_path)
-    client = TestClient(_app())
+    client = _personal_client()
     episode_id = _full_flow_episode(client, ledger_path)
     client.post(
         "/api/workflow-mesh/personal-episode/feedback",
-        json={"episode_id": episode_id, "principal_id": "principal:alice", "verdict": "accept"},
+        json={"episode_id": episode_id, "principal_id": "principal:xiamingxing", "verdict": "accept"},
     )
 
     status = client.get(
         "/api/workflow-mesh/personal-episode/status",
-        params={"principal_id": "principal:alice"},
+        params={"principal_id": "principal:xiamingxing"},
     )
     status_text = status.text
     # No filesystem paths
@@ -614,7 +634,7 @@ def test_status_privacy_no_raw_content(monkeypatch, tmp_path):
 def test_personal_episode_execute_requires_confirmation_and_creates_no_file(monkeypatch, tmp_path):
     ledger_path, draft_dir = _configure_real_local_runtime(monkeypatch, tmp_path)
     _seed_role(ledger_path)
-    client = TestClient(_app())
+    client = _personal_client()
     started = client.post("/api/workflow-mesh/personal-episode/start", json=_start_payload())
     episode_id = started.json()["episode"]["episode_id"]
 
@@ -628,7 +648,7 @@ def test_personal_episode_execute_requires_confirmation_and_creates_no_file(monk
 def test_personal_episode_repeated_start_uses_fresh_closed_request_brokers(monkeypatch, tmp_path):
     ledger_path, _draft_dir = _configure_real_local_runtime(monkeypatch, tmp_path)
     _seed_role(ledger_path)
-    client = TestClient(_app())
+    client = _personal_client()
 
     first = client.post("/api/workflow-mesh/personal-episode/start", json=_start_payload())
     second = client.post("/api/workflow-mesh/personal-episode/start", json=_start_payload())
@@ -641,14 +661,14 @@ def test_personal_episode_repeated_start_uses_fresh_closed_request_brokers(monke
 def test_personal_episode_missing_provider_binding_replaces_cached_none(monkeypatch, tmp_path):
     ledger_path, _draft_dir = _configure_real_local_runtime(monkeypatch, tmp_path)
     _seed_role(ledger_path)
-    client = TestClient(_app())
+    client = _personal_client()
     started = client.post("/api/workflow-mesh/personal-episode/start", json=_start_payload())
     episode_id = started.json()["episode"]["episode_id"]
     confirmed = client.post(
         "/api/workflow-mesh/personal-episode/confirm",
         json={
             "episode_id": episode_id,
-            "principal_id": "principal:alice",
+            "principal_id": "principal:xiamingxing",
             "executor_id": "agent:personal-steward",
             "human_confirmed": True,
         },
@@ -669,14 +689,14 @@ def test_personal_episode_missing_provider_binding_replaces_cached_none(monkeypa
 def test_personal_episode_pep_failure_creates_no_file(monkeypatch, tmp_path):
     ledger_path, draft_dir = _configure_real_local_runtime(monkeypatch, tmp_path)
     _seed_role(ledger_path)
-    client = TestClient(_app())
+    client = _personal_client()
     started = client.post("/api/workflow-mesh/personal-episode/start", json=_start_payload())
     episode_id = started.json()["episode"]["episode_id"]
     confirmed = client.post(
         "/api/workflow-mesh/personal-episode/confirm",
         json={
             "episode_id": episode_id,
-            "principal_id": "principal:alice",
+            "principal_id": "principal:xiamingxing",
             "executor_id": "agent:personal-steward",
             "human_confirmed": True,
         },
@@ -702,13 +722,14 @@ def _configure_runtime_no_seed(monkeypatch, tmp_path: Path) -> tuple[Path, Path]
     monkeypatch.setenv("OMO_EVENT_LEDGER_DB", str(ledger_path))
     monkeypatch.setenv("PERSONAL_DRAFT_DIR", str(draft_dir))
     monkeypatch.setenv("AGORA_PEP_PROVIDER", "omo.sovereignty.enforcement:AgoraPepProvider")
+    _configure_personal_confirmation_key(monkeypatch)
     reset_pep_provider_cache()
     return ledger_path, draft_dir
 
 
 def _setup_payload() -> dict:
     return {
-        "principal_id": "principal:alice",
+        "principal_id": "principal:xiamingxing",
         "role_id": "role:personal-steward",
         "role_name": "Personal Steward",
         "scope": "personal",
@@ -719,7 +740,7 @@ def _setup_payload() -> dict:
 def test_personal_setup_creates_role_idempotent(monkeypatch, tmp_path):
     """POST /setup creates the assignment; a second call with same params is idempotent."""
     ledger_path, _ = _configure_runtime_no_seed(monkeypatch, tmp_path)
-    client = TestClient(_app())
+    client = _personal_client()
 
     first = client.post("/api/workflow-mesh/personal-episode/setup", json=_setup_payload())
     assert first.status_code == 200
@@ -753,7 +774,7 @@ def test_personal_setup_creates_role_idempotent(monkeypatch, tmp_path):
 def test_personal_setup_blocks_conflicting_scope(monkeypatch, tmp_path):
     """An already-active assignment with a different scope must not silently succeed."""
     _configure_runtime_no_seed(monkeypatch, tmp_path)
-    client = TestClient(_app())
+    client = _personal_client()
 
     client.post("/api/workflow-mesh/personal-episode/setup", json=_setup_payload())
 
@@ -768,7 +789,7 @@ def test_personal_setup_blocks_conflicting_scope(monkeypatch, tmp_path):
 def test_personal_setup_blocks_conflicting_role_name(monkeypatch, tmp_path):
     """A different role_name on an active assignment is blocked."""
     _configure_runtime_no_seed(monkeypatch, tmp_path)
-    client = TestClient(_app())
+    client = _personal_client()
 
     client.post("/api/workflow-mesh/personal-episode/setup", json=_setup_payload())
 
@@ -782,7 +803,7 @@ def test_personal_setup_blocks_conflicting_role_name(monkeypatch, tmp_path):
 def test_personal_setup_then_full_flow_user_provided(monkeypatch, tmp_path):
     """Setup → Start → Confirm → Execute (full draft) → output_origin=user_provided."""
     _configure_runtime_no_seed(monkeypatch, tmp_path)
-    client = TestClient(_app())
+    client = _personal_client()
 
     assert client.post("/api/workflow-mesh/personal-episode/setup", json=_setup_payload()).status_code == 200
 
@@ -794,7 +815,7 @@ def test_personal_setup_then_full_flow_user_provided(monkeypatch, tmp_path):
         "/api/workflow-mesh/personal-episode/confirm",
         json={
             "episode_id": episode_id,
-            "principal_id": "principal:alice",
+            "principal_id": "principal:xiamingxing",
             "executor_id": "agent:personal-steward",
             "human_confirmed": True,
         },
@@ -811,7 +832,7 @@ def test_personal_setup_then_full_flow_user_provided(monkeypatch, tmp_path):
 def test_personal_execute_system_draft_from_snapshot(monkeypatch, tmp_path):
     """Omitted draft fields → server builds from Episode snapshot, output_origin=system."""
     ledger_path, draft_dir = _configure_runtime_no_seed(monkeypatch, tmp_path)
-    client = TestClient(_app())
+    client = _personal_client()
 
     client.post("/api/workflow-mesh/personal-episode/setup", json=_setup_payload())
     started = client.post("/api/workflow-mesh/personal-episode/start", json=_start_payload())
@@ -820,7 +841,7 @@ def test_personal_execute_system_draft_from_snapshot(monkeypatch, tmp_path):
         "/api/workflow-mesh/personal-episode/confirm",
         json={
             "episode_id": episode_id,
-            "principal_id": "principal:alice",
+            "principal_id": "principal:xiamingxing",
             "executor_id": "agent:personal-steward",
             "human_confirmed": True,
         },
@@ -828,7 +849,7 @@ def test_personal_execute_system_draft_from_snapshot(monkeypatch, tmp_path):
 
     executed = client.post(
         "/api/workflow-mesh/personal-episode/execute",
-        json={"episode_id": episode_id, "principal_id": "principal:alice"},
+        json={"episode_id": episode_id, "principal_id": "principal:xiamingxing"},
     )
     assert executed.status_code == 200
     assert executed.json()["ok"] is True
@@ -862,7 +883,7 @@ def test_personal_execute_system_draft_from_snapshot(monkeypatch, tmp_path):
 def test_personal_execute_partial_draft_rejected(monkeypatch, tmp_path):
     """Partial draft fields (some but not all) are rejected — all-or-nothing."""
     _configure_runtime_no_seed(monkeypatch, tmp_path)
-    client = TestClient(_app())
+    client = _personal_client()
 
     client.post("/api/workflow-mesh/personal-episode/setup", json=_setup_payload())
     started = client.post("/api/workflow-mesh/personal-episode/start", json=_start_payload())
@@ -871,7 +892,7 @@ def test_personal_execute_partial_draft_rejected(monkeypatch, tmp_path):
         "/api/workflow-mesh/personal-episode/confirm",
         json={
             "episode_id": episode_id,
-            "principal_id": "principal:alice",
+            "principal_id": "principal:xiamingxing",
             "executor_id": "agent:personal-steward",
             "human_confirmed": True,
         },
@@ -879,7 +900,7 @@ def test_personal_execute_partial_draft_rejected(monkeypatch, tmp_path):
 
     response = client.post(
         "/api/workflow-mesh/personal-episode/execute",
-        json={"episode_id": episode_id, "principal_id": "principal:alice", "title": "Partial"},
+        json={"episode_id": episode_id, "principal_id": "principal:xiamingxing", "title": "Partial"},
     )
     assert response.status_code == 409
     assert response.json()["ok"] is False
@@ -889,14 +910,14 @@ def test_personal_execute_partial_draft_rejected(monkeypatch, tmp_path):
 def test_personal_status_read_only_summary(monkeypatch, tmp_path):
     """GET /status returns a read-only summary with no side effects."""
     _configure_runtime_no_seed(monkeypatch, tmp_path)
-    client = TestClient(_app())
+    client = _personal_client()
 
     client.post("/api/workflow-mesh/personal-episode/setup", json=_setup_payload())
     client.post("/api/workflow-mesh/personal-episode/start", json=_start_payload())
 
     status = client.get(
         "/api/workflow-mesh/personal-episode/status",
-        params={"principal_id": "principal:alice"},
+        params={"principal_id": "principal:xiamingxing"},
     )
     assert status.status_code == 200
     body = status.json()
@@ -921,6 +942,7 @@ def test_personal_setup_ingest_system_draft_feedback_e2e(monkeypatch, tmp_path):
     monkeypatch.setenv("PERSONAL_DRAFT_DIR", str(draft_dir))
     monkeypatch.setenv("IRIS_LOCAL_FILES_DIRECTORY", str(signal_dir))
     monkeypatch.setenv("AGORA_PEP_PROVIDER", "omo.sovereignty.enforcement:AgoraPepProvider")
+    _configure_personal_confirmation_key(monkeypatch)
     reset_pep_provider_cache()
 
     note = signal_dir / "notes" / "follow-up.md"
@@ -928,7 +950,7 @@ def test_personal_setup_ingest_system_draft_feedback_e2e(monkeypatch, tmp_path):
     note.write_text("---\ntitle: Follow up with team\n---\n\nImportant.\n", encoding="utf-8")
     item_id = base64.urlsafe_b64encode(b"notes/follow-up.md").decode().rstrip("=")
 
-    client = TestClient(_app())
+    client = _personal_client()
 
     assert client.post("/api/workflow-mesh/personal-episode/setup", json=_setup_payload()).status_code == 200
 
@@ -936,7 +958,7 @@ def test_personal_setup_ingest_system_draft_feedback_e2e(monkeypatch, tmp_path):
         "/api/workflow-mesh/personal-signal/ingest",
         json={
             "item_id": item_id,
-            "principal_id": "principal:alice",
+            "principal_id": "principal:xiamingxing",
             "role_id": "role:personal-steward",
             "responsibility_id": "responsibility:follow-up",
             "executor_id": "agent:personal-steward",
@@ -950,7 +972,7 @@ def test_personal_setup_ingest_system_draft_feedback_e2e(monkeypatch, tmp_path):
             "/api/workflow-mesh/personal-episode/confirm",
             json={
                 "episode_id": episode_id,
-                "principal_id": "principal:alice",
+                "principal_id": "principal:xiamingxing",
                 "executor_id": "agent:personal-steward",
                 "human_confirmed": True,
             },
@@ -960,7 +982,7 @@ def test_personal_setup_ingest_system_draft_feedback_e2e(monkeypatch, tmp_path):
 
     executed = client.post(
         "/api/workflow-mesh/personal-episode/execute",
-        json={"episode_id": episode_id, "principal_id": "principal:alice"},
+        json={"episode_id": episode_id, "principal_id": "principal:xiamingxing"},
     )
     assert executed.status_code == 200
     assert executed.json()["output_origin"] == "system"
@@ -979,7 +1001,7 @@ def test_personal_setup_ingest_system_draft_feedback_e2e(monkeypatch, tmp_path):
         "/api/workflow-mesh/personal-episode/feedback",
         json={
             "episode_id": episode_id,
-            "principal_id": "principal:alice",
+            "principal_id": "principal:xiamingxing",
             "feedback_id": "feedback:golden-regression-001",
             "verdict": "accept",
             "review_duration_seconds": 30.0,
@@ -990,7 +1012,7 @@ def test_personal_setup_ingest_system_draft_feedback_e2e(monkeypatch, tmp_path):
 
     status = client.get(
         "/api/workflow-mesh/personal-episode/status",
-        params={"principal_id": "principal:alice"},
+        params={"principal_id": "principal:xiamingxing"},
     )
     assert status.status_code == 200
     status_text = status.text

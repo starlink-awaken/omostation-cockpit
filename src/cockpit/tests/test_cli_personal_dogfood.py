@@ -17,6 +17,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import httpx
 import pytest
 from agora.mcp.policy_enforcement import reset_pep_provider_cache
 from fastapi import FastAPI
@@ -25,6 +26,7 @@ from omo.event_ledger import LedgerBroker
 
 from cockpit.commands import workflow_mesh
 from cockpit.web import api_workflow_mesh_operations
+from cockpit.web import auth as auth_module
 
 
 def _app() -> FastAPI:
@@ -43,6 +45,19 @@ def _configure_runtime(monkeypatch, tmp_path: Path) -> dict:
     monkeypatch.setenv("PERSONAL_DRAFT_DIR", str(draft_dir))
     monkeypatch.setenv("IRIS_LOCAL_FILES_DIRECTORY", str(signal_dir))
     monkeypatch.setenv("AGORA_PEP_PROVIDER", "omo.sovereignty.enforcement:AgoraPepProvider")
+    monkeypatch.setenv("COCKPIT_PERSONAL_CONFIRMATION_API_KEY", "test-personal-confirmation-key")
+    monkeypatch.setenv("COCKPIT_PERSONAL_CONFIRMATION_PRINCIPAL_ID", "principal:xiamingxing")
+    monkeypatch.setattr(
+        auth_module,
+        "_cached_keys",
+        lambda: {
+            "test-personal-confirmation-key": auth_module.ApiKeyInfo(
+                name="personal-confirmation-test",
+                scopes=["personal-confirmation"],
+                principal_id="principal:xiamingxing",
+            )
+        },
+    )
     reset_pep_provider_cache()
     return {
         "ledger_path": ledger_path,
@@ -57,16 +72,25 @@ def cli_http(monkeypatch, tmp_path):
     paths = _configure_runtime(monkeypatch, tmp_path)
     client = TestClient(_app())
 
-    def _fake_post(path: str, payload: dict) -> tuple[int, dict]:
-        response = client.post(path, json=payload)
-        return response.status_code, response.json()
+    class _TestHttpClient:
+        """Adapt the CLI's real httpx transport to the in-process ASGI app."""
 
-    def _fake_get(path: str, params: dict | None = None) -> tuple[int, dict]:
-        response = client.get(path, params=params or {})
-        return response.status_code, response.json()
+        def __init__(self, *, base_url: str, timeout: float, headers: dict | None = None):
+            self.headers = headers or {}
 
-    monkeypatch.setattr(workflow_mesh, "_api_post", _fake_post)
-    monkeypatch.setattr(workflow_mesh, "_api_get", _fake_get)
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return False
+
+        def post(self, path: str, *, json: dict):
+            return client.post(path, json=json, headers=self.headers)
+
+        def get(self, path: str, *, params: dict | None = None):
+            return client.get(path, params=params or {}, headers=self.headers)
+
+    monkeypatch.setattr(httpx, "Client", _TestHttpClient)
 
     paths["client"] = client
     return paths
@@ -81,6 +105,24 @@ def _run_cli(monkeypatch, *argv: str) -> int:
         return cli.main()
     except SystemExit as exc:
         return exc.code if isinstance(exc.code, int) else 1
+
+
+def test_cli_personal_auth_header_is_scoped_to_effectful_routes(monkeypatch):
+    monkeypatch.setenv("COCKPIT_PERSONAL_CONFIRMATION_API_KEY", "test-personal-confirmation-key")
+
+    for path in (
+        "/api/workflow-mesh/personal-episode/confirm",
+        "/api/workflow-mesh/personal-episode/execute",
+        "/api/workflow-mesh/personal-episode/feedback",
+    ):
+        assert workflow_mesh._api_headers(path) == {"X-Api-Key": "test-personal-confirmation-key"}
+
+    for path in (
+        "/api/workflow-mesh/personal-episode/setup",
+        "/api/workflow-mesh/personal-signal/ingest",
+        "/api/workflow-mesh/personal-episode/status",
+    ):
+        assert workflow_mesh._api_headers(path) == {}
 
 
 # ── setup ──────────────────────────────────────────────────────────────
@@ -111,7 +153,7 @@ def test_cli_personal_full_flow_system_draft(cli_http, monkeypatch):
     started = client.post(
         "/api/workflow-mesh/personal-episode/start",
         json={
-            "principal_id": "principal:alice",
+            "principal_id": "principal:xiamingxing",
             "role_id": "role:personal-steward",
             "responsibility_id": "responsibility:follow-up",
             "executor_id": "agent:personal-steward",
@@ -165,7 +207,7 @@ def test_cli_personal_draft_user_provided(cli_http, monkeypatch):
     started = client.post(
         "/api/workflow-mesh/personal-episode/start",
         json={
-            "principal_id": "principal:alice",
+            "principal_id": "principal:xiamingxing",
             "role_id": "role:personal-steward",
             "responsibility_id": "responsibility:follow-up",
             "executor_id": "agent:personal-steward",
@@ -215,7 +257,7 @@ def test_cli_personal_draft_partial_rejected(cli_http, monkeypatch):
     started = client.post(
         "/api/workflow-mesh/personal-episode/start",
         json={
-            "principal_id": "principal:alice",
+            "principal_id": "principal:xiamingxing",
             "role_id": "role:personal-steward",
             "responsibility_id": "responsibility:follow-up",
             "executor_id": "agent:personal-steward",
@@ -279,7 +321,7 @@ def test_cli_personal_status_after_setup(cli_http, monkeypatch):
     client.post(
         "/api/workflow-mesh/personal-episode/start",
         json={
-            "principal_id": "principal:alice",
+            "principal_id": "principal:xiamingxing",
             "role_id": "role:personal-steward",
             "responsibility_id": "responsibility:follow-up",
             "executor_id": "agent:personal-steward",
@@ -311,7 +353,7 @@ def _cli_full_flow_to_episode(cli_http, monkeypatch) -> str:
     started = client.post(
         "/api/workflow-mesh/personal-episode/start",
         json={
-            "principal_id": "principal:alice",
+            "principal_id": "principal:xiamingxing",
             "role_id": "role:personal-steward",
             "responsibility_id": "responsibility:follow-up",
             "executor_id": "agent:personal-steward",
