@@ -19,8 +19,11 @@ import argparse
 import json
 import math
 import os
+import stat
+import sys
 from collections import Counter
 from pathlib import Path
+from urllib.parse import urlparse
 
 from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 
@@ -240,6 +243,73 @@ def _api_headers(path: str) -> dict[str, str]:
         return {}
     api_key = os.environ.get(_PERSONAL_CONFIRMATION_API_KEY_ENV)
     return {"X-Api-Key": api_key} if api_key else {}
+
+
+def _load_personal_confirmation_credentials() -> tuple[str, str]:
+    """Load one protected personal-confirmation credential without exposing it."""
+
+    configured = os.environ.get("COCKPIT_KEYS_FILE")
+    if not configured:
+        raise RuntimeError("COCKPIT_KEYS_FILE is required for personal review")
+
+    key_file = Path(configured).expanduser()
+    try:
+        file_stat = key_file.lstat()
+        parent_stat = key_file.parent.lstat()
+    except OSError as exc:
+        raise RuntimeError("personal review credential file is unavailable") from exc
+
+    if (
+        key_file.is_symlink()
+        or not stat.S_ISREG(file_stat.st_mode)
+        or file_stat.st_uid != os.getuid()
+        or stat.S_IMODE(file_stat.st_mode) != 0o600
+        or key_file.parent.is_symlink()
+        or not stat.S_ISDIR(parent_stat.st_mode)
+        or parent_stat.st_uid != os.getuid()
+        or stat.S_IMODE(parent_stat.st_mode) & 0o077
+    ):
+        raise RuntimeError("personal review credential file permissions are unsafe")
+
+    try:
+        import yaml
+    except ImportError as exc:
+        raise RuntimeError("personal review credential parser is unavailable") from exc
+    try:
+        document = yaml.safe_load(key_file.read_text(encoding="utf-8")) or {}
+    except (OSError, ValueError, yaml.YAMLError) as exc:
+        raise RuntimeError("personal review credential file is invalid") from exc
+
+    entries = document.get("keys") if isinstance(document, dict) else None
+    matches = [
+        entry
+        for entry in entries or []
+        if isinstance(entry, dict)
+        and "personal-confirmation" in entry.get("scopes", [])
+        and isinstance(entry.get("key"), str)
+        and entry["key"]
+        and isinstance(entry.get("principal_id"), str)
+        and entry["principal_id"]
+    ]
+    if len(matches) != 1:
+        raise RuntimeError("personal review requires exactly one bound personal-confirmation credential")
+
+    return matches[0]["key"], matches[0]["principal_id"]
+
+
+def _personal_review_uses_loopback_api() -> bool:
+    """Prevent the interactive credential loader from targeting a remote API."""
+
+    parsed = urlparse(_base_url())
+    return (
+        parsed.scheme == "http"
+        and parsed.hostname in {"127.0.0.1", "localhost", "::1"}
+        and parsed.port == 8090
+        and parsed.path.rstrip("/") == ""
+        and not parsed.params
+        and not parsed.query
+        and not parsed.fragment
+    )
 
 
 def _api_post(path: str, payload: dict) -> tuple[int, dict]:
@@ -576,6 +646,92 @@ def _personal_status(rest: list[str]) -> int:
     return 0
 
 
+def _personal_review(rest: list[str]) -> int:
+    """Review one pending mandate in a real terminal without chaining effects."""
+
+    parser = argparse.ArgumentParser(prog="cockpit workflow mesh personal review")
+    parser.add_argument("--episode-id", required=True)
+    parser.add_argument("--executor", default="agent:personal-steward")
+    args = parser.parse_args(rest)
+    console = _get_console()
+
+    if not sys.stdin.isatty() or not sys.stdout.isatty():
+        console.print("[red]✗ Personal review requires a real interactive TTY.[/red]")
+        return 2
+    if not _personal_review_uses_loopback_api():
+        console.print("[red]✗ Personal review only permits the local Cockpit API.[/red]")
+        return 1
+
+    try:
+        api_key, principal_id = _load_personal_confirmation_credentials()
+        status, body = _api_get(
+            "/api/workflow-mesh/personal-episode/status",
+            params={"principal_id": principal_id},
+        )
+    except RuntimeError as exc:
+        console.print(f"[red]✗ Personal review unavailable: {exc}[/red]")
+        return 1
+    if _api_result(console, status, body, "Personal review"):
+        return 1
+
+    card = next(
+        (
+            item
+            for item in body.get("pending", [])
+            if isinstance(item, dict) and item.get("episode") == args.episode_id
+        ),
+        None,
+    )
+    if card is None:
+        console.print("[yellow]No matching pending confirmation; no request was sent.[/yellow]")
+        return 1
+
+    console.print(
+        _panel(
+            f"[bold cyan]👤 Personal mandate review[/bold cyan]\n"
+            f"Episode: {args.episode_id}\n"
+            f"Principal: {principal_id}\n"
+            f"Summary: {card.get('summary') or '—'}\n"
+            f"Authority: {card.get('authority') or '—'}\n"
+            "Source SHA: unavailable from the public read-only projection\n\n"
+            "CONFIRM only authorizes a local-draft mandate. Draft generation and feedback remain separate explicit commands.",
+            "cyan",
+        )
+    )
+    choice = input("输入 CONFIRM 授权，或 MODIFY/DECLINE/回车退出（不会发送请求）: ").strip()
+    if choice in {"", "MODIFY", "DECLINE"}:
+        console.print("[dim]No effectful request was sent.[/dim]")
+        return 0
+    if choice != "CONFIRM":
+        console.print("[red]✗ Expected CONFIRM, MODIFY, DECLINE, or an empty response.[/red]")
+        return 2
+
+    prior_key = os.environ.get(_PERSONAL_CONFIRMATION_API_KEY_ENV)
+    prior_principal = os.environ.get(_PERSONAL_CONFIRMATION_PRINCIPAL_ENV)
+    try:
+        os.environ[_PERSONAL_CONFIRMATION_API_KEY_ENV] = api_key
+        os.environ[_PERSONAL_CONFIRMATION_PRINCIPAL_ENV] = principal_id
+        return _personal_confirm(
+            [
+                "--episode-id",
+                args.episode_id,
+                "--principal",
+                principal_id,
+                "--executor",
+                args.executor,
+            ]
+        )
+    finally:
+        if prior_key is None:
+            os.environ.pop(_PERSONAL_CONFIRMATION_API_KEY_ENV, None)
+        else:
+            os.environ[_PERSONAL_CONFIRMATION_API_KEY_ENV] = prior_key
+        if prior_principal is None:
+            os.environ.pop(_PERSONAL_CONFIRMATION_PRINCIPAL_ENV, None)
+        else:
+            os.environ[_PERSONAL_CONFIRMATION_PRINCIPAL_ENV] = prior_principal
+
+
 def cmd_personal(args: argparse.Namespace) -> int:
     """cockpit workflow mesh personal — personal dogfood CLI (thin HTTP client)."""
     sub = getattr(args, "personal_command", None)
@@ -588,6 +744,7 @@ def cmd_personal(args: argparse.Namespace) -> int:
         "draft": _personal_draft,
         "feedback": _personal_feedback,
         "status": _personal_status,
+        "review": _personal_review,
     }
 
     if sub in handlers:
@@ -602,5 +759,6 @@ def cmd_personal(args: argparse.Namespace) -> int:
     console.print("  [cyan]draft[/]     — PEP-gated local draft (system or caller-authored)")
     console.print("  [cyan]feedback[/]  — Record human outcome (accept/edit/reject/defer/ignore)")
     console.print("  [cyan]status[/]    — Read-only episode summary")
+    console.print("  [cyan]review[/]    — Real-TTY mandate review (CONFIRM only)")
     console.print("\n[dim]Set COCKPIT_API_URL to target a specific server.[/]")
     return 0

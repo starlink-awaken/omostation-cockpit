@@ -107,6 +107,65 @@ def _run_cli(monkeypatch, *argv: str) -> int:
         return exc.code if isinstance(exc.code, int) else 1
 
 
+def _configure_review_credentials(monkeypatch, tmp_path: Path) -> str:
+    """Create a non-secret test-only client credential file with safe modes."""
+
+    credential_dir = tmp_path / "cockpit-config"
+    credential_dir.mkdir(mode=0o700)
+    credential_dir.chmod(0o700)
+    credential_file = credential_dir / "personal-confirmation-api-keys.yaml"
+    credential_file.write_text(
+        "keys:\n"
+        "  - name: personal-confirmation-test\n"
+        "    key: test-personal-confirmation-key\n"
+        "    scopes: [personal-confirmation]\n"
+        "    principal_id: principal:xiamingxing\n",
+        encoding="utf-8",
+    )
+    credential_file.chmod(0o600)
+    monkeypatch.delenv("COCKPIT_PERSONAL_CONFIRMATION_API_KEY", raising=False)
+    monkeypatch.delenv("COCKPIT_PERSONAL_CONFIRMATION_PRINCIPAL_ID", raising=False)
+    monkeypatch.setenv("COCKPIT_KEYS_FILE", str(credential_file))
+    monkeypatch.setenv("COCKPIT_API_URL", "http://127.0.0.1:8090")
+    return "test-personal-confirmation-key"
+
+
+def _review_tty(monkeypatch) -> None:
+    """Mark the captured test streams as TTYs without breaking Rich output."""
+
+    class _TTY:
+        def __init__(self, stream) -> None:
+            self._stream = stream
+
+        def isatty(self) -> bool:
+            return True
+
+        def __getattr__(self, name: str):
+            return getattr(self._stream, name)
+
+    monkeypatch.setattr(workflow_mesh.sys, "stdin", _TTY(workflow_mesh.sys.stdin))
+    monkeypatch.setattr(workflow_mesh.sys, "stdout", _TTY(workflow_mesh.sys.stdout))
+
+
+def _seed_pending_episode(cli_http, monkeypatch) -> str:
+    _run_cli(monkeypatch, "workflow", "mesh", "personal", "setup")
+    started = cli_http["client"].post(
+        "/api/workflow-mesh/personal-episode/start",
+        json={
+            "principal_id": "principal:xiamingxing",
+            "role_id": "role:personal-steward",
+            "responsibility_id": "responsibility:follow-up",
+            "executor_id": "agent:personal-steward",
+            "request_id": "review-pending-test",
+            "summary": "Review pending episode",
+            "why_now": "",
+            "deadline": None,
+        },
+    )
+    assert started.status_code == 200
+    return started.json()["episode"]["episode_id"]
+
+
 def test_cli_personal_auth_header_is_scoped_to_effectful_routes(monkeypatch):
     monkeypatch.setenv("COCKPIT_PERSONAL_CONFIRMATION_API_KEY", "test-personal-confirmation-key")
 
@@ -644,3 +703,80 @@ def test_cli_personal_setup_uses_configured_api_url_over_real_http(monkeypatch):
             },
         )
     ]
+
+
+def test_cli_personal_review_requires_tty_without_http(monkeypatch):
+    """A non-interactive caller must fail before reading credentials or posting."""
+
+    calls: list[str] = []
+    monkeypatch.setattr(workflow_mesh, "_api_post", lambda path, payload: calls.append(path))
+    monkeypatch.setattr(workflow_mesh.sys, "stdin", type("_NotTTY", (), {"isatty": lambda self: False})())
+
+    rc = _run_cli(
+        monkeypatch,
+        "workflow",
+        "mesh",
+        "personal",
+        "review",
+        "--episode-id",
+        "episode-test",
+    )
+
+    assert rc == 2
+    assert calls == []
+
+
+def test_cli_personal_review_confirm_only_uses_temporary_ledger(cli_http, monkeypatch, tmp_path, capsys):
+    """CONFIRM binds the provider and grants a mandate, without drafting or feedback."""
+
+    episode_id = _seed_pending_episode(cli_http, monkeypatch)
+    key = _configure_review_credentials(monkeypatch, tmp_path)
+    _review_tty(monkeypatch)
+    monkeypatch.setattr("builtins.input", lambda _: "CONFIRM")
+
+    calls: list[str] = []
+    original_post = workflow_mesh._api_post
+
+    def recorded_post(path: str, payload: dict) -> tuple[int, dict]:
+        calls.append(path)
+        return original_post(path, payload)
+
+    monkeypatch.setattr(workflow_mesh, "_api_post", recorded_post)
+    rc = _run_cli(monkeypatch, "workflow", "mesh", "personal", "review", "--episode-id", episode_id)
+
+    assert rc == 0
+    assert calls == ["/api/workflow-mesh/personal-episode/confirm"]
+    assert not list(cli_http["draft_dir"].glob("*.json"))
+    broker = LedgerBroker.connect(cli_http["ledger_path"])
+    try:
+        event_types = {row["event_type"] for row in broker.read(episode_id=episode_id)}
+        assert {"HumanAdjudication.v1", "MandateGranted.v1"} <= event_types
+        assert "ActionSucceeded.v1" not in event_types
+        assert "OutcomeObserved.v1" not in event_types
+        assert broker.verify_chain()["ok"] is True
+    finally:
+        broker.close()
+    assert key not in capsys.readouterr().out
+
+
+def test_cli_personal_review_rejects_remote_api_before_credential_load(monkeypatch):
+    """Review refuses a remote configured URL before any credential or POST use."""
+
+    calls: list[str] = []
+    _review_tty(monkeypatch)
+    monkeypatch.setenv("COCKPIT_API_URL", "http://example.invalid:8090")
+    monkeypatch.setattr(workflow_mesh, "_load_personal_confirmation_credentials", lambda: (_ for _ in ()).throw(AssertionError("credential read")))
+    monkeypatch.setattr(workflow_mesh, "_api_post", lambda path, payload: calls.append(path))
+
+    rc = _run_cli(
+        monkeypatch,
+        "workflow",
+        "mesh",
+        "personal",
+        "review",
+        "--episode-id",
+        "episode-test",
+    )
+
+    assert rc == 1
+    assert calls == []
