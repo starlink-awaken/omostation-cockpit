@@ -598,6 +598,9 @@ def _apply_compact_observation(
     *,
     now: datetime,
     partial_facets: list[str],
+    expected_collector_digest: str | None = None,
+    source_generation_id: str | None = None,
+    source_revision_id: str | None = None,
 ) -> None:
     """Attach direct facet evidence without inheriting projection lease time."""
     if not isinstance(observation, Mapping) or observation.get("schema") != PANORAMA_OBSERVATION_SCHEMA:
@@ -623,7 +626,8 @@ def _apply_compact_observation(
         "workspace": "bin/panorama/panorama-collect.py::collect_workspace_hygiene",
         "launchd_health": "bin/panorama/panorama-collect.py::collect_launchd_health",
     }
-    expected_collector_digest = _current_observation_collector_digest()
+    if expected_collector_digest is None:
+        expected_collector_digest = _current_observation_collector_digest()
     projected_meta: dict[str, Any] = {}
     for name, projector in projectors.items():
         raw = facets.get(name)
@@ -727,8 +731,8 @@ def _apply_compact_observation(
             "error_class": error_class if isinstance(error_class, str) else None,
             "source_digest": source_digest,
             "value": projected if state in {"LIVE", "PARTIAL", "STALE"} else None,
-            "source_generation_id": None,
-            "source_revision_id": None,
+            "source_generation_id": source_generation_id,
+            "source_revision_id": source_revision_id,
             "duration_ms": duration_ms,
             "overrun": overrun,
             "provenance": {
@@ -736,6 +740,11 @@ def _apply_compact_observation(
                 "source_ref": source_ref,
                 "collector_sha256": collector_sha256,
                 "source_digest": source_digest,
+                **(
+                    {"scope": dict(provenance["scope"])}
+                    if isinstance(provenance.get("scope"), Mapping)
+                    else {}
+                ),
                 **({"registry_sha256": provenance["registry_sha256"]} if name == "launchd_health" else {}),
             },
         }
@@ -834,7 +843,31 @@ def project_full_projection(
             partial_facets.remove("agent_visibility")
         elif "agent_visibility" not in partial_facets:
             partial_facets.append("agent_visibility")
-    _apply_compact_observation(result, observation, now=now, partial_facets=partial_facets)
+    direct_envelope = data.get("direct_observation_envelope")
+    envelope_generation = (
+        direct_envelope.get("generation_id")
+        if isinstance(direct_envelope, Mapping)
+        else None
+    )
+    if isinstance(envelope_generation, str) and envelope_generation == generation_id:
+        observation = direct_envelope
+        source_generation_id = generation_id
+        producer_collector_digest = health_data.get("producer_collector_sha256")
+        expected_collector_digest = (
+            producer_collector_digest if isinstance(producer_collector_digest, str) else ""
+        )
+    else:
+        source_generation_id = None
+        expected_collector_digest = None
+    _apply_compact_observation(
+        result,
+        observation,
+        now=now,
+        partial_facets=partial_facets,
+        expected_collector_digest=expected_collector_digest,
+        source_generation_id=source_generation_id,
+        source_revision_id=health_data["state_revision"] if source_generation_id else None,
+    )
     return result
 
 
