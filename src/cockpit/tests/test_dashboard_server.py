@@ -1,5 +1,7 @@
 """Dashboard server 测试 — 端点路由/认证/CORS + loader 函数单元测试。"""
 
+import hashlib
+
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -424,6 +426,55 @@ class TestUnifiedAuth:
                 ),
                 {"workflow_run_id": "run-1", "candidate_receipt_id": "delivery-1", "review": {}},
             )
+
+    def test_personal_confirmation_provider_derives_full_server_side_credential(self, monkeypatch):
+        import cockpit.web.auth as auth_mod
+
+        monkeypatch.setattr(
+            auth_mod,
+            "_cached_keys",
+            lambda: {
+                "personal-confirmation-secret": auth_mod.ApiKeyInfo(
+                    name="principal",
+                    scopes=["personal-confirmation"],
+                    principal_id="principal:xiamingxing",
+                )
+            },
+        )
+
+        provider = auth_mod.authenticate_personal_confirmation_provider(
+            {"X-Api-Key": "personal-confirmation-secret"}
+        )
+
+        expected_digest = "sha256:" + hashlib.sha256(b"personal-confirmation-secret").hexdigest()
+        assert provider.principal_id == "principal:xiamingxing"
+        assert provider.credential_digest == expected_digest
+        assert provider.credential_ref == f"credential:key:1:{expected_digest}"
+        assert "personal-confirmation-secret" not in provider.credential_ref
+
+    def test_personal_confirmation_provider_requires_explicit_scope_and_principal(self, monkeypatch):
+        import cockpit.web.auth as auth_mod
+
+        monkeypatch.setattr(
+            auth_mod,
+            "_cached_keys",
+            lambda: {"read-secret": auth_mod.ApiKeyInfo(name="reader", scopes=["read"])},
+        )
+        with pytest.raises(auth_mod.ApiAuthorizationError, match="insufficient_scope"):
+            auth_mod.authenticate_personal_confirmation_provider({"X-Api-Key": "read-secret"})
+
+        monkeypatch.setattr(
+            auth_mod,
+            "_cached_keys",
+            lambda: {
+                "scoped-secret": auth_mod.ApiKeyInfo(
+                    name="unbound",
+                    scopes=["personal-confirmation"],
+                )
+            },
+        )
+        with pytest.raises(auth_mod.ApiProviderConfigurationError, match="provider_unconfigured"):
+            auth_mod.authenticate_personal_confirmation_provider({"X-Api-Key": "scoped-secret"})
 
     def test_engineering_review_assertion_is_signed_and_payload_bound(self, monkeypatch):
         import cockpit.web.auth as auth_mod
