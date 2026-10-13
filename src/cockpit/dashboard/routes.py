@@ -33,6 +33,7 @@ from cockpit.dashboard.helpers import (
     omo_report,
     run_e2e,
 )
+from cockpit.dashboard.panorama_adapter import fetch_panorama_projection
 from cockpit.web.auth import verify_api_key
 
 # ─── Auth ─────────────────────────────────────────────────────
@@ -237,6 +238,17 @@ async def api_cron_summary():
 async def api_governance_summary():
     """Governance audit visualization from .omo/_control/governance-data.json."""
     return JSONResponse(content=load_governance_summary())
+
+
+@router.get("/api/governance/panorama", dependencies=_AUTH_DEPS)
+async def api_governance_panorama():
+    """Expose the bounded Zhixing observer projection for the Cockpit panorama.
+
+    The adapter always returns a typed observation. When its loopback source is
+    unavailable or stale, data_state and source.error expose that failure
+    instead of substituting a synthetic all-green view.
+    """
+    return JSONResponse(content=await fetch_panorama_projection())
 
 
 @router.get("/api/wave2/dashboard", dependencies=_AUTH_DEPS)
