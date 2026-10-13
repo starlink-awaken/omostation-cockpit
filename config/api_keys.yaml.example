@@ -14,3 +14,9 @@ keys:
   - name: engineering-reviewer
     key: your-engineering-review-key-here
     scopes: [engineering-review]
+  # Personal episode confirm/execute/feedback calls require both the
+  # personal-confirmation scope and a credential-bound principal_id.
+  - name: personal-confirmation-alice
+    key: your-personal-confirmation-key-here
+    scopes: [personal-confirmation]
+    principal_id: principal:your-production-identity

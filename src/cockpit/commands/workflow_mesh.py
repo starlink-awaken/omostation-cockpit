@@ -218,6 +218,30 @@ def _base_url() -> str:
     return os.environ.get("COCKPIT_API_URL", "http://127.0.0.1:8090")
 
 
+_PERSONAL_CONFIRMATION_API_KEY_ENV = "COCKPIT_PERSONAL_CONFIRMATION_API_KEY"
+_PERSONAL_CONFIRMATION_PRINCIPAL_ENV = "COCKPIT_PERSONAL_CONFIRMATION_PRINCIPAL_ID"
+_PERSONAL_CONFIRMATION_PATHS = frozenset(
+    {
+        "/api/workflow-mesh/personal-episode/confirm",
+        "/api/workflow-mesh/personal-episode/execute",
+        "/api/workflow-mesh/personal-episode/feedback",
+    }
+)
+
+
+def _personal_principal_id() -> str:
+    """Resolve the principal bound to the personal-confirmation API key."""
+    return os.environ.get(_PERSONAL_CONFIRMATION_PRINCIPAL_ENV, "principal:alice")
+
+
+def _api_headers(path: str) -> dict[str, str]:
+    """Return credentials only for personal episode effectful API calls."""
+    if path not in _PERSONAL_CONFIRMATION_PATHS:
+        return {}
+    api_key = os.environ.get(_PERSONAL_CONFIRMATION_API_KEY_ENV)
+    return {"X-Api-Key": api_key} if api_key else {}
+
+
 def _api_post(path: str, payload: dict) -> tuple[int, dict]:
     """POST JSON to cockpit API, return (status_code, response_json).
 
@@ -226,7 +250,7 @@ def _api_post(path: str, payload: dict) -> tuple[int, dict]:
     import httpx
 
     try:
-        with httpx.Client(base_url=_base_url(), timeout=15.0) as client:
+        with httpx.Client(base_url=_base_url(), timeout=15.0, headers=_api_headers(path)) as client:
             response = client.post(path, json=payload)
         return response.status_code, response.json()
     except httpx.ConnectError as exc:
@@ -268,7 +292,7 @@ def _api_result(console, status: int, body: dict, action: str) -> int:
 def _personal_setup(rest: list[str]) -> int:
     """cockpit workflow mesh personal setup — seed trusted-local role."""
     parser = argparse.ArgumentParser(prog="cockpit workflow mesh personal setup")
-    parser.add_argument("--principal", default="principal:alice")
+    parser.add_argument("--principal", default=_personal_principal_id())
     parser.add_argument("--role", default="role:personal-steward")
     parser.add_argument("--role-name", default="Personal Steward")
     parser.add_argument("--scope", default="personal")
@@ -304,7 +328,7 @@ def _personal_ingest(rest: list[str]) -> int:
     """cockpit workflow mesh personal ingest — resolve local Markdown into episode."""
     parser = argparse.ArgumentParser(prog="cockpit workflow mesh personal ingest")
     parser.add_argument("--item-id", required=True, help="Opaque Iris item ID (base64 relative path)")
-    parser.add_argument("--principal", default="principal:alice")
+    parser.add_argument("--principal", default=_personal_principal_id())
     parser.add_argument("--role", default="role:personal-steward")
     parser.add_argument("--responsibility", default="responsibility:follow-up")
     parser.add_argument("--executor", default="agent:personal-steward")
@@ -342,7 +366,7 @@ def _personal_confirm(rest: list[str]) -> int:
     """cockpit workflow mesh personal confirm — human-confirmed mandate."""
     parser = argparse.ArgumentParser(prog="cockpit workflow mesh personal confirm")
     parser.add_argument("--episode-id", required=True)
-    parser.add_argument("--principal", default="principal:alice")
+    parser.add_argument("--principal", default=_personal_principal_id())
     parser.add_argument("--executor", default="agent:personal-steward")
     args = parser.parse_args(rest)
     console = _get_console()
@@ -379,7 +403,7 @@ def _personal_draft(rest: list[str]) -> int:
     """
     parser = argparse.ArgumentParser(prog="cockpit workflow mesh personal draft")
     parser.add_argument("--episode-id", required=True)
-    parser.add_argument("--principal", default="principal:alice")
+    parser.add_argument("--principal", default=_personal_principal_id())
     parser.add_argument("--title", default=None)
     parser.add_argument("--context", default=None)
     parser.add_argument("--deadline", default=None)
@@ -425,7 +449,7 @@ def _personal_feedback(rest: list[str]) -> int:
     """
     parser = argparse.ArgumentParser(prog="cockpit workflow mesh personal feedback")
     parser.add_argument("--episode-id", required=True)
-    parser.add_argument("--principal", default="principal:alice")
+    parser.add_argument("--principal", default=_personal_principal_id())
     parser.add_argument("--feedback-id", default=None)
     parser.add_argument("--verdict", required=True, choices=["accept", "edit", "reject", "defer", "ignore"])
     parser.add_argument("--review-duration-seconds", type=float, default=None)
@@ -488,7 +512,7 @@ def _personal_status(rest: list[str]) -> int:
     distribution and evidence origin counts.
     """
     parser = argparse.ArgumentParser(prog="cockpit workflow mesh personal status")
-    parser.add_argument("--principal", default="principal:alice")
+    parser.add_argument("--principal", default=_personal_principal_id())
     args = parser.parse_args(rest)
     console = _get_console()
     try:
