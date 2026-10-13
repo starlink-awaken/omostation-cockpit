@@ -41,6 +41,7 @@ _DEFAULT_KEYS_FILE = _PROJECT_ROOT / "config" / "api_keys.yaml"
 class ApiKeyInfo:
     name: str
     scopes: list[str] = field(default_factory=lambda: ["read"])
+    principal_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -58,6 +59,21 @@ class ApiAuthenticationError(ValueError):
 
 class ApiAuthorizationError(ValueError):
     """The verified credential lacks a required scope."""
+
+
+class ApiProviderConfigurationError(RuntimeError):
+    """A protected operation has no configured principal provider."""
+
+
+@dataclass(frozen=True)
+class PersonalConfirmationProvider:
+    """Server-derived authority input for one personal confirmation request."""
+
+    principal_id: str
+    credential_ref: str
+    credential_digest: str
+    name: str
+    scopes: tuple[str, ...]
 
 
 def _is_example_api_key(value: str) -> bool:
@@ -91,9 +107,15 @@ def load_api_keys() -> dict[str, ApiKeyInfo]:
             for entry in (data or {}).get("keys", []):
                 k = entry.get("key", "")
                 if k and not _is_example_api_key(k):
+                    raw_principal_id = entry.get("principal_id")
                     keys[k] = ApiKeyInfo(
                         name=entry.get("name", "unnamed"),
                         scopes=entry.get("scopes", ["read"]),
+                        principal_id=(
+                            raw_principal_id.strip()
+                            if isinstance(raw_principal_id, str) and raw_principal_id.strip()
+                            else None
+                        ),
                     )
         except (OSError, yaml.YAMLError):
             pass
@@ -180,6 +202,43 @@ def authenticate_api_principal(
     credential_digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:24]
     return AuthenticatedPrincipal(
         principal_ref=f"operator://cockpit-api/{credential_digest}",
+        name=info.name,
+        scopes=tuple(sorted(scopes)),
+    )
+
+
+def authenticate_personal_confirmation_provider(
+    headers: dict[str, str],
+) -> PersonalConfirmationProvider:
+    """Bind a personal confirmation to its configured key and principal.
+
+    The credential digest and OMO credential reference are derived only after a
+    constant-time key match. Request bodies never supply either value.
+    """
+
+    key = _extract_key_from_headers({str(k).lower(): str(v) for k, v in headers.items()})
+    if not key:
+        raise ApiAuthenticationError("missing_api_key")
+
+    info: ApiKeyInfo | None = None
+    for stored, candidate in _cached_keys().items():
+        if hmac.compare_digest(key, stored):
+            info = candidate
+            break
+    if info is None:
+        raise ApiAuthenticationError("invalid_api_key")
+
+    scopes = frozenset(str(scope).strip() for scope in info.scopes if str(scope).strip())
+    if "personal-confirmation" not in scopes:
+        raise ApiAuthorizationError("insufficient_scope")
+    if not info.principal_id:
+        raise ApiProviderConfigurationError("personal_confirmation_provider_unconfigured")
+
+    credential_digest = "sha256:" + hashlib.sha256(key.encode("utf-8")).hexdigest()
+    return PersonalConfirmationProvider(
+        principal_id=info.principal_id,
+        credential_ref=f"credential:key:1:{credential_digest}",
+        credential_digest=credential_digest,
         name=info.name,
         scopes=tuple(sorted(scopes)),
     )

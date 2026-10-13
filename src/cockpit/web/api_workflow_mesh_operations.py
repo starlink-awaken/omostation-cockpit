@@ -11,6 +11,7 @@ import os
 import sys
 import tempfile
 from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +21,9 @@ from cockpit.env_resolver import get_workspace_root as _get_workspace_root
 from cockpit.web.auth import (
     ApiAuthenticationError,
     ApiAuthorizationError,
+    ApiProviderConfigurationError,
     authenticate_api_principal,
+    authenticate_personal_confirmation_provider,
     issue_engineering_review_assertion,
 )
 
@@ -151,17 +154,14 @@ except Exception as exc:
 else:
     _PERSONAL_EPISODE_AUTHORITY_IMPORT_ERROR = None
 
-if DefaultPrincipalAuthority is not None:
-    _PERSONAL_EPISODE_AUTHORITY = DefaultPrincipalAuthority(
-        members={"principal:alice": ("key", "sha256:" + "a" * 64, 1)},
-        fixture_only=frozenset(),
-        production=False,
-    )
-    _PERSONAL_EPISODE_CREDENTIAL_REF = "credential:key:1:sha256:" + "a" * 64
+try:
+    from omo.sovereignty.enforcement import AgoraPepProvider, PolicyEnforcementService
+except Exception as exc:
+    AgoraPepProvider = None  # type: ignore[assignment,misc]
+    PolicyEnforcementService = None  # type: ignore[assignment,misc]
+    _PERSONAL_EPISODE_PEP_IMPORT_ERROR: Exception | None = exc
 else:
-    _PERSONAL_EPISODE_AUTHORITY = None
-    _PERSONAL_EPISODE_CREDENTIAL_REF = None
-
+    _PERSONAL_EPISODE_PEP_IMPORT_ERROR = None
 
 if APIRouter is not None:
     router = APIRouter(prefix="/api/workflow-mesh", tags=["workflow-mesh"]) if APIRouter else None
@@ -174,6 +174,59 @@ if APIRouter is not None:
     )
 
 _logger = logging.getLogger(__name__)
+
+_PERSONAL_EPISODE_PEP_AUTHORITY: ContextVar[Any | None] = ContextVar(
+    "personal_episode_pep_authority",
+    default=None,
+)
+
+
+class _PersonalEpisodePepProvider:
+    """Bind the request-verified authority to Agora's existing OMO PEP port.
+
+    Agora creates one process-cached provider, while this route receives a
+    distinct configured credential on each request. The ContextVar keeps the
+    authority request-local; calls outside the personal route delegate to the
+    original provider unchanged.
+    """
+
+    def __init__(self) -> None:
+        self._fallback = AgoraPepProvider() if AgoraPepProvider is not None else None
+        self._providers: dict[str, Any] = {}
+
+    def evaluate(self, request_dict: dict[str, Any]) -> Any:
+        authority = _PERSONAL_EPISODE_PEP_AUTHORITY.get()
+        if authority is None:
+            if self._fallback is None:
+                raise RuntimeError("personal_episode_pep_unavailable")
+            provider = self._fallback
+        else:
+            if AgoraPepProvider is None or PolicyEnforcementService is None:
+                raise RuntimeError("personal_episode_pep_unavailable")
+            provider = AgoraPepProvider(
+                service=PolicyEnforcementService.open(_event_ledger_db_path(), authority=authority)
+            )
+        decision = provider.evaluate(request_dict)
+        self._providers[decision.decision_id] = provider
+        return decision
+
+    def start_receipt(self, decision: Any) -> Any:
+        provider = self._providers.get(decision.decision_id, self._fallback)
+        if provider is None:
+            raise RuntimeError("personal_episode_pep_unavailable")
+        return provider.start_receipt(decision)
+
+    def confirm_receipt(
+        self,
+        receipt: Any,
+        status: str,
+        result: dict[str, Any] | None = None,
+        reason: str | None = None,
+    ) -> bool:
+        provider = self._providers.pop(receipt.decision_id, self._fallback)
+        if provider is None:
+            return False
+        return provider.confirm_receipt(receipt, status, result, reason)
 
 
 def _event_ledger_db_path() -> Path:
@@ -267,8 +320,79 @@ def _resolve_local_signal(
     )
 
 
+class PersonalEpisodeProviderUnavailableError(RuntimeError):
+    """The server cannot construct a production authority for this request."""
+
+
+class PersonalEpisodeAuthorityVerificationError(RuntimeError):
+    """A server-derived principal binding failed OMO verification."""
+
+
+def _personal_episode_principal_binding(headers: dict[str, str], principal_id: str) -> tuple[Any, str]:
+    """Verify one configured human provider before an effectful episode write."""
+
+    provider = authenticate_personal_confirmation_provider(headers)
+    if provider.principal_id != principal_id:
+        raise ApiAuthorizationError("principal_mismatch")
+    if DefaultPrincipalAuthority is None:
+        raise PersonalEpisodeProviderUnavailableError("personal_confirmation_provider_unavailable")
+
+    authority = DefaultPrincipalAuthority(
+        members={provider.principal_id: ("key", provider.credential_digest, 1)},
+        production=True,
+    )
+    try:
+        authority.verify(
+            principal_id,
+            provider.credential_ref,
+            now=datetime.datetime.now(datetime.UTC).isoformat(),
+        )
+    except Exception as exc:
+        raise PersonalEpisodeAuthorityVerificationError("personal_confirmation_authority_invalid") from exc
+    return authority, provider.credential_ref
+
+
+def _personal_episode_provider_error(exc: Exception) -> Any:
+    if isinstance(exc, ApiAuthenticationError):
+        return _personal_error("personal_confirmation_auth_required", status_code=401)
+    if isinstance(exc, ApiAuthorizationError):
+        return _personal_error("personal_confirmation_principal_forbidden", status_code=403)
+    if isinstance(exc, (ApiProviderConfigurationError, PersonalEpisodeProviderUnavailableError)):
+        return _personal_error("personal_confirmation_provider_unavailable", status_code=503)
+    return _personal_error("personal_confirmation_authority_invalid", status_code=409)
+
+
 @contextmanager
-def _personal_episode_service() -> Any:
+def _personal_episode_pep_authority(authority: Any) -> Any:
+    """Scope the PEP authority to one effectful personal-episode request."""
+
+    token = _PERSONAL_EPISODE_PEP_AUTHORITY.set(authority)
+    try:
+        yield
+    finally:
+        _PERSONAL_EPISODE_PEP_AUTHORITY.reset(token)
+
+
+def _ensure_personal_episode_pep_adapter() -> None:
+    """Use the request-bound adapter for OMO's default PEP deployment only."""
+
+    default_provider = "omo.sovereignty.enforcement:AgoraPepProvider"
+    configured = os.environ.get("AGORA_PEP_PROVIDER", "").strip()
+    if configured not in {"", default_provider}:
+        return
+    adapter = "cockpit.web.api_workflow_mesh_operations:_PersonalEpisodePepProvider"
+    if configured != adapter:
+        os.environ["AGORA_PEP_PROVIDER"] = adapter
+        if reset_pep_provider_cache is not None:
+            reset_pep_provider_cache()
+
+
+@contextmanager
+def _personal_episode_service(
+    *,
+    principal_authority: Any = None,
+    default_credential_ref: str | None = None,
+) -> Any:
     """Create one request-local OMO service and always close its SQLite broker."""
     if PersonalEpisodeService is None or LedgerBroker is None:
         raise RuntimeError("personal episode runtime unavailable")
@@ -276,8 +400,8 @@ def _personal_episode_service() -> Any:
     try:
         yield PersonalEpisodeService(
             broker,
-            principal_authority=_PERSONAL_EPISODE_AUTHORITY,
-            default_credential_ref=_PERSONAL_EPISODE_CREDENTIAL_REF,
+            principal_authority=principal_authority,
+            default_credential_ref=default_credential_ref,
         )
     finally:
         broker.close()
@@ -1070,13 +1194,26 @@ if router:
                 await request.json(),
                 {"episode_id", "principal_id", "executor_id", "human_confirmed"},
             )
-            with _personal_episode_service() as service:
+            principal_id = _required_text(body, "principal_id")
+            authority, credential_ref = _personal_episode_principal_binding(dict(request.headers), principal_id)
+            with _personal_episode_service(
+                principal_authority=authority,
+                default_credential_ref=credential_ref,
+            ) as service:
                 confirmation = service.confirm(
                     episode_id=_required_text(body, "episode_id"),
-                    principal_id=_required_text(body, "principal_id"),
+                    principal_id=principal_id,
                     executor_id=_required_text(body, "executor_id"),
                     human_confirmed=body.get("human_confirmed") is True,
                 )
+        except (
+            ApiAuthenticationError,
+            ApiAuthorizationError,
+            ApiProviderConfigurationError,
+            PersonalEpisodeProviderUnavailableError,
+            PersonalEpisodeAuthorityVerificationError,
+        ) as exc:
+            return _personal_episode_provider_error(exc)
         except (PersonalEpisodeError, OSError, TypeError, ValueError) as exc:
             _logger.info("personal_episode_confirm_blocked: %s", type(exc).__name__)
             return _personal_error(getattr(exc, "reason", "personal_episode_confirm_invalid"))
@@ -1097,6 +1234,7 @@ if router:
             )
             episode_id = _required_text(body, "episode_id")
             principal_id = _required_text(body, "principal_id")
+            authority, credential_ref = _personal_episode_principal_binding(dict(request.headers), principal_id)
             provided = {f for f in _DRAFT_FIELDS if f in body}
             if provided and provided != _DRAFT_FIELDS:
                 raise PersonalEpisodeError(
@@ -1104,7 +1242,10 @@ if router:
                     "either provide all draft fields (title, context, deadline, next_action) "
                     "or omit them all for a system-built draft",
                 )
-            with _personal_episode_service() as service:
+            with _personal_episode_service(
+                principal_authority=authority,
+                default_credential_ref=credential_ref,
+            ) as service:
                 context = service.reload_execution_context(episode_id, principal_id)
                 if provided:
                     # Caller-authored full draft — validate each field
@@ -1120,24 +1261,29 @@ if router:
                     snapshot = service.get_draft_snapshot(episode_id, principal_id)
                     draft = _build_draft_from_snapshot(snapshot)
                     output_origin = "system"
-                # Trusted-local default only; an explicit deployment binding wins unchanged.
-                if not os.environ.get("AGORA_PEP_PROVIDER"):
-                    os.environ["AGORA_PEP_PROVIDER"] = "omo.sovereignty.enforcement:AgoraPepProvider"
-                    if reset_pep_provider_cache is not None:
-                        reset_pep_provider_cache()
-                decision, receipt = enforce(
-                    uri=CAPABILITY,
-                    tool_name="personal_followup_draft",
-                    operation="write",
-                    caller_id=context.executor_id,
-                    arguments={"_omo_policy": context.omo_policy},
-                    payload=draft,
-                )
-                artifact = _write_local_draft(context, draft, output_origin=output_origin)
-                evidence_uri = _personal_draft_evidence_ref(artifact)
-                complete(decision, receipt, succeeded=True, result={"evidence_uri": evidence_uri})
-                terminal_confirmed = True
-                service.record_evidence(context, evidence_uri, output_origin=output_origin)
+                _ensure_personal_episode_pep_adapter()
+                with _personal_episode_pep_authority(authority):
+                    decision, receipt = enforce(
+                        uri=CAPABILITY,
+                        tool_name="personal_followup_draft",
+                        operation="write",
+                        caller_id=context.executor_id,
+                        arguments={"_omo_policy": context.omo_policy},
+                        payload=draft,
+                    )
+                    artifact = _write_local_draft(context, draft, output_origin=output_origin)
+                    evidence_uri = _personal_draft_evidence_ref(artifact)
+                    complete(decision, receipt, succeeded=True, result={"evidence_uri": evidence_uri})
+                    terminal_confirmed = True
+                    service.record_evidence(context, evidence_uri, output_origin=output_origin)
+        except (
+            ApiAuthenticationError,
+            ApiAuthorizationError,
+            ApiProviderConfigurationError,
+            PersonalEpisodeProviderUnavailableError,
+            PersonalEpisodeAuthorityVerificationError,
+        ) as exc:
+            return _personal_episode_provider_error(exc)
         except (PersonalEpisodeError, PEPDenied, OSError, TypeError, ValueError) as exc:
             if artifact is not None and not terminal_confirmed:
                 artifact.unlink(missing_ok=True)
@@ -1181,12 +1327,17 @@ if router:
                     "changed_fields",
                 },
             )
+            principal_id = _required_text(body, "principal_id")
+            authority, credential_ref = _personal_episode_principal_binding(dict(request.headers), principal_id)
             review_duration = _optional_burden(body, "review_duration_seconds")
             estimated_saved = _optional_burden(body, "estimated_time_saved_seconds")
             feedback_id = _required_text(body, "feedback_id") if "feedback_id" in body else None
-            with _personal_episode_service() as service:
+            with _personal_episode_service(
+                principal_authority=authority,
+                default_credential_ref=credential_ref,
+            ) as service:
                 context = service.reload_execution_context(
-                    _required_text(body, "episode_id"), _required_text(body, "principal_id")
+                    _required_text(body, "episode_id"), principal_id
                 )
                 revision_kwargs: dict[str, Any] = {}
                 if "revision_digest" in body:
@@ -1201,6 +1352,14 @@ if router:
                     estimated_time_saved_seconds=estimated_saved,
                     **revision_kwargs,
                 )
+        except (
+            ApiAuthenticationError,
+            ApiAuthorizationError,
+            ApiProviderConfigurationError,
+            PersonalEpisodeProviderUnavailableError,
+            PersonalEpisodeAuthorityVerificationError,
+        ) as exc:
+            return _personal_episode_provider_error(exc)
         except (PersonalEpisodeError, OSError, TypeError, ValueError) as exc:
             _logger.info("personal_episode_feedback_blocked: %s", type(exc).__name__)
             return _personal_error(getattr(exc, "reason", "personal_episode_feedback_invalid"))

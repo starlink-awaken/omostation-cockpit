@@ -60,11 +60,11 @@ def _configure_runtime(monkeypatch, tmp_path: Path) -> tuple[Path, Path, Path]:
     return ledger_path, signal_dir, draft_dir
 
 
-def _seed_role(ledger_path: Path) -> None:
+def _seed_role(ledger_path: Path, *, principal_id: str = "principal:alice") -> None:
     broker = LedgerBroker.connect(ledger_path)
     try:
         SovereigntyService(broker).assign(
-            "principal:alice",
+            principal_id,
             "role:personal-steward",
             role_name="Personal Steward",
             scope="personal",
@@ -95,6 +95,24 @@ def _ingest_payload(item_id: str, **overrides) -> dict[str, str]:
     }
     payload.update(overrides)
     return payload
+
+
+def _personal_confirmation_headers(monkeypatch, *, principal_id: str = "principal:xiamingxing") -> dict[str, str]:
+    """Install one test-only configured provider; production keys stay untouched."""
+    import cockpit.web.auth as auth_mod
+
+    monkeypatch.setattr(
+        auth_mod,
+        "_cached_keys",
+        lambda: {
+            "test-personal-confirmation-key": auth_mod.ApiKeyInfo(
+                name="personal-confirmation-test",
+                scopes=["personal-confirmation"],
+                principal_id=principal_id,
+            )
+        },
+    )
+    return {"X-Api-Key": "test-personal-confirmation-key"}
 
 
 def _ledger_state(ledger_path: Path) -> tuple[int, bool]:
@@ -187,7 +205,9 @@ def test_ingest_creates_causal_private_inbox_episode(monkeypatch, tmp_path):
 
 def test_ingest_confirms_and_drafts_never_send_with_feedback(monkeypatch, tmp_path):
     ledger_path, signal_dir, draft_dir = _configure_runtime(monkeypatch, tmp_path)
-    _seed_role(ledger_path)
+    principal_id = "principal:xiamingxing"
+    headers = _personal_confirmation_headers(monkeypatch, principal_id=principal_id)
+    _seed_role(ledger_path, principal_id=principal_id)
     item_id = _write_item(
         signal_dir,
         "notes/follow-up.md",
@@ -196,7 +216,10 @@ def test_ingest_confirms_and_drafts_never_send_with_feedback(monkeypatch, tmp_pa
     )
     client = TestClient(_app())
 
-    ingested = client.post("/api/workflow-mesh/personal-signal/ingest", json=_ingest_payload(item_id))
+    ingested = client.post(
+        "/api/workflow-mesh/personal-signal/ingest",
+        json=_ingest_payload(item_id, principal_id=principal_id),
+    )
     assert ingested.status_code == 200
     episode_id = ingested.json()["episode"]["episode_id"]
 
@@ -205,10 +228,11 @@ def test_ingest_confirms_and_drafts_never_send_with_feedback(monkeypatch, tmp_pa
         "/api/workflow-mesh/personal-episode/confirm",
         json={
             "episode_id": episode_id,
-            "principal_id": "principal:alice",
+            "principal_id": principal_id,
             "executor_id": "agent:personal-steward",
             "human_confirmed": True,
         },
+        headers=headers,
     )
     assert confirmed.status_code == 200
     assert confirmed.json()["confirmation"]["mandate_id"].startswith("mandate:personal-")
@@ -217,14 +241,15 @@ def test_ingest_confirms_and_drafts_never_send_with_feedback(monkeypatch, tmp_pa
         "/api/workflow-mesh/personal-episode/execute",
         json={
             "episode_id": episode_id,
-            "principal_id": "principal:alice",
+            "principal_id": principal_id,
             "title": "Commitment follow-up draft",
             "context": "Summarise the next step for review.",
             "deadline": "2026-08-13",
             "next_action": "Review, edit, or discard the local draft.",
         },
+        headers=headers,
     )
-    assert executed.status_code == 200
+    assert executed.status_code == 200, executed.json()
     executed_body = executed.json()
     assert "evidence_uri" not in executed_body
     assert "file://" not in executed.text
@@ -236,7 +261,8 @@ def test_ingest_confirms_and_drafts_never_send_with_feedback(monkeypatch, tmp_pa
 
     feedback = client.post(
         "/api/workflow-mesh/personal-episode/feedback",
-        json={"episode_id": episode_id, "principal_id": "principal:alice", "verdict": "accept"},
+        json={"episode_id": episode_id, "principal_id": principal_id, "verdict": "accept"},
+        headers=headers,
     )
     assert feedback.status_code == 200
 
@@ -252,6 +278,71 @@ def test_ingest_confirms_and_drafts_never_send_with_feedback(monkeypatch, tmp_pa
         assert broker.verify_chain()["ok"] is True
     finally:
         broker.close()
+
+
+def test_confirm_rejects_missing_or_mismatched_personal_provider_without_writing(monkeypatch, tmp_path):
+    ledger_path, signal_dir, _ = _configure_runtime(monkeypatch, tmp_path)
+    _seed_role(ledger_path)
+    item_id = _write_item(
+        signal_dir,
+        "notes/provider-check.md",
+        title="Provider check",
+        body="A protected confirmation must authenticate first.",
+    )
+    client = TestClient(_app())
+    ingested = client.post("/api/workflow-mesh/personal-signal/ingest", json=_ingest_payload(item_id))
+    assert ingested.status_code == 200
+    payload = {
+        "episode_id": ingested.json()["episode"]["episode_id"],
+        "principal_id": "principal:alice",
+        "executor_id": "agent:personal-steward",
+        "human_confirmed": True,
+    }
+
+    before = _ledger_state(ledger_path)
+    anonymous = client.post("/api/workflow-mesh/personal-episode/confirm", json=payload)
+    assert anonymous.status_code == 401
+    assert anonymous.json()["error"] == "personal_confirmation_auth_required"
+    assert _ledger_state(ledger_path) == before
+
+    mismatched = client.post(
+        "/api/workflow-mesh/personal-episode/confirm",
+        json=payload,
+        headers=_personal_confirmation_headers(monkeypatch),
+    )
+    assert mismatched.status_code == 403
+    assert mismatched.json()["error"] == "personal_confirmation_principal_forbidden"
+    assert _ledger_state(ledger_path) == before
+
+
+def test_confirm_rejects_fixture_principal_provider_without_writing(monkeypatch, tmp_path):
+    ledger_path, signal_dir, _ = _configure_runtime(monkeypatch, tmp_path)
+    _seed_role(ledger_path)
+    item_id = _write_item(
+        signal_dir,
+        "notes/fixture-provider.md",
+        title="Fixture provider check",
+        body="Production authority rejects fixture-only identities.",
+    )
+    client = TestClient(_app())
+    ingested = client.post("/api/workflow-mesh/personal-signal/ingest", json=_ingest_payload(item_id))
+    assert ingested.status_code == 200
+    before = _ledger_state(ledger_path)
+
+    rejected = client.post(
+        "/api/workflow-mesh/personal-episode/confirm",
+        json={
+            "episode_id": ingested.json()["episode"]["episode_id"],
+            "principal_id": "principal:alice",
+            "executor_id": "agent:personal-steward",
+            "human_confirmed": True,
+        },
+        headers=_personal_confirmation_headers(monkeypatch, principal_id="principal:alice"),
+    )
+
+    assert rejected.status_code == 409
+    assert rejected.json()["error"] == "personal_confirmation_authority_invalid"
+    assert _ledger_state(ledger_path) == before
 
 
 def test_ingest_exact_replay_returns_same_ids_and_no_new_events(monkeypatch, tmp_path):
