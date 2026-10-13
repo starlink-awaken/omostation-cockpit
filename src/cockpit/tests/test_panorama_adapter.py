@@ -11,6 +11,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 import httpx
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -65,6 +66,42 @@ def _compact_projection(*, generated_at: str = GENERATED_AT, source: str = REVIS
         "connectors": {"total": 2, "available": ["github"], "wired_to_scenes": ["github"], "unwired_available": []},
         "knowledge_health": {"total": 12, "fresh": 10, "stale": 2, "orphaned": 0, "freshness_pct": 83.3, "coverage_pct": 100.0, "orphan_pct": 0.0, "stale_docs": [{"path": "docs/old.md", "age_days": 9}]},
         "experience_graph": {"nodes_by_type": {"decision": 4}, "internal_refs": 7, "hotspots": [{"type": "decision", "count": 4}], "connectivity_pct": 68},
+    }
+
+
+def _workspace_envelope(*, value: dict[str, Any] | None = None) -> dict[str, Any]:
+    value = value or {
+        "worktrees": [{"path": "/repo", "branch": "refs/heads/main"}],
+        "total_worktrees": 1,
+        "lock_files": [],
+        "total_lock_files": 0,
+    }
+    digest = panorama_adapter._canonical_digest(value)
+    observed_at = "2026-10-05T13:59:45Z"
+    return {
+        "schema": panorama_adapter.PANORAMA_OBSERVATION_SCHEMA,
+        "generation_id": "generation-123",
+        "facets": {
+            "workspace": {
+                "status": "OBSERVED",
+                "observation_status": "OBSERVED",
+                "value": value,
+                "source_digest": digest,
+                "observed_at": observed_at,
+                "last_attempt_at": observed_at,
+                "last_success_at": observed_at,
+                "error_class": None,
+                "duration_ms": 12,
+                "overrun": False,
+                "provenance": {
+                    "kind": "direct-read",
+                    "source_ref": "bin/panorama/panorama-collect.py::collect_workspace_hygiene",
+                    "collector_sha256": panorama_adapter._current_observation_collector_digest(),
+                    "source_digest": digest,
+                    "scope": {"code_root": "/repo", "state_root": "/runtime"},
+                },
+            }
+        },
     }
 
 
