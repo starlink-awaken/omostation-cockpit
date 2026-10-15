@@ -200,7 +200,7 @@ async def compute_generate(req: ComputeGenerateRequest):
 
 # The strict operation is a distinct route: old deployed servers return 404 before
 # reaching the legacy alias/fallback handler.
-_STRICT_MODEL_RE = re.compile(r"^(?:ENG-OMLX-|ENG-LMSTUDIO-|ENG-OLLAMA-)[^/\s]+/[^/\s]+$")
+_STRICT_MODEL_RE = re.compile(r"^(?:ENG-OMLX-|ENG-LMSTUDIO-|ENG-OLLAMA-)[^/\s]+/[^/\s]+(?:/[^/\s]+)*$")
 _STRICT_SLOT = threading.BoundedSemaphore(1)
 _STRICT_RATE_LOCK = threading.Lock()
 _STRICT_CALLS: dict[str, list[float]] = {}
