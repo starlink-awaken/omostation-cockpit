@@ -22,6 +22,7 @@ MODEL = "ENG-LMSTUDIO-LOCAL/qwen-test"
 def strict_client(monkeypatch):
     app = FastAPI()
     app.include_router(api_compute.router)
+    monkeypatch.setattr(api_compute, "_STRICT_CALLS", {})
     monkeypatch.setattr(
         auth,
         "_cached_keys",
@@ -34,7 +35,19 @@ def strict_client(monkeypatch):
     return TestClient(app)
 
 
-def test_strict_route_uses_one_exact_http_request(strict_client, monkeypatch):
+@pytest.mark.parametrize("model", [
+    MODEL,
+    "ENG-LMSTUDIO-MACBOOKPRO/google/gemma-4-12b-qat",
+    "ENG-LMSTUDIO-MACBOOKPRO/google/gemma-4-26b-a4b-qat",
+    "ENG-LMSTUDIO-MACBOOKPRO/zai-org/glm-4.6v-flash",
+    "ENG-LMSTUDIO-MACBOOKPRO/openai/gpt-oss-120b",
+    "ENG-LMSTUDIO-MACBOOKPRO/google/gemma-4-31b-qat",
+    "ENG-LMSTUDIO-MACBOOKPRO/qwen/qwen3-coder-next",
+    "ENG-LMSTUDIO-MACBOOKPRO/google/gemma-4-e2b",
+    "ENG-LMSTUDIO-MACBOOKPRO/nvidia/nemotron-3-nano-omni",
+    "ENG-OMLX-NODE/org/collection/model",
+])
+def test_strict_route_uses_one_exact_http_request(strict_client, monkeypatch, model):
     observed = []
 
     class Provider(BaseHTTPRequestHandler):
@@ -44,7 +57,7 @@ def test_strict_route_uses_one_exact_http_request(strict_client, monkeypatch):
             observed.append((self.path, body, self.headers.get("Authorization")))
             payload = json.dumps({
                 "id": "trace-fixture-1",
-                "model": MODEL,
+                "model": model,
                 "choices": [{"message": {"content": "四十二"}, "finish_reason": "stop"}],
                 "usage": {"prompt_tokens": 3, "completion_tokens": 4, "total_tokens": 7},
             }).encode()
@@ -65,7 +78,7 @@ def test_strict_route_uses_one_exact_http_request(strict_client, monkeypatch):
         response = strict_client.post(
             "/api/governance/compute/generate-strict",
             headers={"X-Api-Key": "fixture-operator"},
-            json={"model": MODEL, "prompt": "6×7?", "max_tokens": 32, "timeout": 2, "strict_model": True},
+            json={"model": model, "prompt": "6×7?", "max_tokens": 32, "timeout": 2, "strict_model": True},
         )
     finally:
         server.shutdown()
@@ -76,13 +89,13 @@ def test_strict_route_uses_one_exact_http_request(strict_client, monkeypatch):
     assert len(observed) == 1
     path, body, authorization = observed[0]
     assert path == "/v1/chat/completions"
-    assert body["model"] == MODEL
+    assert body["model"] == model
     assert body["strict_model"] is True
     assert body["stream"] is False
     assert 0 < body["timeout"] <= 2
     assert body["max_tokens"] == 32
     assert authorization == "Bearer fixture-gateway"
-    assert response.json()["model"] == MODEL
+    assert response.json()["model"] == model
     assert response.json()["trace_id"] == "trace-fixture-1"
 
 
@@ -99,7 +112,17 @@ def test_strict_route_requires_configured_operator(strict_client, monkeypatch, h
     assert response.status_code == expected
 
 
-@pytest.mark.parametrize("model", ["coder", "ENG-LMSTUDIO-LOCAL/bad model", "ENG-CLOUD-X/model"])
+@pytest.mark.parametrize("model", [
+    "coder", "ENG-CLOUD-X/model",
+    "ENG-LMSTUDIO-LOCAL/bad model",
+    "ENG-LMSTUDIO-LOCAL/org\tmodel",
+    "ENG-LMSTUDIO-LOCAL/",
+    "ENG-LMSTUDIO-LOCAL//model",
+    "ENG-LMSTUDIO-LOCAL/org/",
+    "ENG-LMSTUDIO-LOCAL/org//model",
+    "/ENG-LMSTUDIO-LOCAL/org/model",
+    "ENG-LMSTUDIO-LOCAL/org/model/",
+])
 def test_strict_route_rejects_alias_whitespace_and_cloud(strict_client, monkeypatch, model):
     monkeypatch.setenv("LLM_GATEWAY_URL", "http://127.0.0.1:9")
     response = strict_client.post(
