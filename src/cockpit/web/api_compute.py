@@ -9,16 +9,27 @@ Routes:
 
 from __future__ import annotations
 
+import asyncio
 import json
+import math
 import os
 import re
+import socket as socket_module
 import subprocess
 import sys
+import threading
+import time
+from http.client import HTTPConnection
+from http.client import HTTPException as HTTPClientException
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict
+
+from cockpit.web.auth import ApiAuthenticationError, ApiAuthorizationError, authenticate_api_principal
 
 router = APIRouter()
 
@@ -186,6 +197,237 @@ async def compute_generate(req: ComputeGenerateRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Compute generate error: {str(e)}")
+
+# The strict operation is a distinct route: old deployed servers return 404 before
+# reaching the legacy alias/fallback handler.
+_STRICT_MODEL_RE = re.compile(r"^(?:ENG-OMLX-|ENG-LMSTUDIO-|ENG-OLLAMA-)[^/\s]+/[^/\s]+$")
+_STRICT_SLOT = threading.BoundedSemaphore(1)
+_STRICT_RATE_LOCK = threading.Lock()
+_STRICT_CALLS: dict[str, list[float]] = {}
+_STRICT_MAX_TOKENS = 512
+_STRICT_MAX_TIMEOUT = 30.0
+_STRICT_TRANSPORT_MARGIN = 1.0
+_STRICT_SOCKET_MARGIN = 2.0
+
+
+class StrictComputeGenerateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    prompt: Any
+    model: Any
+    max_tokens: Any
+    timeout: Any
+    strict_model: Any
+
+
+def _strict_gateway_url() -> tuple[str, int] | None:
+    """Only an explicitly configured numeric loopback HTTP endpoint is accepted."""
+    raw = os.environ.get("LLM_GATEWAY_URL", "")
+    try:
+        parsed = urlsplit(raw)
+        if (
+            parsed.scheme != "http"
+            or parsed.hostname not in {"127.0.0.1", "::1"}
+            or parsed.port is None
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.path not in {"", "/", "/v1", "/v1/"}
+            or parsed.query
+            or parsed.fragment
+        ):
+            return None
+        return parsed.hostname, parsed.port
+    except ValueError:
+        return None
+
+
+def _strict_gateway_key(deadline: float) -> str | None:
+    """Read the existing server-only Keychain item, never putting its value in argv."""
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        return None
+    try:
+        result = subprocess.run(
+            ["security", "find-generic-password", "-s", "aetherforge-gateway", "-w"],
+            capture_output=True,
+            text=True,
+            timeout=min(3.0, remaining),
+        )
+        return result.stdout.strip() if result.returncode == 0 and result.stdout.strip() else None
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
+def _strict_rate_allowed(principal_ref: str) -> bool:
+    now = time.monotonic()
+    with _STRICT_RATE_LOCK:
+        recent = [t for t in _STRICT_CALLS.get(principal_ref, ()) if now - t < 60.0]
+        if len(recent) >= 6:
+            _STRICT_CALLS[principal_ref] = recent
+            return False
+        recent.append(now)
+        _STRICT_CALLS[principal_ref] = recent
+        return True
+
+
+def _strict_provider_request(
+    endpoint: tuple[str, int], payload: dict[str, Any], deadline: float,
+) -> tuple[int, dict[str, Any]]:
+    """One stdlib HTTP attempt. The worker owns the slot until its socket exits."""
+    connection: HTTPConnection | None = None
+    active_socket: socket_module.socket | None = None
+    watchdog: threading.Timer | None = None
+    try:
+        key = _strict_gateway_key(deadline)
+        if not key:
+            return 503, {"status": "failed", "error": "gateway_key_unavailable"}
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return 504, {"status": "failed", "error": "deadline_exceeded", "provider_outcome": "unknown"}
+        payload["timeout"] = min(payload["timeout"], remaining)
+        connection = HTTPConnection(endpoint[0], endpoint[1], timeout=remaining + _STRICT_SOCKET_MARGIN)
+
+        def abort_overdue_socket() -> None:
+            sock = active_socket or connection.sock
+            if sock is not None:
+                try:
+                    sock.shutdown(socket_module.SHUT_RDWR)
+                except OSError:
+                    pass
+
+        watchdog = threading.Timer(
+            max(0.0, deadline + _STRICT_SOCKET_MARGIN - time.monotonic()), abort_overdue_socket,
+        )
+        watchdog.daemon = True
+        watchdog.start()
+        connection.request(
+            "POST", "/v1/chat/completions", body=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"},
+        )
+        active_socket = connection.sock
+        response = connection.getresponse()
+        chunks: list[bytes] = []
+        size = 0
+        # read1 returns available bytes; resetting the socket timeout per chunk
+        # prevents a slow drip from extending this worker indefinitely.
+        while True:
+            remaining = deadline + _STRICT_SOCKET_MARGIN - time.monotonic()
+            if remaining <= 0:
+                return 504, {"status": "failed", "error": "deadline_exceeded", "provider_outcome": "unknown"}
+            if active_socket is not None:
+                active_socket.settimeout(remaining)
+            chunk = response.read1(min(8192, 65537 - size))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            size += len(chunk)
+            if size > 65536:
+                return 502, {"status": "failed", "error": "gateway_response_too_large"}
+            if response.isclosed():
+                break
+        raw = b"".join(chunks)
+        if time.monotonic() > deadline + _STRICT_TRANSPORT_MARGIN:
+            return 504, {"status": "failed", "error": "deadline_exceeded", "provider_outcome": "unknown"}
+        if response.status != 200:
+            return 502, {"status": "failed", "error": f"gateway_http_{response.status}"}
+        data = json.loads(raw)
+        if not isinstance(data, dict):
+            raise ValueError("invalid gateway payload")
+        choice = (data.get("choices") or [{}])[0]
+        if not isinstance(choice, dict) or choice.get("finish_reason") != "stop":
+            return 502, {"status": "failed", "error": "gateway_incomplete_response"}
+        message = choice.get("message")
+        content = message.get("content") if isinstance(message, dict) else None
+        if not isinstance(content, str) or not content.strip():
+            return 502, {"status": "failed", "error": "gateway_empty_response"}
+        actual_model = data.get("model")
+        if actual_model != payload["model"]:
+            return 502, {"status": "failed", "error": "gateway_model_mismatch",
+                         "requested_model": payload["model"],
+                         "reported_model": actual_model if isinstance(actual_model, str) else None}
+        trace = data.get("id")
+        usage = data.get("usage")
+        return 200, {
+            "status": "success", "content": content, "requested_model": payload["model"],
+            "model": actual_model, "trace_id": trace if isinstance(trace, str) and len(trace) <= 128 else None,
+            "usage": usage if isinstance(usage, dict) else None,
+        }
+    except (OSError, HTTPClientException, ValueError, json.JSONDecodeError):
+        return 502, {"status": "failed", "error": "gateway_transport_error",
+                     "provider_outcome": "unknown"}
+    finally:
+        try:
+            if watchdog is not None:
+                watchdog.cancel()
+            if connection is not None:
+                connection.close()
+        finally:
+            _STRICT_SLOT.release()
+
+
+@router.post("/api/governance/compute/generate-strict")
+async def compute_generate_strict(req: StrictComputeGenerateRequest, request: Request):
+    """Authenticated, bounded, exact local model operation via AetherForge."""
+    try:
+        principal = authenticate_api_principal(
+            dict(request.headers), any_scope=frozenset({"compute-generate"}),
+        )
+    except ApiAuthenticationError:
+        return JSONResponse({"status": "denied", "error": "operator_auth_required"}, status_code=401)
+    except ApiAuthorizationError:
+        return JSONResponse({"status": "denied", "error": "compute_scope_required"}, status_code=403)
+
+    if (
+        req.strict_model is not True
+        or not isinstance(req.prompt, str)
+        or not (1 <= len(req.prompt.strip()) <= 4000)
+        or not isinstance(req.model, str)
+        or _STRICT_MODEL_RE.fullmatch(req.model) is None
+        or type(req.max_tokens) is not int
+        or not (1 <= req.max_tokens <= _STRICT_MAX_TOKENS)
+        or type(req.timeout) not in (int, float)
+        or not math.isfinite(req.timeout)
+        or not (0 < req.timeout <= _STRICT_MAX_TIMEOUT)
+    ):
+        return JSONResponse({"status": "failed", "error": "invalid_strict_request"}, status_code=400)
+    try:
+        if request.headers.get("content-length") and int(request.headers["content-length"]) > 16384:
+            return JSONResponse({"status": "failed", "error": "request_too_large"}, status_code=413)
+    except ValueError:
+        return JSONResponse({"status": "failed", "error": "invalid_content_length"}, status_code=400)
+
+    endpoint = _strict_gateway_url()
+    if endpoint is None:
+        return JSONResponse({"status": "failed", "error": "strict_gateway_unconfigured"}, status_code=503)
+    if not _STRICT_SLOT.acquire(blocking=False):
+        return JSONResponse({"status": "busy", "error": "strict_inflight"}, status_code=429)
+    if not _strict_rate_allowed(principal.principal_ref):
+        _STRICT_SLOT.release()
+        return JSONResponse({"status": "busy", "error": "strict_rate_limited"}, status_code=429)
+
+    deadline = time.monotonic() + float(req.timeout)
+    payload: dict[str, Any] = {
+        "model": req.model, "messages": [{"role": "user", "content": req.prompt}],
+        "max_tokens": req.max_tokens, "timeout": float(req.timeout),
+        "strict_model": True, "routing_mode": "local", "stream": False,
+    }
+    loop = asyncio.get_running_loop()
+    try:
+        worker = loop.run_in_executor(None, _strict_provider_request, endpoint, payload, deadline)
+    except RuntimeError:
+        _STRICT_SLOT.release()
+        return JSONResponse({"status": "failed", "error": "worker_unavailable"}, status_code=503)
+    try:
+        status, result = await asyncio.wait_for(
+            asyncio.shield(worker), timeout=float(req.timeout) + _STRICT_TRANSPORT_MARGIN,
+        )
+        return JSONResponse(result, status_code=status)
+    except TimeoutError:
+        # The thread may still be in the socket. It releases the slot on exit.
+        return JSONResponse(
+            {"status": "failed", "error": "deadline_exceeded", "provider_outcome": "unknown"},
+            status_code=504,
+        )
 
 
 # OMLX_ROOT 约定与 aetherforge gateway 相同(见 gateway.py omlx 动态对接注释):
