@@ -19,6 +19,7 @@ import subprocess
 import sys
 import threading
 import time
+from datetime import UTC, datetime
 from http.client import HTTPConnection
 from http.client import HTTPException as HTTPClientException
 from pathlib import Path
@@ -447,57 +448,102 @@ def _omlx_env() -> dict[str, str]:
     env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:" + env.get("PATH", "")
     return env
 
+_CATALOG_DEADLINE = 8.0
+_CATALOG_MAX_BYTES = 1024 * 1024
+
+
+def _catalog_provider_request(endpoint: tuple[str, int], deadline: float) -> dict[str, Any] | None:
+    """Read one bounded server-authenticated gateway catalog, without retries or redirects."""
+    connection: HTTPConnection | None = None
+    active_socket: socket_module.socket | None = None
+    watchdog: threading.Timer | None = None
+    try:
+        key = _strict_gateway_key(deadline)
+        remaining = deadline - time.monotonic()
+        if not key or remaining <= 0:
+            return None
+        connection = HTTPConnection(endpoint[0], endpoint[1], timeout=remaining)
+
+        def abort_overdue_socket() -> None:
+            sock = active_socket or connection.sock
+            if sock is not None:
+                try:
+                    sock.shutdown(socket_module.SHUT_RDWR)
+                except OSError:
+                    pass
+
+        watchdog = threading.Timer(max(0.0, deadline - time.monotonic()), abort_overdue_socket)
+        watchdog.daemon = True
+        watchdog.start()
+        connection.request(
+            "GET",
+            "/v1/models",
+            headers={"Authorization": f"Bearer {key}", "Accept": "application/json"},
+        )
+        active_socket = connection.sock
+        response = connection.getresponse()
+        if response.status != 200:
+            return None
+        if response.length is not None and response.length > _CATALOG_MAX_BYTES:
+            return None
+        chunks: list[bytes] = []
+        size = 0
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return None
+            if active_socket is not None:
+                active_socket.settimeout(remaining)
+            chunk = response.read1(min(8192, _CATALOG_MAX_BYTES + 1 - size))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            size += len(chunk)
+            if size > _CATALOG_MAX_BYTES:
+                return None
+            if response.isclosed():
+                break
+        if time.monotonic() >= deadline:
+            return None
+        data = json.loads(b"".join(chunks))
+        return data if isinstance(data, dict) and isinstance(data.get("data"), list) else None
+    except (OSError, HTTPClientException, ValueError, json.JSONDecodeError):
+        return None
+    finally:
+        if watchdog is not None:
+            watchdog.cancel()
+        if connection is not None:
+            connection.close()
+
 
 @router.get("/api/governance/compute/models")
 async def list_compute_models():
-    """三机本地算力模型清单 —— 来自 SSOT(能力/位置/成本)+ omlx 实时 loaded 态。"""
-    root = get_workspace_root()
-    if not root:
-        raise HTTPException(status_code=500, detail="Cannot locate workspace root.")
+    """Return currently registered full local IDs from the server-only AetherForge catalog."""
+    deadline = time.monotonic() + _CATALOG_DEADLINE
+    endpoint = _strict_gateway_url()
+    if endpoint is None:
+        raise HTTPException(status_code=503, detail="Compute catalog unavailable.")
+    data = await asyncio.to_thread(_catalog_provider_request, endpoint, deadline)
+    if data is None:
+        raise HTTPException(status_code=503, detail="Compute catalog unavailable.")
 
-    # 1) SSOT: 能力 / runs_on / 成本(omlxc ssot-sync 生成)
-    ssot_models: list[dict[str, Any]] = []
-    ssot_path = root / "projects/ecos/src/ecos/ssot/mof/m1/model" / "MODEL-BREW-OMLX-LOCAL.yaml"
-    if ssot_path.is_file():
-        try:
-            import yaml
-
-            data = yaml.safe_load(ssot_path.read_text(encoding="utf-8")) or {}
-            ssot_models = data.get("models", []) or []
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"读 SSOT 失败: {e}")
-
-    # 2) omlx: 各节点实时加载态
-    loaded: dict[str, list[str]] = {}
-    try:
-        r = subprocess.run([OMLX_BIN, "node", "ps"], env=_omlx_env(), capture_output=True, text=True, timeout=30)
-        cur = None
-        for line in (r.stdout or "").splitlines():
-            raw = re.sub(r"\x1b\[[0-9;]*m", "", line)
-            s = raw.strip()
-            if not s:
-                continue
-            if not raw.startswith(" "):  # 节点行
-                cur = s.split("—")[0].strip()
-                loaded.setdefault(cur, [])
-            elif cur:
-                # "● key :port (engine)" 或 "lmstudio :1234 — a, b"
-                if "—" in s:
-                    tail = s.split("—", 1)[1].strip()
-                    if tail and "空闲" not in tail and "down" not in tail:
-                        loaded[cur].extend(x.strip() for x in tail.split(","))
-                elif s.startswith("●"):
-                    parts = s.replace("●", "").strip().split()
-                    if parts:
-                        loaded[cur].append(parts[0])
-    except Exception:
-        pass  # 实时态拿不到不影响清单
-
+    models: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in data["data"]:
+        model_id = item.get("id") if isinstance(item, dict) else None
+        if isinstance(model_id, str) and _STRICT_MODEL_RE.fullmatch(model_id) and model_id not in seen:
+            seen.add(model_id)
+            models.append({"model_id": model_id, "residency": "unknown"})
+    if not models:
+        raise HTTPException(status_code=503, detail="Compute catalog unavailable.")
     return {
         "status": "success",
-        "total": len(ssot_models),
-        "models": ssot_models,
-        "loaded_by_node": loaded,
+        "total": len(models),
+        "models": models,
+        "loaded_by_node": {},
+        "residency": "unknown",
+        "source": "aetherforge_gateway",
+        "observed_at": datetime.now(UTC).isoformat(),
     }
 
 
