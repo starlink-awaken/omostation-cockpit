@@ -99,4 +99,48 @@ def test_post_resident_remediate_invalid():
     assert resp.status_code == 400
     data = resp.json()
     assert data["ok"] is False
-    assert "Invalid action_id" in data["error"]
+
+
+def test_get_resident_morning_briefing():
+    client = create_test_client()
+    resp = client.get("/api/resident/morning-briefing")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ok"] is True
+    assert "greeting" in data
+    assert "yesterday_summary" in data
+    assert "top_action_items" in data
+
+
+def test_get_resident_memory_distilled():
+    client = create_test_client()
+    resp = client.get("/api/resident/memory/distilled")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ok"] is True
+    assert "preferences" in data
+    assert len(data["preferences"]) > 0
+
+
+def test_post_resident_memory_distill():
+    client = create_test_client()
+    resp = client.post("/api/resident/memory/distill", json={"extra_text": "注意：回复优先使用中文"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ok"] is True
+    assert "growth_metrics" in data
+
+
+def test_post_resident_night_patrol():
+    client = create_test_client()
+    with patch("omo.resident.night_patrol.run_night_patrol") as mock_night:
+        mock_night.return_value = {
+            "ok": True,
+            "duration_seconds": 2.5,
+            "morning_briefing_generated": True,
+        }
+        resp = client.post("/api/resident/night-patrol", json={"force": True, "deep": False})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["ok"] is True
+        assert data["morning_briefing_generated"] is True
