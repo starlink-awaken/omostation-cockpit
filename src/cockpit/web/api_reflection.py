@@ -198,22 +198,9 @@ async def resident_remediate(payload: dict[str, Any]) -> JSONResponse:
 async def resident_pitfalls() -> JSONResponse:
     """踩坑信念雷达数据 — 逆向反哺规则与拦截统计 (Phase 6)."""
     try:
-        from omo.resident.pitfall_rag import get_system_pitfall_rag
+        from omo.resident.pitfall_rag import get_high_priority_pitfalls
 
-        rag = get_system_pitfall_rag()
-        rules = rag.get_high_priority_pitfalls()
-        rules_list = [
-            {
-                "id": r.rule_id,
-                "title": r.title,
-                "domain": r.domain,
-                "severity": r.severity,
-                "pattern": r.pattern,
-                "remedy": r.remedy,
-                "source_file": "AGENTS.md",
-            }
-            for r in rules
-        ]
+        rules_list = get_high_priority_pitfalls()
     except Exception as exc:
         logger.warning("load pitfall_rag failed: %s, using baseline", exc)
         rules_list = [
@@ -224,6 +211,7 @@ async def resident_pitfalls() -> JSONResponse:
                 "severity": "CRITICAL",
                 "pattern": 'VAR="a b c"; for x in $VAR',
                 "remedy": "改用数组 arr=(a b c) 或字面量",
+                "status": "active",
                 "source_file": "AGENTS.md",
             },
             {
@@ -233,6 +221,7 @@ async def resident_pitfalls() -> JSONResponse:
                 "severity": "HIGH",
                 "pattern": "随意添加保留 emoji 至输出行首",
                 "remedy": "遵守 SwiftBar 7 域格式规范",
+                "status": "active",
                 "source_file": "AGENTS.md",
             },
         ]
@@ -267,7 +256,7 @@ async def resident_pitfalls() -> JSONResponse:
 
 @router.get("/resident/swarm")
 async def resident_swarm() -> JSONResponse:
-    """双机算力集群拓扑与状态 (Phase 6)."""
+    """双机及多机算力集群拓扑与状态 (Phase 6/7)."""
     try:
         from omo.resident.interact import execute_react_tool
 
@@ -280,6 +269,36 @@ async def resident_swarm() -> JSONResponse:
             {
                 "ok": False,
                 "error": str(exc),
+                "nodes": [
+                    {
+                        "id": "local-mac",
+                        "hostname": "mbp.local",
+                        "role": "flagship",
+                        "inference_port": 1234,
+                        "status": "online",
+                        "gpu_vram": "112GB",
+                        "unified_memory": "128GB",
+                        "supported_tiers": ["tier3_deep_reasoning", "tier2_standard", "tier1_inspection"],
+                        "priority": 100,
+                    },
+                    {
+                        "id": "macmini",
+                        "hostname": "macmini-m4.local",
+                        "role": "sentinel",
+                        "tailnet_ip": "100.64.110.118",
+                        "inference_port": 11434,
+                        "status": "standby",
+                        "unified_memory": "24GB",
+                        "supported_tiers": ["tier1_inspection"],
+                        "priority": 50,
+                    },
+                ],
+                "cluster_summary": {
+                    "total_nodes": 2,
+                    "online_nodes": 1,
+                    "flagship_online": True,
+                    "offload_ready": False,
+                },
                 "mbp_flagship": {
                     "unified_memory": "128.0 GB",
                     "gpu_vram_limit": "112.0 GB",
@@ -294,3 +313,75 @@ async def resident_swarm() -> JSONResponse:
                 },
             }
         )
+
+
+@router.post("/resident/pitfalls/distill")
+async def resident_pitfalls_distill(payload: dict[str, Any]) -> JSONResponse:
+    """踩坑信念自蒸馏接口 — 从 Git diff / 报错特征自动萃取防灾规则 (Phase 7)."""
+    try:
+        from omo.resident.pitfall_rag import (
+            distill_pitfall_from_diff,
+            save_distilled_pitfall,
+        )
+
+        error_log = payload.get("error_log", "") or payload.get("commit_msg", "")
+        diff_text = payload.get("diff_text", "")
+        context = payload.get("context", "")
+        rule = distill_pitfall_from_diff(error_log=error_log, diff_text=diff_text, context=context)
+        if rule:
+            if payload.get("save", True):
+                save_distilled_pitfall(rule)
+            return JSONResponse(
+                {
+                    "ok": True,
+                    "distilled": True,
+                    "rule": {
+                        "id": rule.get("id"),
+                        "title": rule.get("title"),
+                        "domain": rule.get("domain"),
+                        "severity": rule.get("severity"),
+                        "pattern": rule.get("pattern"),
+                        "remedy": rule.get("remedy"),
+                        "status": rule.get("status"),
+                    },
+                }
+            )
+        return JSONResponse(
+            {
+                "ok": True,
+                "distilled": False,
+                "message": "No actionable pitfall pattern recognized in the diff.",
+            }
+        )
+    except Exception as exc:
+        logger.warning("pitfall distillation error: %s", exc)
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
+
+
+@router.post("/resident/patrol")
+async def resident_patrol(payload: dict[str, Any]) -> JSONResponse:
+    """自治主动巡检与静默自愈接口 (Phase 7)."""
+    try:
+        from omo.resident.patrol import ResidentPatrolRunner
+
+        auto_remediate = payload.get("auto_remediate", True)
+        runner = ResidentPatrolRunner()
+        report = runner.run_patrol_cycle(auto_remediate=auto_remediate)
+        return JSONResponse(report)
+    except Exception as exc:
+        logger.warning("resident patrol error: %s", exc)
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
+
+
+@router.get("/resident/patrol")
+async def resident_patrol_status() -> JSONResponse:
+    """获取最新自治巡检快照 (只读轻量执行)."""
+    try:
+        from omo.resident.patrol import ResidentPatrolRunner
+
+        runner = ResidentPatrolRunner()
+        report = runner.run_patrol_cycle(auto_remediate=False)
+        return JSONResponse(report)
+    except Exception as exc:
+        logger.warning("resident patrol status error: %s", exc)
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
