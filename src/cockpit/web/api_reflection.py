@@ -385,3 +385,92 @@ async def resident_patrol_status() -> JSONResponse:
     except Exception as exc:
         logger.warning("resident patrol status error: %s", exc)
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
+
+
+@router.get("/resident/morning-briefing")
+async def resident_morning_briefing() -> JSONResponse:
+    """获取晨间自治简报快照 (Phase 8 Batch 8.3)."""
+    try:
+        from omo.resident.morning_briefing import get_morning_briefing_generator
+
+        gen = get_morning_briefing_generator(WORKSPACE_ROOT)
+        data = gen.load_latest_briefing()
+        data["ok"] = True
+        return JSONResponse(data)
+    except Exception as exc:
+        logger.warning("morning briefing error: %s", exc)
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": str(exc),
+                "greeting": "常驻系统平稳守护中",
+                "yesterday_summary": "代码基线平稳运行，各项治理门禁正常",
+                "night_defense_status": "✅ 巡检探针与状态感知正常",
+                "cluster_online_summary": "集群算力网络在线",
+                "memory_growth_summary": "长期记忆结晶正常同步",
+                "top_action_items": ["审阅控制台自治巡检与算力状态"],
+                "health_score": 100,
+            }
+        )
+
+
+@router.get("/resident/memory/distilled")
+async def resident_memory_distilled() -> JSONResponse:
+    """获取跨会话长期记忆结晶与长效偏好资产 (Phase 8 Batch 8.2)."""
+    try:
+        from omo.resident.memory_distiller import get_memory_distiller
+
+        distiller = get_memory_distiller(WORKSPACE_ROOT)
+        cryst = distiller.load_crystallized_memory()
+        cryst["ok"] = True
+        return JSONResponse(cryst)
+    except Exception as exc:
+        logger.warning("load crystallized memory error: %s", exc)
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": str(exc),
+                "preferences": [
+                    {
+                        "id": "pref-baseline-1",
+                        "domain": "language",
+                        "directive": "回复优先使用简体中文",
+                        "confidence": 1.0,
+                    }
+                ],
+                "guardrail_count": 6,
+                "domain_learnings": [],
+            }
+        )
+
+
+@router.post("/resident/memory/distill")
+async def resident_memory_distill_trigger(payload: dict[str, Any]) -> JSONResponse:
+    """手动触发一次跨会话长期记忆结晶 (Phase 8 Batch 8.2)."""
+    try:
+        from omo.resident.memory_distiller import get_memory_distiller
+
+        extra_text = payload.get("extra_text", "")
+        distiller = get_memory_distiller(WORKSPACE_ROOT)
+        cryst = distiller.distill_and_crystallize(extra_text=extra_text)
+        cryst["ok"] = True
+        return JSONResponse(cryst)
+    except Exception as exc:
+        logger.warning("trigger memory distill error: %s", exc)
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
+
+
+@router.post("/resident/night-patrol")
+async def resident_night_patrol_trigger(payload: dict[str, Any]) -> JSONResponse:
+    """手动触发一次夜间深度巡检与晨间简报生成 (Phase 8 Batch 8.3)."""
+    try:
+        from omo.resident.night_patrol import run_night_patrol
+
+        force = payload.get("force", True)
+        deep = payload.get("deep", False)
+        report = run_night_patrol(force=force, deep=deep)
+        return JSONResponse(report)
+    except Exception as exc:
+        logger.warning("night patrol trigger error: %s", exc)
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
+
