@@ -15,14 +15,12 @@ def test_bos_metrics_use_omo_append_broker(tmp_path: Path, monkeypatch) -> None:
 
     metrics_file = tmp_path / ".omo" / "_knowledge" / "bos-metrics.jsonl"
     rows = [json.loads(line) for line in metrics_file.read_text(encoding="utf-8").splitlines()]
-    assert rows == [
-        {
-            "uri": "bos://system/health",
-            "status": "resolved",
-            "elapsed_ms": 123.0,
-            "transport": "http",
-        }
-    ]
+    assert len(rows) == 1
+    assert rows[0]["uri"] == "bos://system/health"
+    assert rows[0]["status"] == "resolved"
+    assert rows[0]["elapsed_ms"] == 123.0
+    assert rows[0]["transport"] == "http"
+    assert "recorded_at" in rows[0]
 
 
 def test_harness_run_record_uses_omo_broker(tmp_path: Path, monkeypatch) -> None:
