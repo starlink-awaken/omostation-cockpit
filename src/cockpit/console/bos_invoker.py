@@ -245,6 +245,7 @@ def _record_metrics(uri: str, status: str, elapsed_ms: int, transport: str) -> N
                 "status": status,
                 "elapsed_ms": float(elapsed_ms),
                 "transport": transport,
+                "recorded_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
             },
         )
     except Exception as e:
