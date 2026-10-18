@@ -693,14 +693,22 @@ async def resident_infer_proxy(payload: dict[str, Any]) -> JSONResponse:
 
 @router.post("/resident/chat")
 async def resident_chat_proxy(payload: dict[str, Any]) -> JSONResponse:
-    """沉浸交互对话端点 (长会话保持 + 情境化记忆深度召回 + ReAct 探针)."""
+    """沉浸交互对话端点 (长会话保持 + 情境化记忆深度召回 + 多模态图像 + ReAct 探针)."""
     try:
         from omo.resident.chat_engine import get_chat_engine
 
         engine = get_chat_engine(WORKSPACE_ROOT)
         prompt = str(payload.get("prompt", "")).strip()
-        if not prompt:
-            return JSONResponse({"ok": False, "error": "prompt is required"}, status_code=400)
+        images = payload.get("images", [])
+        if isinstance(images, str):
+            images = [images]
+        elif not isinstance(images, list):
+            images = []
+
+        if not prompt and not images:
+            return JSONResponse({"ok": False, "error": "prompt is required (or provide images)"}, status_code=400)
+        if not prompt and images:
+            prompt = "请分析附带的图片内容并给出专业研判。"
 
         session_id = str(payload.get("session_id", "default")).strip() or "default"
         tier = str(payload.get("tier", "tier2_dialog")).strip()
@@ -713,6 +721,7 @@ async def resident_chat_proxy(payload: dict[str, Any]) -> JSONResponse:
             tier=tier,
             model=model,
             enable_react=enable_react,
+            images=images,
         )
         return JSONResponse({"ok": True, "message": msg.to_dict()})
     except Exception as exc:
@@ -745,4 +754,45 @@ async def resident_chat_clear(session_id: str = "default") -> JSONResponse:
         return JSONResponse({"ok": True, "session_id": session_id, "cleared": cleared})
     except Exception as exc:
         logger.warning("resident chat clear error: %s", exc)
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
+
+
+@router.post("/resident/voice/speak")
+async def resident_voice_speak(payload: dict[str, Any]) -> JSONResponse:
+    """语音合成与伴随朗读端点 (智能过滤代码与配置噪声)."""
+    try:
+        from omo.resident.voice_bridge import speak_text
+
+        text = str(payload.get("text", "")).strip()
+        if not text:
+            return JSONResponse({"ok": False, "error": "text is required"}, status_code=400)
+
+        voice = payload.get("voice")
+        play = bool(payload.get("play", False))
+        res = speak_text(text=text, voice=voice, play=play)
+        return JSONResponse({"ok": res.get("success", False), "result": res})
+    except Exception as exc:
+        logger.warning("resident voice speak error: %s", exc)
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
+
+
+@router.post("/resident/screen/capture")
+async def resident_screen_capture(payload: dict[str, Any] | None = None) -> JSONResponse:
+    """服务端屏幕快照捕获端点 (智能前台窗口或全屏)."""
+    try:
+        from omo.resident.screen_probe import capture_screen
+
+        payload = payload or {}
+        fullscreen = bool(payload.get("fullscreen", False))
+        img_path = capture_screen(fullscreen=fullscreen, workspace_root=WORKSPACE_ROOT)
+        return JSONResponse(
+            {
+                "ok": True,
+                "image_path": str(img_path),
+                "filename": img_path.name,
+                "size_bytes": img_path.stat().st_size,
+            }
+        )
+    except Exception as exc:
+        logger.warning("resident screen capture error: %s", exc)
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
