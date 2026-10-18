@@ -497,6 +497,7 @@ async def resident_notify_send(payload: dict[str, Any]) -> JSONResponse:
     """手动或从系统触发一次主动通知分发."""
     try:
         import time
+
         from omo.resident.notification import AlertLevel, NotificationEvent, get_notification_hub
 
         hub = get_notification_hub(WORKSPACE_ROOT)
@@ -600,3 +601,91 @@ async def resident_node_unregister(node_id: str) -> JSONResponse:
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
 
 
+@router.get("/resident/service/status")
+async def resident_service_status() -> JSONResponse:
+    """常驻守护进程 (LaunchAgent) 状态与日志."""
+    try:
+        from omo.resident.service_ctl import get_service_status
+
+        status = get_service_status(WORKSPACE_ROOT)
+        return JSONResponse({"ok": True, "service": status})
+    except Exception as exc:
+        logger.warning("service status error: %s", exc)
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": str(exc),
+                "service": {"installed": False, "launchd_running": False, "pid": None, "state": {}, "recent_log": ""},
+            }
+        )
+
+
+@router.post("/resident/service/trigger")
+async def resident_service_trigger(payload: dict[str, Any]) -> JSONResponse:
+    """手动触发常驻守护巡检、夜巡或晨报任务."""
+    try:
+        from omo.resident.service_ctl import trigger_job
+
+        job = str(payload.get("job", "patrol")).strip()
+        res = trigger_job(job, WORKSPACE_ROOT)
+        return JSONResponse({"ok": True, "job": job, "result": res})
+    except Exception as exc:
+        logger.warning("service trigger error: %s", exc)
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
+
+
+@router.get("/resident/compute/metrics")
+async def resident_compute_metrics() -> JSONResponse:
+    """跨机算力推断网关统计指标 (调用次数、延迟、降级率)."""
+    try:
+        from omo.resident.inference_gateway import get_inference_gateway
+
+        gateway = get_inference_gateway(WORKSPACE_ROOT)
+        metrics = gateway.get_metrics()
+        return JSONResponse({"ok": True, "metrics": metrics})
+    except Exception as exc:
+        logger.warning("compute metrics error: %s", exc)
+        return JSONResponse({"ok": False, "error": str(exc), "metrics": {}})
+
+
+@router.post("/resident/infer")
+async def resident_infer_proxy(payload: dict[str, Any]) -> JSONResponse:
+    """跨机推断路由代理端点 (按 Tier 自动切流、自适应协议与熔断降级)."""
+    try:
+        from omo.resident.inference_gateway import get_inference_gateway
+
+        gateway = get_inference_gateway(WORKSPACE_ROOT)
+        tier = payload.get("tier", "tier1_inspection")
+        messages = payload.get("messages")
+        prompt = payload.get("prompt")
+        if not messages and prompt:
+            messages = [{"role": "user", "content": str(prompt)}]
+        elif not messages:
+            messages = [{"role": "user", "content": "hello"}]
+
+        model = payload.get("model")
+        timeout = float(payload.get("timeout", 2.0))
+
+        res = gateway.chat_completion(
+            messages=messages,
+            tier=tier,
+            model=model,
+            timeout=timeout,
+        )
+        return JSONResponse(
+            {
+                "ok": True,
+                "content": res.content,
+                "target_node": res.target_node,
+                "target_host": res.target_host,
+                "target_port": res.target_port,
+                "tier": res.tier,
+                "fallback_used": res.fallback_used,
+                "latency_ms": res.latency_ms,
+                "model_used": res.model_used,
+                "raw_response": res.raw_response,
+            }
+        )
+    except Exception as exc:
+        logger.warning("resident infer error: %s", exc)
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
