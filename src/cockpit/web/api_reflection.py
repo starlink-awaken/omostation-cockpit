@@ -689,3 +689,60 @@ async def resident_infer_proxy(payload: dict[str, Any]) -> JSONResponse:
     except Exception as exc:
         logger.warning("resident infer error: %s", exc)
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
+
+
+@router.post("/resident/chat")
+async def resident_chat_proxy(payload: dict[str, Any]) -> JSONResponse:
+    """沉浸交互对话端点 (长会话保持 + 情境化记忆深度召回 + ReAct 探针)."""
+    try:
+        from omo.resident.chat_engine import get_chat_engine
+
+        engine = get_chat_engine(WORKSPACE_ROOT)
+        prompt = str(payload.get("prompt", "")).strip()
+        if not prompt:
+            return JSONResponse({"ok": False, "error": "prompt is required"}, status_code=400)
+
+        session_id = str(payload.get("session_id", "default")).strip() or "default"
+        tier = str(payload.get("tier", "tier2_dialog")).strip()
+        model = payload.get("model")
+        enable_react = bool(payload.get("enable_react", True))
+
+        msg = engine.chat(
+            prompt=prompt,
+            session_id=session_id,
+            tier=tier,
+            model=model,
+            enable_react=enable_react,
+        )
+        return JSONResponse({"ok": True, "message": msg.to_dict()})
+    except Exception as exc:
+        logger.warning("resident chat error: %s", exc)
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
+
+
+@router.get("/resident/chat/history")
+async def resident_chat_history(session_id: str = "default", limit: int = 50) -> JSONResponse:
+    """获取指定会话的历史对话记录 (按时间升序排列)."""
+    try:
+        from omo.resident.chat_engine import get_chat_engine
+
+        engine = get_chat_engine(WORKSPACE_ROOT)
+        history = engine.get_history(session_id=session_id, limit=limit)
+        return JSONResponse({"ok": True, "session_id": session_id, "messages": history})
+    except Exception as exc:
+        logger.warning("resident chat history error: %s", exc)
+        return JSONResponse({"ok": False, "error": str(exc), "session_id": session_id, "messages": []})
+
+
+@router.delete("/resident/chat/history")
+async def resident_chat_clear(session_id: str = "default") -> JSONResponse:
+    """清空指定会话的历史对话记录."""
+    try:
+        from omo.resident.chat_engine import get_chat_engine
+
+        engine = get_chat_engine(WORKSPACE_ROOT)
+        cleared = engine.clear_history(session_id=session_id)
+        return JSONResponse({"ok": True, "session_id": session_id, "cleared": cleared})
+    except Exception as exc:
+        logger.warning("resident chat clear error: %s", exc)
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
