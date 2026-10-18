@@ -474,3 +474,129 @@ async def resident_night_patrol_trigger(payload: dict[str, Any]) -> JSONResponse
         logger.warning("night patrol trigger error: %s", exc)
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
 
+
+# ── Phase 8 拓展：通知枢纽与新算力节点动态管理端点 ──
+
+
+@router.get("/resident/notify/history")
+async def resident_notify_history(limit: int = 30) -> JSONResponse:
+    """拉取常驻系统最近的主动通知与告警审计记录."""
+    try:
+        from omo.resident.notification import get_notification_hub
+
+        hub = get_notification_hub(WORKSPACE_ROOT)
+        history = hub.get_recent_history(limit=limit)
+        return JSONResponse({"ok": True, "history": history, "total": len(history)})
+    except Exception as exc:
+        logger.warning("notify history error: %s", exc)
+        return JSONResponse({"ok": False, "error": str(exc), "history": [], "total": 0})
+
+
+@router.post("/resident/notify/send")
+async def resident_notify_send(payload: dict[str, Any]) -> JSONResponse:
+    """手动或从系统触发一次主动通知分发."""
+    try:
+        import time
+        from omo.resident.notification import AlertLevel, NotificationEvent, get_notification_hub
+
+        hub = get_notification_hub(WORKSPACE_ROOT)
+        level_str = payload.get("level", "P2_INFO")
+        try:
+            level = AlertLevel(level_str)
+        except ValueError:
+            level = AlertLevel.P2_INFO
+
+        ev = NotificationEvent(
+            id=f"manual-{int(time.time())}",
+            level=level,
+            title=payload.get("title", "系统测试通知"),
+            body=payload.get("body", "这是一条由 Cockpit 驾驶舱触发的主动测试通知。"),
+            source=payload.get("source", "cockpit_ui"),
+            tags=payload.get("tags", ["manual", "test"]),
+        )
+        res = hub.notify(ev, force_macos=payload.get("force_macos", True))
+        return JSONResponse({"ok": True, "dispatch": res})
+    except Exception as exc:
+        logger.warning("notify send error: %s", exc)
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
+
+
+@router.get("/resident/nodes")
+async def resident_nodes_list() -> JSONResponse:
+    """获取全网算力节点列表 (含 SSOT 物理基线与动态接入的新机器)."""
+    try:
+        from omo.resident.swarm_mesh import get_swarm_mesh
+
+        mesh = get_swarm_mesh()
+        probe_res = mesh.probe_mesh()
+        return JSONResponse({"ok": True, "topology": probe_res})
+    except Exception as exc:
+        logger.warning("nodes list error: %s", exc)
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": str(exc),
+                "topology": {
+                    "online_nodes": 1,
+                    "total_nodes": 1,
+                    "cluster_vram_gb": "112.0 GB",
+                    "nodes": [],
+                },
+            }
+        )
+
+
+@router.post("/resident/nodes/register")
+async def resident_node_register(payload: dict[str, Any]) -> JSONResponse:
+    """动态接入并持久化一台外部新算力机器 (如新加入的 Mac Studio / Linux PC)."""
+    try:
+        from omo.resident.swarm_mesh import SwarmNodeSpec, get_swarm_mesh
+
+        node_id = payload.get("id")
+        if not node_id:
+            return JSONResponse({"ok": False, "error": "Node ID is required"}, status_code=400)
+
+        node = SwarmNodeSpec(
+            id=str(node_id).strip(),
+            name=payload.get("name", str(node_id)),
+            role=payload.get("role", "worker"),
+            host=payload.get("host", "127.0.0.1"),
+            inference_port=int(payload.get("port", 11434)),
+            health_path=payload.get("health_path", "/api/tags"),
+            os=payload.get("os", "darwin"),
+            arch=payload.get("arch", "arm64"),
+            memory_gb=float(payload.get("memory_gb", 16.0)),
+            vram_gb=float(payload.get("vram_gb", 0.0)),
+            supported_tiers=payload.get("supported_tiers", ["tier1_inspection"]),
+            priority=int(payload.get("priority", 50)),
+            description=payload.get("description", "由驾驶舱动态接入的新节点"),
+            source="dynamic",
+        )
+
+        mesh = get_swarm_mesh()
+        mesh.register_dynamic_node(node, persist=True)
+        return JSONResponse({"ok": True, "node_id": node.id, "message": "Node successfully registered"})
+    except Exception as exc:
+        logger.warning("node register error: %s", exc)
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
+
+
+@router.delete("/resident/nodes/{node_id}")
+async def resident_node_unregister(node_id: str) -> JSONResponse:
+    """动态下线或移除一台新算力机器 (SSOT 基线节点不可移除)."""
+    try:
+        from omo.resident.swarm_mesh import get_swarm_mesh
+
+        mesh = get_swarm_mesh()
+        ok = mesh.unregister_dynamic_node(node_id)
+        if not ok:
+            return JSONResponse(
+                {"ok": False, "error": f"Node {node_id} not found or is a non-deletable SSOT baseline node"},
+                status_code=400,
+            )
+        return JSONResponse({"ok": True, "node_id": node_id, "message": "Node unregistered successfully"})
+    except Exception as exc:
+        logger.warning("node unregister error: %s", exc)
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
+
+
