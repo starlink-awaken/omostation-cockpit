@@ -8,11 +8,11 @@
 
 | 通道 | 数量 |
 |------|------|
-| CLI 命令 (含子命令) | 197 |
+| CLI 命令 (含子命令) | 200 |
 | MCP 工具 | 643 |
 | MCP 服务器 | 27 |
-| BOS 服务 | 351 |
-| BOS 域 | 24 |
+| BOS 服务 | 325 |
+| BOS 域 | 23 |
 
 ## MCP 服务器清单
 
@@ -50,30 +50,29 @@
 
 | 域 | 服务数 |
 |-----|--------|
-| `agent-cell` | 23 |
+| `agent-cell` | 20 |
 | `agora` | 6 |
 | `analysis` | 28 |
 | `bcos` | 3 |
-| `capability` | 51 |
+| `capability` | 45 |
 | `cockpit` | 9 |
-| `compute` | 21 |
-| `documents` | 5 |
+| `compute` | 16 |
+| `documents` | 4 |
 | `ecos` | 10 |
 | `fabric` | 1 |
 | `forge` | 1 |
-| `governance` | 80 |
+| `governance` | 78 |
 | `harness` | 9 |
 | `l4-kernel` | 1 |
-| `memory` | 51 |
+| `memory` | 50 |
 | `meta` | 1 |
 | `omo` | 4 |
-| `perception` | 5 |
+| `perception` | 3 |
 | `persona` | 11 |
 | `resident` | 8 |
-| `runtime` | 3 |
+| `runtime` | 2 |
 | `swarm` | 1 |
-| `system` | 16 |
-| `toolbox` | 3 |
+| `system` | 14 |
 
 ## CLI 命令清单
 
@@ -207,7 +206,7 @@
 | `cockpit ops` | 🔧 Service Gateway — 统一运维控制面 (status/up/down/deploy/deps/logs/discover/validate/generate) |
 | `cockpit org-relation` | 组织人脉图谱查询 (单位-人物-来件关系网络) |
 | `cockpit pack` | 将代码库打包为 LLM 友好格式 |
-| `cockpit panorama` | 🌐 7 维全景终极可观测仪表盘 (执行过程/服务/内容/知识/数据/异常/债务资产) |
+| `cockpit panorama` | 🌐 体系全景治理控制舱 (终端 7 维全景快照 / --web 唤起原生控制舱) |
 | `cockpit pending` | 查看未决待办快照预览 |
 | `cockpit persona-radar` | 个人文风一致性多维雷达评估 (T3-01) |
 | `cockpit pipeline` | pipeline 概览 |
@@ -221,6 +220,7 @@
 | `cockpit publish` | 发布事件 |
 | `cockpit quickstart` | 🚀 新用户快速上手向导（环境核验 + 上手指引） |
 | `cockpit quickstart-check` | 快速检查新用户环境核验状态 |
+| `cockpit rag` | 🔎 本地文档问答 (向量召回 embed-bge → 重排 rerank → 作答) |
 | `cockpit read` | 通过 BOS 网关统一读取指定 URI 资源 |
 | `cockpit readiness` | P66: governance readiness dashboard 摘要 (4 卡片: summary/dimensions/alerts/history) |
 | `cockpit recall` | 意图路由召回（neo4j/temporal 支持 --as-of） |
@@ -242,11 +242,13 @@
 | `cockpit scene` | 🗺️ 业务场景正交领域 (scenario/journey/gongwen/brief/family-hub) |
 | `cockpit score` | 评分债务项 |
 | `cockpit search` | 全文搜 CARDS |
+| `cockpit see` | 👁 看图理解 / 文字识别 (vision / ocr) |
 | `cockpit send` | 一键确认署名并经外发网关真实外发 |
 | `cockpit serve` | stdio JSON-RPC serve mode |
 | `cockpit sign` | 提交用户署名 Diff 并入队 Experience Replay |
 | `cockpit skill` | 运行 L4 定时技能 |
 | `cockpit snapshot` | KV 缓存快照管理与预热 |
+| `cockpit speak` | 🔊 语音合成 (tts-zh / tts-en) |
 | `cockpit speculative-eval` | 本地首选投机推演评估 |
 | `cockpit spine` | Spine 主干真值流与署名自进化操作 (ADR-0439) |
 | `cockpit stats` | 索引统计 |
