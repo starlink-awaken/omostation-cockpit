@@ -150,9 +150,18 @@ def test_resolve_deadline_chinese_relative():
 
 
 def test_resolve_deadline_month_end():
-    """「十月底前」取当月最后一天 —— 口述最常见的模糊期限。"""
+    """「十月底前」取当月最后一天 —— 口述最常见的模糊期限。
+
+    期望值相对 now 派生: 硬写 `2026-10-31` 在 11 月必翻车 (该日期已过, 代码正确地
+    给出下一次 10 月底) —— 2026-11-03 实测 cascading 因此连败。同族日期炸弹。
+    """
+    import datetime as _dt
+
     from cockpit.commands.calendar import _resolve_deadline as r
 
-    assert r("十月底前") == "2026-10-31"
-    assert r("12月底") == "2026-12-31"
+    today = _dt.date.today()
+    oct_year = today.year if 10 >= today.month else today.year + 1
+    dec_year = today.year if 12 >= today.month else today.year + 1
+    assert r("十月底前") == f"{oct_year}-10-31"
+    assert r("12月底") == f"{dec_year}-12-31"
     assert r("月底前") == ""  # 无月份语境留空待人工
