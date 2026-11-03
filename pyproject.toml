@@ -13,7 +13,7 @@ authors = [{name = "夏铭星"}]
 keywords = ["research", "workspace", "knowledge-management", "cli", "cockpit", "ui"]
 
 dependencies = [
-    "rich>=15.0.0",
+    "rich>=13.0",
     "pyyaml>=6.0.3",
     # BET-Y1Q4-T8-03: GB/T 9704-2012 DOCX + 16:9 PPTX rendering
     "python-docx>=1.2.0",
@@ -93,7 +93,7 @@ dev = [
     "fastmcp>=4.0.0b1",
     "pytest>=9.0.3",
     "pytest-cov>=7.1.0",
-    "rich>=15.0.0",
+    "rich>=14.3.4",
     "textual>=0.80.0",
 ]
 
