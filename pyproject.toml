@@ -38,7 +38,7 @@ dependencies = [
 [project.optional-dependencies]
 web = []  # Web UI lives in web/ (TypeScript), no Python deps needed
 tui = [
-    "textual>=0.80.0",
+    "textual>=8.2.8",
     "watchfiles>=1.3.0",
 ]  # 极客 TUI 终端交互控制台 (cockpit tui)
 
@@ -94,7 +94,7 @@ dev = [
     "pytest>=9.0.3",
     "pytest-cov>=7.1.0",
     "rich>=14.3.4",
-    "textual>=0.80.0",
+    "textual>=8.2.8",
 ]
 
 [tool.pyright]
