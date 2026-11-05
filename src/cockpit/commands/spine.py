@@ -314,14 +314,14 @@ def cmd_spine_distill(args: argparse.Namespace) -> int:
     )
 
     snippet = (
-        "import json\n"
+        "import os, json\n"
         "from omlxc.dataplane.experience_replay import dispatch_distill, ExperienceReplayManager\n"
         "from omlxc.mesh.node_discovery import MeshDiscoveryEngine, MeshNodeInfo\n"
         "from omlxc.mesh.roaming_router import RoamingComputeRouter\n"
         "engine = MeshDiscoveryEngine(local_node_id='node-local')\n"
         "engine.register_peer(MeshNodeInfo(\n"
         "    node_id='node-macmini-m4',\n"
-        "    host='192.168.1.20',\n"
+        "    host=os.environ.get('MACMINI_HOST', '100.64.110.118'),\n"
         "    port=8765,\n"
         "    platform='apple',\n"
         "    vram_total_gb=24.0,\n"
