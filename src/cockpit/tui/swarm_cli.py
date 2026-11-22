@@ -27,9 +27,15 @@ def render_swarm_status_panel(state: SwarmGlobalState, console: Console | None =
     c = console or Console()
 
     # 1. 顶部 Header Banner
+    # BET-Y2Q4-T10-348: 全绿才 HEALTHY —— 部分陈旧心跳必须如实降级 DEGRADED,
+    # 不再 healthy_count > 0 就亮绿灯。
+    all_healthy = (
+        state.agents.total_agents > 0
+        and state.agents.healthy_count == state.agents.total_agents
+    )
     health_icon = (
         "● [bold green]HEALTHY[/bold green]"
-        if state.agents.healthy_count > 0
+        if all_healthy
         else "○ [bold yellow]DEGRADED[/bold yellow]"
     )
     header_content = Text.from_markup(
