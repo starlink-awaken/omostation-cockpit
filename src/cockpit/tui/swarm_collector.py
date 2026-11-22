@@ -197,7 +197,6 @@ class SwarmStateCollector:
             ts_str = data.get("ts", "")
             agent_count = data.get("agent_count", len(known_agents))
             failed = data.get("failed_count", 0)
-            ok_count = data.get("ok_count", agent_count - failed)
             actions = data.get("actions", [])
 
             # 计算 seconds_ago
@@ -225,7 +224,9 @@ class SwarmStateCollector:
 
             return SwarmAgentSummary(
                 total_agents=agent_count,
-                healthy_count=ok_count,
+                # BET-Y2Q4-T10-348: 不信 tick JSON 自报的 ok_count (写死在文件里的旧数字),
+                # 按上面秒龄判定的 heartbeats 真算 —— 陈旧心跳不得再报 healthy。
+                healthy_count=sum(1 for h in heartbeats if h.status == "healthy"),
                 failed_count=failed,
                 last_tick_iso=ts_str,
                 agents=heartbeats,

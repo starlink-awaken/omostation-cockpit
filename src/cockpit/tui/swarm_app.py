@@ -257,9 +257,14 @@ class SwarmObservabilityApp(App):
         self.current_state = state
 
         # 1. 更新顶部 Stat Cards
+        # BET-Y2Q4-T10-348: 全绿才绿 —— 部分陈旧心跳如实降级黄色, 与 swarm_cli 同判。
         st_agents = f"{state.agents.healthy_count}/{state.agents.total_agents} Active"
+        all_healthy = (
+            state.agents.total_agents > 0
+            and state.agents.healthy_count == state.agents.total_agents
+        )
         self.query_one("#val-agents", Label).update(
-            f"[green]{st_agents}[/green]" if state.agents.healthy_count > 0 else f"[yellow]{st_agents}[/yellow]"
+            f"[green]{st_agents}[/green]" if all_healthy else f"[yellow]{st_agents}[/yellow]"
         )
 
         st_locks = f"{state.locks.active_runs} Runs / {state.locks.stale_locks} Stale"
