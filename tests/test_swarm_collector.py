@@ -5,6 +5,7 @@ projects/cockpit/tests/test_swarm_collector.py — Swarm Observability 单元测
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -46,7 +47,10 @@ def test_collect_agents_with_data(tmp_path: Path) -> None:
     tick_file.write_text(
         json.dumps(
             {
-                "ts": "2026-08-15T12:00:00Z",
+                # 时钟须相对 now 派生: 绝对时间戳 + 「秒龄判活」会让用例隔天必红
+                # (AGENTS.md §7「时钟炸弹」)。BET-Y2Q4-T10-348 把 healthy_count 改为按秒龄
+                # 真算后, 这里的 2026-08-15 已陈旧 ⇒ healthy_count 变 0, 与本用例意图相反。
+                "ts": (datetime.now(UTC) - timedelta(seconds=60)).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "agent_count": 6,
                 "ok_count": 6,
                 "failed_count": 0,
