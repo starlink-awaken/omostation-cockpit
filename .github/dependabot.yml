@@ -31,3 +31,10 @@ updates:
       - dependency-name: "metaos"
       - dependency-name: "kairon-observability"
       - dependency-name: "kos"
+      # rich 15 在本仓**不可满足**: path 依赖 kairon-observability 钉
+      # rich>=13.6.0,<15.0.0。实测 (2026-11-23) `uv sync` 报
+      # "we can conclude that your project's requirements are unsatisfiable"。
+      # 只挡 major, minor/patch 照常更新 (否则 rich 永远停在 13/14)。
+      - dependency-name: "rich"
+        update-types:
+          - "version-update:semver-major"
