@@ -13,8 +13,8 @@ authors = [{name = "夏铭星"}]
 keywords = ["research", "workspace", "knowledge-management", "cli", "cockpit", "ui"]
 
 dependencies = [
-    "rich>=13.0",
-    "pyyaml>=6.0.3",
+    "rich>=15.0.0",
+    "pyyaml>=6.0.4",
     # BET-Y1Q4-T8-03: GB/T 9704-2012 DOCX + 16:9 PPTX rendering
     "python-docx>=1.2.0",
     "python-pptx>=1.0.2",
@@ -90,10 +90,10 @@ kos = { path = "../knowledge/kairon/packages/kos", editable = true }
 
 [dependency-groups]
 dev = [
-    "fastmcp>=4.2.2",
+    "fastmcp>=4.2.4",
     "pytest>=9.2.0",
     "pytest-cov>=7.1.0",
-    "rich>=14.3.4",
+    "rich>=15.0.0",
     "textual>=8.2.8",
 ]
 
