@@ -48,7 +48,7 @@ graph LR
 | Type | Entry | Port / Notes |
 |:--|:--|:--|
 | CLI | `cockpit / workspace` | 25+ 子命令 |
-| MCP stdio | `cockpit-mcp / cockpit/scripts/cockpit_mcp.py` | ~MCP tools (见 project-registry.yaml) |
+| MCP stdio | `cockpit-mcp` (`cockpit.agent_runtime_mcp_server:main`) | ~MCP tools (见 project-registry.yaml) |
 | HTTP | `cockpit-dashboard` | :8090 |
 
 ## 3. 核心模块
@@ -56,7 +56,7 @@ graph LR
 | Module | Responsibility |
 |:--|:--|
 | `src/cockpit/cli.py` | argparse CLI dispatcher |
-| `src/cockpit/scripts/cockpit_mcp.py` | MCP server: research/status/L4-bridge |
+| `src/cockpit/agent_runtime_mcp_server.py` | MCP server: research/status/L4-bridge |
 | `src/cockpit/dashboard_server.py` | FastAPI Web dashboard |
 | `src/cockpit/storage.py` | SQLite persistence with IDataAccess |
 | `src/cockpit/commands/research.py` | Research lifecycle |
