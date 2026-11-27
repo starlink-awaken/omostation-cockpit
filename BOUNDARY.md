@@ -1,7 +1,7 @@
 ---
 type: ssot
-last_updated: 2026-09-04
-last-reviewed: 2026-08-26
+last_updated: 2026-11-27
+last-reviewed: 2026-11-27
 owner: governance-team
 lifecycle: entry
 status: active
@@ -20,12 +20,14 @@ status: active
 ### BOS URI
 
 - `bos://cockpit/context`
-- `bos://governance/cockpit/context`
+
+> BOS 登记面是 `projects/agora/etc/bos-services.yaml`（投影见 `docs/generated/capability-registry.yaml`）；
+> 本节只列已登记的 URI，不列推测值。
 
 ### 入口
 
 - **CLI**: `cockpit / workspace` 25+ 子命令
-- **MCP stdio**: `cockpit-mcp / cockpit/scripts/cockpit_mcp.py` ~MCP tools (见 project-registry.yaml)
+- **MCP stdio**: `cockpit-mcp`（入口模块 `cockpit.agent_runtime_mcp_server:main`，见 `pyproject.toml`）
 - **HTTP**: `cockpit-dashboard` :8090
 
 ## 2. 上游依赖

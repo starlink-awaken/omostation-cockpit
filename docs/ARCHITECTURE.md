@@ -1,7 +1,7 @@
 ---
 type: ssot
-last_updated: 2026-09-04
-last-reviewed: 2026-08-26
+last_updated: 2026-11-27
+last-reviewed: 2026-11-27
 owner: governance-team
 lifecycle: entry
 status: active
@@ -9,7 +9,7 @@ status: active
 
 # Cockpit Architecture
 
-> Architecture overview for **Cockpit**. For the full workspace architecture, see [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md).
+> Architecture overview for **Cockpit**. For the full workspace architecture, see [`../../../ARCHITECTURE.md`](../../../ARCHITECTURE.md).
 
 ## Responsibilities
 
@@ -20,7 +20,7 @@ Cockpit is part of the eCOS v6 workspace. See [`../README.md`](../README.md) for
 - `src/cockpit/cli.py` — CLI entry
 - `src/cockpit/commands/` — command modules
 - `src/cockpit/dashboard_server.py` — web dashboard
-- `scripts/cockpit_mcp.py` — MCP bridge
+- `src/cockpit/agent_runtime_mcp_server.py` — MCP bridge（`cockpit-mcp` 入口）
 
 ## Design Notes
 
