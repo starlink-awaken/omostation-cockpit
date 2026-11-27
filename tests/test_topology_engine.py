@@ -102,3 +102,37 @@ class TestTopologyEngine(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTotalMcpToolsSource(unittest.TestCase):
+    """总数取权威生成源 capability-registry.yaml, 缺席才退回手工聚合。
+
+    背景 (2026-11-27): 手工聚合实测 208, 而权威源记 643 —— 差 3 倍, 手工面
+    (INTERFACE.yaml + project-registry 的 mcp_tools 键) 既陈旧又不全。
+    """
+
+    @staticmethod
+    def _projects(*counts):
+        return {
+            f"p{i}": {"stats": {"mcp_tools_count": c}}
+            for i, c in enumerate(counts)
+        }
+
+    def test_prefers_authoritative_registry_total(self):
+        projects = self._projects(5, 7)
+        self.assertEqual(
+            TopologyEngine._resolve_total_mcp_tools({"mcp_tools": 643}, projects),
+            643,
+        )
+
+    def test_falls_back_to_aggregation_when_registry_absent(self):
+        projects = self._projects(5, 7)
+        self.assertEqual(TopologyEngine._resolve_total_mcp_tools({}, projects), 12)
+
+    def test_ignores_non_integer_registry_total(self):
+        """非 int 不采信 —— 否则一个坏掉的生成物会把读数悄悄换成字符串。"""
+        projects = self._projects(5, 7)
+        self.assertEqual(
+            TopologyEngine._resolve_total_mcp_tools({"mcp_tools": "643"}, projects),
+            12,
+        )

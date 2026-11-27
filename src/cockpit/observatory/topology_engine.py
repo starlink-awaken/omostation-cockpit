@@ -147,12 +147,24 @@ class TopologyEngine:
             except Exception as err:
                 print(f"[WARN] Failed to parse port-registry.yaml: {err}")
 
+        # 6. Capability registry (generated authoritative inventory)
+        capability_path = root / "docs/generated/capability-registry.yaml"
+        capability_totals: Dict[str, Any] = {}
+        if capability_path.is_file():
+            try:
+                capability_totals = (
+                    yaml.safe_load(capability_path.read_text(encoding="utf-8")) or {}
+                ).get("totals", {}) or {}
+            except Exception as err:
+                print(f"[WARN] Failed to parse capability-registry.yaml: {err}")
+
         return {
             "registry": project_registry,
             "interfaces": interfaces,
             "callchains": callchains,
             "bos_services": bos_services,
             "port_registry": port_registry,
+            "capability_totals": capability_totals,
         }
 
     def _parse_callchain_text(self, text: str) -> Dict[str, Any]:
@@ -179,6 +191,23 @@ class TopologyEngine:
             "sequence_mermaid": sequence_mermaid,
             "has_callchain": bool(steps or sequence_mermaid),
         }
+
+    @staticmethod
+    def _resolve_total_mcp_tools(
+        capability_totals: Dict[str, Any],
+        projects_dict: Dict[str, Any],
+    ) -> int:
+        """MCP 工具总数的取值口径。
+
+        权威源是生成物 `docs/generated/capability-registry.yaml` 的 `totals.mcp_tools`
+        (全生态扫描的结果)。按 `INTERFACE.yaml`/registry 键手工聚合的那条路显著偏低
+        —— 2026-11-27 实测: 权威 643 vs 手工 208, 差 3 倍, 手工面既陈旧又不全。
+        权威源缺席时退回手工聚合, 不静默报一个数。
+        """
+        total = capability_totals.get("mcp_tools")
+        if isinstance(total, int):
+            return total
+        return sum(p["stats"]["mcp_tools_count"] for p in projects_dict.values())
 
     def build_snapshot(self) -> Dict[str, Any]:
         """Build a unified, correlated architecture topology snapshot."""
@@ -322,7 +351,9 @@ class TopologyEngine:
             p_obj["downstream"] = sorted(list(downstreams.get(p_id, set())))
 
         # Aggregate overall statistics
-        total_mcp_tools = sum(p["stats"]["mcp_tools_count"] for p in projects_dict.values())
+        total_mcp_tools = self._resolve_total_mcp_tools(
+            raw.get("capability_totals", {}), projects_dict
+        )
         total_cli_commands = sum(p["stats"]["cli_commands_count"] for p in projects_dict.values())
         total_ports = sum(len(p["interfaces"]["ports"]) for p in projects_dict.values())
         total_subpackages = sum(len(p.get("subpackages", [])) for p in projects_dict.values())
