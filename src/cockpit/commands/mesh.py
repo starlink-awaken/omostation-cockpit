@@ -42,7 +42,6 @@ def cmd_mesh(args: argparse.Namespace) -> int:
         endpoints = [
             f"{_mesh_router_url()}/nodes",
             f"{_mesh_router_url()}/v1/models",
-            "http://127.0.0.1:18080/v1/models",
         ]
         unique_endpoints = list(dict.fromkeys(endpoints))
         last_exc = None
