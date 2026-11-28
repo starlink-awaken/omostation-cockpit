@@ -542,9 +542,9 @@ def _print_capability_summary(c) -> None:
         import yaml
     except ImportError:
         return
-    from .base import _SCRIPT_DIR
+    from ..data_index import resolve_workspace_root
 
-    registry_path = _SCRIPT_DIR.parent.parent.parent.parent.parent / "docs" / "generated" / "capability-registry.yaml"
+    registry_path = resolve_workspace_root() / "docs" / "generated" / "capability-registry.yaml"
     if not registry_path.exists():
         return
     try:
@@ -592,7 +592,9 @@ def _help_search(c, keyword: str) -> int:
                 hits.append(("CLI", f"cockpit {r.name}", f"{r.blurb}  ·  {r.example or f'cockpit {r.name} --help'}"))
 
     # 2) 能力注册表（MCP / BOS + 更全 CLI）
-    registry_path = _SCRIPT_DIR.parent.parent.parent.parent.parent / "docs" / "generated" / "capability-registry.yaml"
+    from ..data_index import resolve_workspace_root
+
+    registry_path = resolve_workspace_root() / "docs" / "generated" / "capability-registry.yaml"
     if registry_path.exists():
         reg = yaml.safe_load(registry_path.read_text(encoding="utf-8"))
         seen = {h[1] for h in hits}

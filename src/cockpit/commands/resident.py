@@ -49,7 +49,10 @@ def cmd_resident(args: argparse.Namespace) -> int:
                 return int(exc.code or 0)
 
     # ── 委派 omo (原有逻辑) ──
-    omo_project = _SCRIPT_DIR.parent.parent.parent.parent / "omo"
+    from ..data_index import resolve_workspace_root
+
+    workspace_root = resolve_workspace_root()
+    omo_project = workspace_root / "projects" / "omo"
     omo_venv_python = omo_project / ".venv" / "bin" / "python"
 
     if omo_venv_python.exists():

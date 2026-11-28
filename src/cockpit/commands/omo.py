@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import subprocess
 
-from .base import _SCRIPT_DIR
+from ..data_index import resolve_workspace_root
 from .delegation import clean_env
 from .delegation_guard import DelegationPreflightError, preflight_delegation
 
@@ -13,9 +13,10 @@ from .delegation_guard import DelegationPreflightError, preflight_delegation
 def cmd_omo(args: argparse.Namespace) -> int:
     """通用 omo CLI 委派包装：omo debt / omo state / omo governance / omo lint / ..."""
     # 定位 omo 项目
-    omo_project = _SCRIPT_DIR.parent.parent.parent.parent / "omo"
+    workspace_root = resolve_workspace_root()
+    omo_project = workspace_root / "projects" / "omo"
     try:
-        preflight_delegation(omo_project.parent, project="omo", command="uv")
+        preflight_delegation(workspace_root, project="omo", command="uv")
     except DelegationPreflightError as exc:
         from rich.console import Console
 
@@ -40,9 +41,10 @@ def cmd_omo(args: argparse.Namespace) -> int:
 
 def cmd_omo_debt(args: argparse.Namespace) -> int:
     """cockpit omo debt — OMO 债务查询。"""
-    omo_project = _SCRIPT_DIR.parent.parent.parent.parent / "omo"
+    workspace_root = resolve_workspace_root()
+    omo_project = workspace_root / "projects" / "omo"
     try:
-        preflight_delegation(omo_project.parent, project="omo", command="uv")
+        preflight_delegation(workspace_root, project="omo", command="uv")
     except DelegationPreflightError as exc:
         from rich.console import Console
 
@@ -65,9 +67,10 @@ def cmd_omo_debt(args: argparse.Namespace) -> int:
 
 def cmd_omo_state(args: argparse.Namespace) -> int:
     """cockpit omo state — OMO 状态查询。"""
-    omo_project = _SCRIPT_DIR.parent.parent.parent.parent / "omo"
+    workspace_root = resolve_workspace_root()
+    omo_project = workspace_root / "projects" / "omo"
     try:
-        preflight_delegation(omo_project.parent, project="omo", command="uv")
+        preflight_delegation(workspace_root, project="omo", command="uv")
     except DelegationPreflightError as exc:
         from rich.console import Console
 
