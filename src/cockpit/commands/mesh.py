@@ -22,7 +22,7 @@ def _workspace_root() -> Path:
 
 
 def _mesh_router_url() -> str:
-    port = os.environ.get("MOF_MESH_PORT", "7440")
+    port = os.environ.get("MOF_MESH_PORT", "18080")
     return f"http://127.0.0.1:{port}"
 
 
@@ -39,21 +39,43 @@ def cmd_mesh(args: argparse.Namespace) -> int:
     ws_root = _workspace_root()
 
     if subcmd == "nodes":
-        try:
-            with _urlopen_safe(f"{_mesh_router_url()}/nodes") as resp:
-                console.print_json(data=json.loads(resp.read()))
-                return 0
-        except Exception as exc:
-            console.print(f"[red]获取节点失败: {exc}[/red]")
-            return 1
+        endpoints = [
+            f"{_mesh_router_url()}/nodes",
+            f"{_mesh_router_url()}/v1/models",
+            "http://127.0.0.1:18080/v1/models",
+        ]
+        unique_endpoints = list(dict.fromkeys(endpoints))
+        last_exc = None
+        for endpoint in unique_endpoints:
+            try:
+                with _urlopen_safe(endpoint) as resp:
+                    console.print_json(data=json.loads(resp.read()))
+                    return 0
+            except Exception as exc:
+                last_exc = exc
+                continue
+
+        console.print(f"[red]获取节点失败: 无法连接端点 ({', '.join(unique_endpoints)}): {last_exc}[/red]")
+        console.print("[yellow]提示: 请确认智能网关 (18080) 或 AetherForge (4000) 服务已启动[/yellow]")
+        return 1
     if subcmd == "status":
+        primary_url = f"{_mesh_router_url()}/health"
         try:
-            with _urlopen_safe(f"{_mesh_router_url()}/health") as resp:
+            with _urlopen_safe(primary_url) as resp:
                 console.print_json(data=json.loads(resp.read()))
                 return 0
-        except Exception as exc:
-            console.print(f"[red]获取状态失败: {exc}[/red]")
-            return 1
+        except Exception as exc_primary:
+            fallback_url = "http://127.0.0.1:4000/health"
+            try:
+                with _urlopen_safe(fallback_url) as resp:
+                    console.print_json(data=json.loads(resp.read()))
+                    return 0
+            except Exception as exc_fallback:
+                console.print(
+                    f"[red]获取状态失败: 主网关 ({primary_url}: {exc_primary}) 与备用网关 ({fallback_url}: {exc_fallback}) 均不可达[/red]"
+                )
+                console.print("[yellow]提示: 请确认智能网关 (18080) 或 AetherForge (4000) 服务已启动[/yellow]")
+                return 1
     if subcmd == "fabric":
         try:
             preflight_delegation(ws_root, project="omlxc", command="uv")
@@ -171,11 +193,10 @@ def cmd_mesh(args: argparse.Namespace) -> int:
             cwd=str(omlxc_root),
         )
     if subcmd == "serve":
-        mesh_project = _workspace_root() / "projects" / "mesh" / "router.py"
-        if mesh_project.exists():
-            return subprocess.call(["python3", str(mesh_project.resolve())])
-        console.print("[red]未找到 mesh router 实现[/red]")
-        return 1
+        console.print(
+            "[yellow]Mesh 网关服务请通过 aetherforge 或 LaunchAgent: com.user.omlx-smart-gateway 管理[/yellow]"
+        )
+        return 0
 
     console.print("[red]未知 mesh 子命令[/red]")
     console.print(
