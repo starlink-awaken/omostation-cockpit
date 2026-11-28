@@ -7,14 +7,21 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from pathlib import Path
 
 from rich.console import Console
 
 console = Console()
 
 
-def _aetherforge() -> list[str]:
+def _aetherforge(workspace_root: Path | None = None) -> list[str]:
     """返回运行 aetherforge 的命令列表."""
+    if workspace_root is not None:
+        venv_python = (
+            workspace_root / "projects" / "aetherforge" / ".venv" / "bin" / "python3"
+        )
+        if venv_python.is_file():
+            return [str(venv_python), "-m", "aetherforge.cli"]
     return [sys.executable, "-m", "aetherforge.cli"]
 
 
@@ -34,9 +41,14 @@ def _check_aetherforge() -> bool:
 
         if workspace_root:
             aether_src = workspace_root / "projects" / "aetherforge" / "src"
+            gateway_src = (
+                workspace_root / "projects" / "aetherforge" / "packages" / "gateway" / "src"
+            )
             mesh_src = workspace_root / "projects" / "aetherforge" / "packages" / "mesh" / "src"
             if aether_src.is_dir() and str(aether_src) not in sys.path:
                 sys.path.insert(0, str(aether_src))
+            if gateway_src.is_dir() and str(gateway_src) not in sys.path:
+                sys.path.insert(0, str(gateway_src))
             if mesh_src.is_dir() and str(mesh_src) not in sys.path:
                 sys.path.insert(0, str(mesh_src))
 
@@ -80,10 +92,15 @@ def cmd_compute(args) -> int:
 
     if workspace_root:
         aether_src = workspace_root / "projects" / "aetherforge" / "src"
+        gateway_src = (
+            workspace_root / "projects" / "aetherforge" / "packages" / "gateway" / "src"
+        )
         mesh_src = workspace_root / "projects" / "aetherforge" / "packages" / "mesh" / "src"
         paths = []
         if aether_src.is_dir():
             paths.append(str(aether_src))
+        if gateway_src.is_dir():
+            paths.append(str(gateway_src))
         if mesh_src.is_dir():
             paths.append(str(mesh_src))
         if paths:
@@ -93,6 +110,6 @@ def cmd_compute(args) -> int:
             else:
                 env["PYTHONPATH"] = os.pathsep.join(paths)
 
-    cmd = _aetherforge() + [subcmd] + args.extra
+    cmd = _aetherforge(workspace_root) + [subcmd] + args.extra
     result = subprocess.run(cmd, env=env, capture_output=False, text=True)
     return result.returncode
